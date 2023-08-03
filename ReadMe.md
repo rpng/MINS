@@ -4,6 +4,7 @@ fusing all five sensing modalities (**inertial**, **wheel encoders**, **camera**
 fashion by overcoming the hurdles of computational complexity, sensor asynchronicity, and intra-sensor calibration.
 
 ![alt text](thirdparty/frames.png)
+![alt text](thirdparty/kaist38.gif)
 
 ## Key Features
 * Inertial(IMU)-based multi-sensor fusion including wheel odometry and arbitrary numbers of cameras, LiDARs, and GNSSs (+ VICON or loop-closure) for localization.
@@ -20,7 +21,7 @@ MINS is tested on Ubuntu 18 and 20 and only requires corresponding ROS ([Melodic
 ## Build and Source
 ```
 mkdir -p $MINS_WORKSPACE/catkin_ws/src/ && cd $MINS_WORKSPACE/catkin_ws/src/
-git clone https://github.com/rpng/mins
+git clone https://github.com/rpng/MINS
 cd .. && catkin build
 source devel/setup.bash
 ```
