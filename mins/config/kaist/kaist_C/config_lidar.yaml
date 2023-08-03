@@ -1,0 +1,47 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+lidar:
+  enabled: false
+  max_n: 2
+  do_calib_dt: false
+  do_calib_ext: false
+  init_cov_dt: 1e-4
+  init_cov_ex_o: 1e-6
+  init_cov_ex_p: 1e-6
+  max_range: 30.0
+  min_range: 1
+  chi2_mult: 1
+  raw_do_downsample: true
+  raw_downsample_size: 2.0
+  raw_noise: 0.1
+  raw_remove_motion_blur: false # required to set v_angles and h_angles correctly
+  raw_point_dt: 1e-6
+  map_do_downsample: true
+  map_downsample_size: 0.5
+  map_noise: 0.1
+  map_ngbr_num: 5
+  map_ngbr_max_d: 10.0
+  map_decay_time: 30 # sec
+  map_decay_dist: 30 # m
+  map_use_icp: false
+  map_icp_dist: 30 # m
+  plane_max_p2pd: 0.1
+  plane_max_condi: 200.0
+
+lidar0:
+  timeoffset: -0.0
+  T_imu_lidar:
+    - [-0.514521, 0.701075, -0.493723, -0.333596]
+    - [ -0.492472, -0.712956, -0.499164,-0.373928]
+    - [ -0.701954, -0.0136853, 0.712091 ,1.94377]
+    - [0.0, 0.0, 0.0, 1.0]
+  topic: "/ns1/velodyne_points"
+
+lidar1:
+  timeoffset: -0.0
+  T_imu_lidar:
+    - [-0.516377, -0.702254, -0.490096,-0.334623]
+    - [0.491997, -0.711704, 0.501414,0.431973]
+    - [-0.700923, 0.0177927, 0.713015,1.94043]
+    - [0.0, 0.0, 0.0, 1.0]
+  topic: "/ns2/velodyne_points"

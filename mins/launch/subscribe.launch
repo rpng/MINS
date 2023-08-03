@@ -1,0 +1,14 @@
+<launch>
+
+    <arg name="config"          default="kaist/kaist_LC" />
+    <arg name="rosbag"          default="/home/wl/Desktop/urban29.bag" />
+    <arg name="bag_start_time"  default="0" />
+
+    <!-- MASTER NODE -->
+    <node name="mins_subscribe" pkg="mins" type="subscribe" output="screen" clear_params="true" required="true">
+        <param name="config_path"       type="str"  value="$(find mins)/config/$(arg config)/config.yaml" />
+    </node>
+
+    <!-- ROS BAG -->
+    <node pkg="rosbag" type="play" name="rosbag" output="screen" args="--clock -s $(arg bag_start_time) $(arg rosbag)"/>
+</launch>

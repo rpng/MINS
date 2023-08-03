@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package>
+	<name>libnabo</name>
+	<version>1.0.7</version>
+	<description>
+		libnabo is a fast K Nearest Neighbour library for low-dimensional spaces.
+	</description>
+
+	<maintainer email="stephane.magnenat@mavt.ethz.ch">Stéphane Magnenat</maintainer>
+	<license>BSD</license>
+	<url type="repository">https://github.com/ethz-asl/libnabo</url>
+	<author email="stephane.magnenat@mavt.ethz.ch">Stéphane Magnenat</author>
+
+	<!-- The *_depend tags are used to specify dependencies -->
+	<buildtool_depend>cmake</buildtool_depend>
+	<build_depend>eigen</build_depend>
+	<build_depend>boost</build_depend>
+	<run_depend>eigen</run_depend>
+	<run_depend>boost</run_depend>
+	<run_depend>catkin</run_depend>
+
+	<export>
+		<!-- Specify that this is not really a ROS package -->
+		<build_type>cmake</build_type>
+	</export>
+</package>

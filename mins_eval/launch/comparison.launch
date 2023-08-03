@@ -1,0 +1,16 @@
+
+
+<launch>
+    <arg name="viz_type"    default="0" />
+    <arg name="align_mode"  default="none" />
+    <arg name="path_gts"    default="$(find mins_data)/GroundTruths/holonomic" />
+    <arg name="path_alg"    default="$(find mins)/../../../../outputs/tmp" />
+    <!-- MASTER NODE! -->
+    <node name="run_comparison" pkg="mins_eval" type="run_comparison" output="screen" clear_params="true" required="true">
+<!--    <node name="run_comparison" pkg="mins_eval" type="run_comparison" output="screen" clear_params="true" required="true" launch-prefix="gdb -ex run &#45;&#45;args">-->
+        <param name="viz_type"          type="int"      value="$(arg viz_type)" />
+        <param name="align_mode"        type="string"   value="$(arg align_mode)" />
+        <param name="path_gts"          type="string"   value="$(arg path_gts)" />
+        <param name="path_alg"          type="string"   value="$(arg path_alg)" />
+    </node>
+</launch>

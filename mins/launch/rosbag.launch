@@ -1,0 +1,21 @@
+
+
+<launch>
+<!--    tum_vi, euroc_mav, kaist-->
+    <arg name="config" default="kaist/kaist_LC" />
+    <arg name="path_gt" default="/home/wl/Desktop/urban29.txt" />
+    <arg name="path_bag" default="/home/wl/Desktop/urban29.bag" />
+    <node name="mins_bag" pkg="mins" type="bag" output="screen" clear_params="true" required="true">
+<!--    <node name="mins_bag" pkg="mins" type="bag" output="screen" clear_params="true" required="true" launch-prefix="gdb -ex run &#45;&#45;args">-->
+        <param name="config_path"   type="str"  value="$(find mins)/config/$(arg config)/config.yaml" />
+        <param name="sys_path_bag"  type="str"  value="$(arg path_bag)" />
+    </node>
+
+<!--     path viz of aligned gt-->
+    <node name="live_align_trajectory" pkg="ov_eval" type="live_align_trajectory" clear_params="true">
+        <param name="path_gt"           type="str"  value="$(arg path_gt)" />
+        <param name="alignment_type"    type="str"  value="posyaw" />
+        <remap from="/ov_msckf/pathimu" to="/mins/imu/path"/>
+        <remap from="/ov_msckf/pathgt"  to="/mins/imu/path_gt_live"/>
+    </node>
+</launch>

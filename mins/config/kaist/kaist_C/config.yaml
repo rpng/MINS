@@ -1,0 +1,12 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+config_system: "config_system.yaml"
+config_simulation: "config_simulation.yaml"
+config_estimator: "config_estimator.yaml"
+config_camera: "config_camera.yaml"
+config_gps: "config_gps.yaml"
+config_imu: "config_imu.yaml"
+config_lidar: "config_lidar.yaml"
+config_vicon: "config_vicon.yaml"
+config_wheel: "config_wheel.yaml"
+config_init: "config_init.yaml"

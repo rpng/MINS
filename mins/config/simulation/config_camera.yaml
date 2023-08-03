@@ -1,0 +1,129 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+cam:
+  enabled: true
+  max_n: 2
+  use_stereo: true
+  stereo_pair: [0, 1]
+  do_calib_ext: false
+  do_calib_int: false
+  do_calib_dt: false
+  n_pts: 200
+  fast: 15
+  grid_x: 20
+  grid_y: 20
+  min_px_dist: 15
+  knn: 0.70
+  downsample: false
+  histogram_method: "HISTOGRAM" # NONE, HISTOGRAM, CLAHE
+  max_slam: 50
+  max_msckf: 10
+  feat_rep: "GLOBAL_3D"
+  init_cov_dt: 1e-4
+  init_cov_ex_o: 1e-4
+  init_cov_ex_p: 1e-3
+  init_cov_in_k: 1e-0
+  init_cov_in_c: 1e-0
+  init_cov_in_r: 1e-5
+  sigma_px: 1
+  chi2_mult: 1
+
+  # ==================================================================
+  # ==================================================================
+
+cam0:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [ 1.000,  0.000,  0.000, -0.010]
+    - [ 0.000,  0.000, -1.000,  0.010]
+    - [ 0.000,  1.000,  0.000,  0.010]
+    - [ 0.000,  0.000,  0.000,  1.000]
+  intrinsics: [ 458.73774, 457.31996, 367.15827, 248.29340 ]
+  distortion_coeffs: [ -0.28361, 0.07408, 0.00022, 0.00007 ]
+  distortion_model: radtan
+  resolution: [752, 480]
+  topic: ""
+cam1:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [ 1.000,  0.000,  0.000, 0.010]
+    - [ 0.000,  0.000, -1.000, 0.010]
+    - [ 0.000,  1.000,  0.000, 0.010]
+    - [ 0.000,  0.000,  0.000, 1.000]
+  intrinsics: [457.58307, 456.07234, 379.86432, 255.19677]
+  distortion_coeffs: [-0.28372, 0.07456, -0.00008, 0.00003]
+  distortion_model: radtan
+  resolution: [752, 480]
+  topic: ""
+cam2:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [ 1.000,  0.000, 0.000, 0.010]
+    - [ 0.000,  1.000, 0.000, 0.010]
+    - [ 0.000,  0.000, 1.000, 0.010]
+    - [ 0.000,  0.000, 0.000, 1.000]
+  distortion_coeffs: [-0.28368365,0.07451284,-0.00010473,-3.55590700e-05]
+  distortion_model: radtan
+  intrinsics: [457.587, 456.134, 379.999, 255.238] #fu, fv, cu, cv
+  resolution: [752, 480]
+  topic: ""
+cam3:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [0.0125552670891, -0.999755099723, 0.0182237714554, -0.0198435579556]
+    - [-0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038]
+    - [0.999598781151, 0.0130119051815, 0.0251588363115, 0.0453689425024]
+    - [0.0, 0.0, 0.0, 1.0]
+  distortion_coeffs: [-0.28368365,0.07451284,-0.00010473,-3.55590700e-05]
+  distortion_model: radtan
+  intrinsics: [457.587, 456.134, 379.999, 255.238] #fu, fv, cu, cv
+  resolution: [752, 480]
+  topic: ""
+cam4:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [0.999598781151, 0.0130119051815, 0.0251588363115, 0.0453689425024]
+    - [-0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038]
+    - [0.0125552670891, -0.999755099723, 0.0182237714554, -0.0198435579556]
+    - [0.0, 0.0, 0.0, 1.0]
+  distortion_coeffs: [-0.28368365,0.07451284,-0.00010473,-3.55590700e-05]
+  distortion_model: radtan
+  intrinsics: [457.587, 456.134, 379.999, 255.238] #fu, fv, cu, cv
+  resolution: [752, 480]
+  topic: ""
+cam5:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [0.0125552670891, -0.999755099723, 0.0182237714554, -0.0198435579556]
+    - [-0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038]
+    - [0.999598781151, 0.0130119051815, 0.0251588363115, 0.0453689425024]
+    - [0.0, 0.0, 0.0, 1.0]
+  distortion_coeffs: [-0.28368365,0.07451284,-0.00010473,-3.55590700e-05]
+  distortion_model: radtan
+  intrinsics: [457.587, 456.134, 379.999, 255.238] #fu, fv, cu, cv
+  resolution: [752, 480]
+  topic: ""
+cam6:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [0.999598781151, 0.0130119051815, 0.0251588363115, 0.0453689425024]
+    - [0.0125552670891, -0.999755099723, 0.0182237714554, -0.0198435579556]
+    - [-0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038]
+    - [0.0, 0.0, 0.0, 1.0]
+  distortion_coeffs: [-0.28368365,0.07451284,-0.00010473,-3.55590700e-05]
+  distortion_model: radtan
+  intrinsics: [457.587, 456.134, 379.999, 255.238] #fu, fv, cu, cv
+  resolution: [752, 480]
+  topic: ""
+cam7:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [0.999598781151, 0.0130119051815, 0.0251588363115, 0.0453689425024]
+    - [-0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038]
+    - [0.0125552670891, -0.999755099723, 0.0182237714554, -0.0198435579556]
+    - [0.0, 0.0, 0.0, 1.0]
+  distortion_coeffs: [-0.28368365,0.07451284,-0.00010473,-3.55590700e-05]
+  distortion_model: radtan
+  intrinsics: [457.587, 456.134, 379.999, 255.238] #fu, fv, cu, cv
+  resolution: [752, 480]
+  topic: ""

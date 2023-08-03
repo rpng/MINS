@@ -1,0 +1,54 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+vicon:
+  enabled: false
+  max_n: 2
+  noise_o: 0.01
+  noise_p: 0.01
+  do_calib_dt: true
+  do_calib_ext: true
+  init_cov_dt: 1e-3
+  init_cov_ex_o: 1e-3
+  init_cov_ex_p: 1e-3
+  chi2_mult: 1
+
+vicon0:
+  timeoffset: 0.0
+  T_imu_vicon:
+    - [0.0,-1.0, 0.0, 1.0]
+    - [1.0, 0.0, 0.0, 1.0]
+    - [0.0, 0.0, 1.0, 1.0]
+    - [0.0, 0.0, 0.0, 1.0]
+  topic: ""
+vicon1:
+  timeoffset: 0.0
+  T_imu_vicon:
+    - [ 0.0, 1.0, 0.0,-1.0]
+    - [-1.0, 0.0, 0.0,-1.0]
+    - [ 0.0, 0.0, 1.0,-1.0]
+    - [ 0.0, 0.0, 0.0, 1.0]
+  topic: ""
+vicon2:
+  timeoffset: 0.0
+  T_imu_vicon:
+    - [ 0.0, 1.0, 0.0,-1.0]
+    - [-1.0, 0.0, 0.0,-1.0]
+    - [ 0.0, 0.0, 1.0,-1.0]
+    - [ 0.0, 0.0, 0.0, 1.0]
+  topic: ""
+vicon3:
+  timeoffset: 0.0
+  T_imu_vicon:
+    - [ 0.0, 1.0, 0.0,-1.0]
+    - [-1.0, 0.0, 0.0,-1.0]
+    - [ 0.0, 0.0, 1.0,-1.0]
+    - [ 0.0, 0.0, 0.0, 1.0]
+  topic: ""
+vicon4:
+  timeoffset: 0.0
+  T_imu_vicon:
+    - [ 0.0, 1.0, 0.0,-1.0]
+    - [-1.0, 0.0, 0.0,-1.0]
+    - [ 0.0, 0.0, 1.0,-1.0]
+    - [ 0.0, 0.0, 0.0, 1.0]
+  topic: ""

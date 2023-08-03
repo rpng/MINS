@@ -1,0 +1,57 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+cam:
+  enabled: true
+  max_n: 2
+  use_stereo: true
+  stereo_pair: [0, 1]
+  do_calib_ext: false
+  do_calib_int: false
+  do_calib_dt: false
+  n_pts: 200
+  fast: 20
+  grid_x: 20
+  grid_y: 20
+  min_px_dist: 15
+  knn: 0.70
+  downsample: false
+  histogram_method: "HISTOGRAM" # NONE, HISTOGRAM, CLAHE
+  max_slam: 50
+  max_msckf: 50
+  feat_rep: "GLOBAL_3D"
+  init_cov_dt: 1e-4
+  init_cov_ex_o: 1e-4
+  init_cov_ex_p: 1e-4
+  init_cov_in_k: 1e-1
+  init_cov_in_c: 1e-1
+  init_cov_in_r: 1e-5
+  sigma_px: 1
+  chi2_mult: 1
+
+  # ==================================================================
+  # ==================================================================
+
+cam0:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [0.0148655429818, -0.999880929698, 0.00414029679422, -0.0216401454975]
+    - [0.999557249008, 0.0149672133247, 0.025715529948, -0.064676986768]
+    - [-0.0257744366974, 0.00375618835797, 0.999660727178, 0.00981073058949]
+    - [0.0, 0.0, 0.0, 1.0]
+  intrinsics: [458.654, 457.296, 367.215, 248.375] #fu, fv, cu, cv
+  distortion_coeffs: [-0.28340811, 0.07395907, 0.00019359, 1.76187114e-05]
+  distortion_model: radtan
+  resolution: [752, 480]
+  topic: "/cam0/image_raw"
+cam1:
+  timeoffset: 0.0
+  T_imu_cam: #rotation from camera to IMU, position of camera in IMU
+    - [0.0125552670891, -0.999755099723, 0.0182237714554, -0.0198435579556]
+    - [0.999598781151, 0.0130119051815, 0.0251588363115, 0.0453689425024]
+    - [-0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038]
+    - [0.0, 0.0, 0.0, 1.0]
+  distortion_coeffs: [-0.28368365,0.07451284,-0.00010473,-3.55590700e-05]
+  distortion_model: radtan
+  intrinsics: [457.587, 456.134, 379.999, 255.238] #fu, fv, cu, cv
+  resolution: [752, 480]
+  topic: "/cam1/image_raw"

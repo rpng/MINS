@@ -1,0 +1,201 @@
+<launch>
+    <!--EUROC_MH1, EUROC_V11, TUM_C, TUM_R1, UD_Gore, UD_Small, UD_Spencer, UD_Warehouse-->
+    <arg name="dataset"                     default="UD_Warehouse" />
+    <arg name="config_path"                 default="$(find mins)/config/simulation/config.yaml" />
+    <!--Sim-->
+    <arg name="sim_BSpline_path"            default="$(find mins_data)/BSplineDataset/$(arg dataset).txt" />
+    <arg name="sim_planes_path"             default="$(find mins_data)/FloorPlans/$(arg dataset).txt" />
+    <arg name="sim_seed"                    default="0" />
+    <arg name="sim_n_loop"                  default="0" />
+    <arg name="sim_const_planar"            default="false" />
+    <arg name="sim_const_holonomic"         default="true" />
+    <arg name="sim_do_perturb"              default="true" />
+    <arg name="sim_remove_noise"            default="false" />
+    <arg name="init_use_gt_gnss"            default="true" />
+    <arg name="init_use_gt_lidar"           default="true" />
+    <arg name="sim_freq_imu"                default="200" />
+    <arg name="sim_freq_cam"                default="30" />
+    <arg name="sim_freq_gps"                default="1" />
+    <arg name="sim_freq_wheel"              default="100" />
+    <arg name="sim_freq_vicon"              default="20" />
+    <arg name="sim_freq_lidar"              default="10" />
+    <!--Sys-->
+    <arg name="sys_verbosity"               default="2" /> <!-- ALL(0), DEBUG(1), INFO(2), WARNING(3), ERROR(4) -->
+    <arg name="sys_exp_id"                  default="$(arg sim_seed)" />
+    <arg name="sys_save_state"              default="true" />
+    <arg name="sys_path_state"              default="$(find mins)/../../../../outputs/tmp/$(arg sim_seed)/" />
+    <arg name="sys_save_timing"             default="true" />
+    <arg name="sys_path_timing"             default="$(arg sys_path_state)/../$(arg sim_seed).time" />
+    <arg name="sys_save_trajectory"         default="true" />
+    <arg name="sys_path_trajectory"         default="$(arg sys_path_state)/../$(arg sim_seed).txt" />
+    <!--Est-->
+    <arg name="est_clone_freq"              default="20" />
+    <arg name="est_intr_order"              default="3" />
+    <arg name="est_window_size"             default="1" />
+    <arg name="est_dynamic_cloning"         default="false" />
+    <arg name="est_use_imu_res"             default="true" />
+    <arg name="est_use_imu_cov"             default="false" />
+    <arg name="est_use_pol_cov"             default="true" />
+    <arg name="est_intr_error_ori_thr"      default="0.007" />
+    <arg name="est_intr_error_pos_thr"      default="0.003" />
+    <arg name="est_intr_error_mlt"          default="1.0" />
+    <arg name="est_intr_error_thr_mlt"      default="1.0" />
+    <!--Cam-->
+    <arg name="cam_enabled"                 default="true" />
+    <arg name="cam_use_stereo"              default="true" />
+    <arg name="cam_max_n"                   default="2" />
+    <arg name="cam_max_slam"                default="25" />
+    <arg name="cam_do_calib_ext"            default="false" />
+    <arg name="cam_do_calib_int"            default="false" />
+    <arg name="cam_do_calib_dt"             default="false" />
+    <arg name="cam_chi2_mult"               default="1" />
+    <arg name="cam_init_cov_dt"             default="1e-4" /> <!-- prior -->
+    <arg name="cam_init_cov_ex_o"           default="1e-4" /> <!-- prior -->
+    <arg name="cam_init_cov_ex_p"           default="1e-3" /> <!-- prior -->
+    <arg name="cam_init_cov_in_k"           default="1e-0" /> <!-- prior -->
+    <arg name="cam_init_cov_in_c"           default="1e-0" /> <!-- prior -->
+    <arg name="cam_init_cov_in_r"           default="1e-5" /> <!-- prior -->
+    <!--GPS-->
+    <arg name="gps_enabled"                 default="false" />
+    <arg name="gps_max_n"                   default="2" />
+    <arg name="gps_chi2_mult"               default="1" />
+    <arg name="gps_do_calib_ext"            default="false" />
+    <arg name="gps_do_calib_dt"             default="false" />
+    <arg name="gps_init_cov_dt"             default="1e-3" /> <!-- prior -->
+    <arg name="gps_init_cov_ex"             default="1e-3" /> <!-- prior -->
+    <arg name="gps_noise"                   default="0.1" />
+    <!--Wheel-->
+    <arg name="wheel_enabled"               default="false" />
+    <arg name="wheel_do_calib_ext"          default="false" />
+    <arg name="wheel_do_calib_int"          default="false" />
+    <arg name="wheel_do_calib_dt"           default="false" />
+    <arg name="wheel_chi2_mult"             default="1" />
+    <arg name="wheel_init_cov_dt"           default="1e-4" /> <!-- prior -->
+    <arg name="wheel_init_cov_ex_o"         default="1e-4" /> <!-- prior -->
+    <arg name="wheel_init_cov_ex_p"         default="1e-3" /> <!-- prior -->
+    <arg name="wheel_init_cov_in_b"         default="1e-4" /> <!-- prior -->
+    <arg name="wheel_init_cov_in_r"         default="1e-4" /> <!-- prior -->
+    <!--LiDAR-->
+    <arg name="lidar_enabled"               default="true" />
+    <arg name="lidar_max_n"                 default="1" />
+    <arg name="lidar_raw_downsample_size"   default="0.3" />
+    <arg name="lidar_map_downsample_size"   default="0.3" />
+    <arg name="lidar_do_calib_ext"          default="false" />
+    <arg name="lidar_do_calib_dt"           default="false" />
+    <arg name="lidar_chi2_mult"             default="1" />
+    <arg name="lidar_init_cov_dt"           default="1e-4" /> <!-- prior -->
+    <arg name="lidar_init_cov_ex_o"         default="1e-4" /> <!-- prior -->
+    <arg name="lidar_init_cov_ex_p"         default="1e-3" /> <!-- prior -->
+    <!--VICON-->
+    <arg name="vicon_enabled"               default="false" />
+    <arg name="vicon_max_n"                 default="2" />
+    <arg name="vicon_do_calib_ext"          default="false" />
+    <arg name="vicon_do_calib_dt"           default="false" />
+    <!--IMU-->
+    <arg name="imu_accel_noise"             default="2.0000e-02" />
+    <arg name="imu_accel_bias"              default="3.0000e-02" />
+    <arg name="imu_gyro_noise"              default="1.6968e-03" />
+    <arg name="imu_gyro_bias"               default="1.9393e-04" />
+
+    <!-- set the total number of OpenMP threads to be one -->
+    <!-- by default it will try to use all cores, which is a bad idea -->
+    <env name="OMP_NUM_THREADS" value="1" />
+
+    <!-- MASTER NODE! -->
+    <node name="mins_simulation$(arg sim_seed)" pkg="mins" type="simulation" output="screen" clear_params="true" required="true">
+<!--    <node name="mins_simulation" pkg="mins" type="simulation" output="screen" clear_params="true" required="true" launch-prefix="gdb -ex run &#45;&#45;args">-->
+        <param name="config_path"               type="str"      value="$(arg config_path)" />
+        <param name="sys_verbosity"             type="int"      value="$(arg sys_verbosity)" />
+        <param name="sys_exp_id"                type="int"      value="$(arg sys_exp_id)" />
+        <param name="sys_save_state"            type="bool"     value="$(arg sys_save_state)" />
+        <param name="sys_path_state"            type="str"      value="$(arg sys_path_state)" />
+        <param name="sys_save_timing"           type="bool"     value="$(arg sys_save_timing)" />
+        <param name="sys_path_timing"           type="str"      value="$(arg sys_path_timing)" />
+        <param name="sys_save_trajectory"       type="bool"     value="$(arg sys_save_trajectory)" />
+        <param name="sys_path_trajectory"       type="str"      value="$(arg sys_path_trajectory)" />
+        <param name="sim_BSpline_path"          type="str"      value="$(arg sim_BSpline_path)" />
+        <param name="sim_planes_path"           type="str"      value="$(arg sim_planes_path)" />
+        <param name="sim_seed"                  type="int"      value="$(arg sim_seed)" />
+        <param name="sim_n_loop"                type="int"      value="$(arg sim_n_loop)" />
+        <param name="sim_const_planar"          type="bool"     value="$(arg sim_const_planar)" />
+        <param name="sim_const_holonomic"       type="bool"     value="$(arg sim_const_holonomic)" />
+        <param name="sim_do_perturb"            type="bool"     value="$(arg sim_do_perturb)" />
+        <param name="sim_remove_noise"          type="bool"     value="$(arg sim_remove_noise)" />
+        <param name="sim_freq_imu"              type="double"   value="$(arg sim_freq_imu)" />
+        <param name="sim_freq_cam"              type="double"   value="$(arg sim_freq_cam)" />
+        <param name="sim_freq_gps"              type="double"   value="$(arg sim_freq_gps)" />
+        <param name="sim_freq_wheel"            type="double"   value="$(arg sim_freq_wheel)" />
+        <param name="sim_freq_vicon"            type="double"   value="$(arg sim_freq_vicon)" />
+        <param name="sim_freq_lidar"            type="double"   value="$(arg sim_freq_lidar)" />
+        <param name="init_use_gt_gnss"          type="bool"     value="$(arg init_use_gt_gnss)" />
+        <param name="init_use_gt_lidar"         type="bool"     value="$(arg init_use_gt_lidar)" />
+        <!--Est-->
+        <param name="est_window_size"           type="double"   value="$(arg est_window_size)" />
+        <param name="est_clone_freq"            type="int"      value="$(arg est_clone_freq)" />
+        <param name="est_intr_order"            type="int"      value="$(arg est_intr_order)" />
+        <param name="est_dynamic_cloning"       type="bool"     value="$(arg est_dynamic_cloning)" />
+        <param name="est_use_imu_res"           type="bool"     value="$(arg est_use_imu_res)" />
+        <param name="est_use_imu_cov"           type="bool"     value="$(arg est_use_imu_cov)" />
+        <param name="est_use_pol_cov"           type="bool"     value="$(arg est_use_pol_cov)" />
+        <param name="est_intr_error_mlt"        type="double"   value="$(arg est_intr_error_mlt)" />
+        <param name="est_intr_error_ori_thr"    type="double"   value="$(arg est_intr_error_ori_thr)" />
+        <param name="est_intr_error_pos_thr"    type="double"   value="$(arg est_intr_error_pos_thr)" />
+        <param name="est_intr_error_thr_mlt"    type="double"   value="$(arg est_intr_error_thr_mlt)" />
+        <!--Cam-->
+        <param name="cam_enabled"               type="bool"     value="$(arg cam_enabled)" />
+        <param name="cam_use_stereo"            type="bool"     value="$(arg cam_use_stereo)" />
+        <param name="cam_max_n"                 type="int"      value="$(arg cam_max_n)" />
+        <param name="cam_max_slam"              type="int"      value="$(arg cam_max_slam)" />
+        <param name="cam_do_calib_ext"          type="bool"     value="$(arg cam_do_calib_ext)" />
+        <param name="cam_do_calib_int"          type="bool"     value="$(arg cam_do_calib_int)" />
+        <param name="cam_do_calib_dt"           type="bool"     value="$(arg cam_do_calib_dt)" />
+        <param name="cam_chi2_mult"             type="double"   value="$(arg cam_chi2_mult)" />
+        <param name="cam_init_cov_dt"           type="double"   value="$(arg cam_init_cov_dt)" />
+        <param name="cam_init_cov_ex_o"         type="double"   value="$(arg cam_init_cov_ex_o)" />
+        <param name="cam_init_cov_ex_p"         type="double"   value="$(arg cam_init_cov_ex_p)" />
+        <param name="cam_init_cov_in_k"         type="double"   value="$(arg cam_init_cov_in_k)" />
+        <param name="cam_init_cov_in_c"         type="double"   value="$(arg cam_init_cov_in_c)" />
+        <param name="cam_init_cov_in_r"         type="double"   value="$(arg cam_init_cov_in_r)" />
+        <!--GPS-->
+        <param name="gps_enabled"               type="bool"     value="$(arg gps_enabled)" />
+        <param name="gps_max_n"                 type="int"      value="$(arg gps_max_n)" />
+        <param name="gps_chi2_mult"             type="double"   value="$(arg gps_chi2_mult)" />
+        <param name="gps_do_calib_ext"          type="bool"     value="$(arg gps_do_calib_ext)" />
+        <param name="gps_do_calib_dt"           type="bool"     value="$(arg gps_do_calib_dt)" />
+        <param name="gps_init_cov_dt"           type="double"   value="$(arg gps_init_cov_dt)" />
+        <param name="gps_init_cov_ex"           type="double"   value="$(arg gps_init_cov_ex)" />
+        <param name="gps_noise"                 type="double"   value="$(arg gps_noise)" />
+        <!--Wheel-->
+        <param name="wheel_enabled"             type="bool"     value="$(arg wheel_enabled)" />
+        <param name="wheel_do_calib_ext"        type="bool"     value="$(arg wheel_do_calib_ext)" />
+        <param name="wheel_do_calib_int"        type="bool"     value="$(arg wheel_do_calib_int)" />
+        <param name="wheel_do_calib_dt"         type="bool"     value="$(arg wheel_do_calib_dt)" />
+        <param name="wheel_chi2_mult"           type="double"   value="$(arg wheel_chi2_mult)" />
+        <param name="wheel_init_cov_dt"         type="double"   value="$(arg wheel_init_cov_dt)" />
+        <param name="wheel_init_cov_ex_o"       type="double"   value="$(arg wheel_init_cov_ex_o)" />
+        <param name="wheel_init_cov_ex_p"       type="double"   value="$(arg wheel_init_cov_ex_p)" />
+        <param name="wheel_init_cov_in_b"       type="double"   value="$(arg wheel_init_cov_in_b)" />
+        <param name="wheel_init_cov_in_r"       type="double"   value="$(arg wheel_init_cov_in_r)" />
+        <!--LiDAR-->
+        <param name="lidar_enabled"             type="bool"     value="$(arg lidar_enabled)" />
+        <param name="lidar_max_n"               type="int"      value="$(arg lidar_max_n)" />
+        <param name="lidar_raw_downsample_size" type="double"   value="$(arg lidar_raw_downsample_size)" />
+        <param name="lidar_map_downsample_size" type="double"   value="$(arg lidar_map_downsample_size)" />
+        <param name="lidar_do_calib_ext"        type="bool"     value="$(arg lidar_do_calib_ext)" />
+        <param name="lidar_do_calib_dt"         type="bool"     value="$(arg lidar_do_calib_dt)" />
+        <param name="lidar_chi2_mult"           type="double"   value="$(arg lidar_chi2_mult)" />
+        <param name="lidar_init_cov_dt"         type="double"   value="$(arg lidar_init_cov_dt)" />
+        <param name="lidar_init_cov_ex_o"       type="double"   value="$(arg lidar_init_cov_ex_o)" />
+        <param name="lidar_init_cov_ex_p"       type="double"   value="$(arg lidar_init_cov_ex_p)" />
+        <!--VICON-->
+        <param name="vicon_enabled"             type="bool"     value="$(arg vicon_enabled)" />
+        <param name="vicon_max_n"               type="int"      value="$(arg vicon_max_n)" />
+        <param name="vicon_do_calib_ext"        type="bool"     value="$(arg vicon_do_calib_ext)" />
+        <param name="vicon_do_calib_dt"         type="bool"     value="$(arg vicon_do_calib_dt)" />
+        <!--IMU-->
+        <param name="imu_accel_noise"           type="double"   value="$(arg imu_accel_noise)" />
+        <param name="imu_accel_bias"            type="double"   value="$(arg imu_accel_bias)" />
+        <param name="imu_gyro_noise"            type="double"   value="$(arg imu_gyro_noise)" />
+        <param name="imu_gyro_bias"             type="double"   value="$(arg imu_gyro_bias)" />
+    </node>
+</launch>

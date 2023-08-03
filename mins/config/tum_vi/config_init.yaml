@@ -1,0 +1,8 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+init:
+  window_time: 2.0 # how many seconds to collect initialization information
+  imu_thresh: 0.20 # threshold for variance of the accelerometer to detect a "jerk" in motion
+  imu_only_init: true  
+  use_gt: false
+  cov_size: 1e-3

@@ -1,0 +1,13 @@
+
+
+<launch>
+    <arg name="save_path"  default="" />
+    <arg name="load_path"  default="" />
+    <arg name="visualize"  default="true" />
+    <!-- MASTER NODE! -->
+    <node name="plot_consistency" pkg="mins_eval" type="plot_consistency" output="screen" clear_params="true" required="true">
+        <param name="save_path"         type="string"   value="$(arg save_path)" />
+        <param name="load_path"         type="string"   value="$(arg load_path)" />
+        <param name="visualize"         type="bool"     value="$(arg visualize)" />
+    </node>
+</launch>

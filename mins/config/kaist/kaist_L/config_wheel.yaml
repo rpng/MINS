@@ -1,0 +1,26 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+wheel:
+  enabled: true
+  type: "Wheel3DAng" #  Wheel2DAng, Wheel2DLin, Wheel2DCen, Wheel3DAng, Wheel3DLin, Wheel3DCen
+  do_calib_dt: false
+  do_calib_ext: false
+  do_calib_int: false
+  noise_w: 0.1
+  noise_v: 0.5
+  noise_p: 0.1
+  init_cov_dt: 1e-4
+  init_cov_ex_o: 1e-4
+  init_cov_ex_p: 1e-3
+  init_cov_in_b: 1e-3
+  init_cov_in_r: 1e-3
+  chi2_mult: 100
+  timeoffset: 0.0
+  intrinsics: [0.3, 0.3, 1.5]
+  reuse_of_information: false
+  T_imu_wheel:
+    - [1.0, 0.0, 0.0, 0.07]
+    - [0.0, 1.0, 0.0, 0.0]
+    - [0.0, 0.0, 1.0, -1.7]
+    - [0.0, 0.0, 0.0, 1.0]
+  topic: "/joint_states"

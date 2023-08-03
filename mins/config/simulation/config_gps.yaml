@@ -1,0 +1,32 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+gps:
+  enabled: false
+  max_n: 2
+  do_calib_ext: false
+  do_calib_dt: false
+  init_distance: 30.0
+  init_closed_form: true
+  init_cov_dt: 1e-3
+  init_cov_ex: 1e-3
+  init_cov_inflation: 2.0
+  chi2_mult: 1
+  overwrite_noise: false
+  noise: 0.1
+
+gps0:
+  timeoffset: 0.0
+  pGinI: [1, 1, 1]
+  topic: ""
+gps1:
+  timeoffset: 0.0
+  pGinI: [-1, -1, -1]
+  topic: ""
+gps2:
+  timeoffset: 0.0
+  pGinI: [0, 0, 1]
+  topic: ""
+gps3:
+  timeoffset: 0.0
+  pGinI: [1, 1, 1]
+  topic: ""

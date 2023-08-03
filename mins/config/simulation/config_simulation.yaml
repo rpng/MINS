@@ -1,0 +1,29 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+sim:
+  seed: 0
+  do_perturb: true
+  remove_noise: false
+  BSpline_path: "MINS_DATA_DIR/BSplineDataset/UD_Spencer.txt"
+  planes_path: "MINS_DATA_DIR/FloorPlans/UD_Spencer.txt"
+  const_holonomic: true
+  const_planar: false
+  freq_imu: 200.0
+  freq_cam: 30.0
+  freq_gps: 1.0
+  freq_wheel: 100.0
+  freq_vicon: 20.0
+  freq_lidar: 10.0
+  distance_threshold: 1.2
+  min_feature_gen_dist: 5
+  max_feature_gen_dist: 7
+#  T_WtoE:
+#    - [0.0,-1.0, 0.0, 0.0]
+#    - [1.0, 0.0, 0.0, 0.0]
+#    - [0.0, 0.0, 1.0, 0.0]
+#    - [0.0, 0.0, 0.0, 1.0]
+  T_WtoE:
+    - [1.0, 0.0, 0.0, 0.0]
+    - [0.0, 1.0, 0.0, 0.0]
+    - [0.0, 0.0, 1.0, 0.0]
+    - [0.0, 0.0, 0.0, 1.0]

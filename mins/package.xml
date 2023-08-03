@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<package format="3">
+
+    <!-- Package Information -->
+    <name>mins</name>
+    <version>1.0.0</version>
+    <description>
+        MINS: Multi-sensor-aided Inertial Navigation System
+    </description>
+
+    <!-- Code Author -->
+    <author email="woosik@udel.edu">Woosik Lee</author>
+    <maintainer email="woosik@udel.edu">Woosik Lee</maintainer>
+
+    <!-- Licensing -->
+    <license>GNU General Public License v3.0</license>
+
+    <!--  Dependencies needed to compile this package. -->
+    <buildtool_depend>catkin</buildtool_depend>
+    <depend>cmake_modules</depend>
+    <depend>roscpp</depend>
+    <depend>rosbag</depend>
+    <depend>tf</depend>
+    <depend>std_msgs</depend>
+    <depend>sensor_msgs</depend>
+    <depend>geometry_msgs</depend>
+    <depend>nav_msgs</depend>
+    <depend>image_geometry</depend>
+    <depend>visualization_msgs</depend>
+    <depend>image_transport</depend>
+    <depend>cv_bridge</depend>
+    <depend>ov_core</depend>
+    <depend>pcl_ros</depend>
+    <depend>libpointmatcher</depend>
+
+    <!-- Note the export is required to expose the executables -->
+    <export>
+        <build_type>catkin</build_type>
+    </export>
+
+</package>

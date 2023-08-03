@@ -1,0 +1,16 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+sys:
+  verbosity: 2 
+  save_timing: true
+  path_timing: "MINS_DIR/../../../../outputs/tmp/0.time"
+  save_state: true
+  path_state: "MINS_DIR/../../../../outputs/tmp/0/"
+  save_trajectory: true
+  path_trajectory: "MINS_DIR/../../../../outputs/tmp/0.txt"
+  save_prints: false
+  exp_id: 0
+
+  path_bag: ""
+  bag_start: 0
+  bag_durr: -1

@@ -1,0 +1,12 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+init:
+  window_time: 1.0
+  imu_thresh: 0.5
+  imu_wheel_thresh: 0.05
+  imu_only_init: true
+  imu_gravity_aligned: false
+  use_gt: true
+  use_gt_gnss: true
+  use_gt_lidar: true
+  cov_size: 1e-4

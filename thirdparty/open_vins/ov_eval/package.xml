@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<package format="3">
+
+    <!-- Package Information -->
+    <name>ov_eval</name>
+    <version>2.7.0</version>
+    <description>
+        Evaluation methods and scripts for visual-inertial odometry systems.
+    </description>
+    <url type="website">https://docs.openvins.com/</url>
+    <url type="bugtracker">https://github.com/rpng/open_vins/issues</url>
+    <url type="repository">https://github.com/rpng/open_vins</url>
+
+    <!-- Code Authors -->
+    <author email="pgeneva@udel.edu">Patrick Geneva</author>
+    <author email="keck@udel.edu">Kevin Eckenhoff</author>
+    <author email="ghuang@udel.edu">Guoquan Huang</author>
+    <maintainer email="pgeneva@udel.edu">Patrick Geneva</maintainer>
+
+    <!-- Licensing -->
+    <license>GNU General Public License v3.0</license>
+
+    <!-- ROS1: Dependencies needed to compile this package. -->
+    <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+    <depend condition="$ROS_VERSION == 1">cmake_modules</depend>
+    <depend condition="$ROS_VERSION == 1">roscpp</depend>
+    <depend condition="$ROS_VERSION == 1">rospy</depend>
+    <depend condition="$ROS_VERSION == 1">geometry_msgs</depend>
+    <depend condition="$ROS_VERSION == 1">nav_msgs</depend>
+    <depend condition="$ROS_VERSION == 1">sensor_msgs</depend>
+    <depend condition="$ROS_VERSION == 1">ov_core</depend>
+
+    <!-- ROS2: Dependencies needed to compile this package. -->
+    <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
+    <depend condition="$ROS_VERSION == 2">rclcpp</depend>
+    <depend condition="$ROS_VERSION == 2">ov_core</depend>
+
+    <!-- System dependencies for both versions -->
+    <depend>eigen</depend>
+    <depend>boost</depend>
+
+    <!-- Note the export is required to expose the executables -->
+    <export>
+        <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+        <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
+        <rosdoc config="rosdoc.yaml" />
+    </export>
+
+</package>

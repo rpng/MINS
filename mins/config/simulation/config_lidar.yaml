@@ -1,0 +1,96 @@
+%YAML:1.0 # need to specify the file type at the top!
+
+lidar:
+  enabled: false
+  max_n: 2
+  do_calib_dt: false
+  do_calib_ext: false
+  init_cov_dt: 1e-4
+  init_cov_ex_o: 1e-4
+  init_cov_ex_p: 1e-3
+  max_range: 100.0
+  min_range: 1
+  chi2_mult: 1
+  raw_do_downsample: true
+  raw_downsample_size: 0.3
+  raw_noise: 0.01
+  raw_remove_motion_blur: false # required to set v_angles and h_angles correctly
+  raw_point_dt: 1e-6
+  map_do_downsample: true
+  map_downsample_size: 0.3
+  map_noise: 0.5
+  map_ngbr_num: 5
+  map_ngbr_max_d: 1.0
+  map_decay_time: 120 # sec
+  map_decay_dist: 100 # m
+  map_icp_dist: 50 # m
+  map_use_icp: true
+  plane_max_p2pd: 0.1
+  plane_max_condi: 200.0
+
+lidar0:
+  timeoffset: 0.0
+  T_imu_lidar:
+    - [1.0, 0.0, 0.0, 0.1]
+    - [0.0, 0.9659258, -0.2588190, 0.1]
+    - [0.0, 0.2588190, 0.9659258, 0.1]
+    - [0.0, 0.0, 0.0, 1.0]
+  v_angles: [-80,-70,-60,-50,-40,-30,-20,-10,0,10,20,30,40,50,60,70,80]
+#  v_angles: [-15.0, -13.0, -11.0, -9.0, -7.0, -5.0, -3.0, -1.0, 1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0]
+#  h_resolution: 0.5
+#  h_resolution: 1.0
+  h_resolution: 2.0
+  h_start: -180
+  h_end: 180
+  topic: ""
+
+lidar1:
+  timeoffset: 0.0
+  T_imu_lidar:
+    - [ 0.0, 0.0, 1.0,-0.1]
+    - [ 0.0, 1.0, 0.0,-0.1]
+    - [-1.0, 0.0, 0.0,-0.1]
+    - [ 0.0, 0.0, 0.0, 1.0]
+  v_angles: [-80,-70,-60,-50,-40,-30,-20,-10,0,10,20,30,40,50,60,70,80]
+#  v_angles: [-15.0, -13.0, -11.0, -9.0, -7.0, -5.0, -3.0, -1.0, 1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0]
+#  h_resolution: 1.0
+  h_resolution: 2.0
+  h_start: -180
+  h_end: 180
+  topic: ""
+lidar2:
+  timeoffset: 0.0
+  T_imu_lidar:
+    - [0.0,-1.0, 0.0, 0.1]
+    - [1.0, 0.0, 0.0, 0.1]
+    - [0.0, 0.0, 1.0, 0.1]
+    - [0.0, 0.0, 0.0, 1.0]
+  v_angles: [-15.0, -13.0, -11.0, -9.0, -7.0, -5.0, -3.0, -1.0, 1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0]
+  h_resolution: 1.0
+  h_start: -180
+  h_end: 180
+  topic: ""
+lidar3:
+  timeoffset: 0.0
+  T_imu_lidar:
+    - [ 0.0, 1.0, 0.0,-1.0]
+    - [-1.0, 0.0, 0.0,-1.0]
+    - [ 0.0, 0.0, 1.0,-1.0]
+    - [ 0.0, 0.0, 0.0, 1.0]
+  v_angles: [-15.0, -13.0, -11.0, -9.0, -7.0, -5.0, -3.0, -1.0, 1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0]
+  h_resolution: 1.0
+  h_start: -180
+  h_end: 180
+  topic: ""
+lidar4:
+  timeoffset: 0.0
+  T_imu_lidar:
+    - [ 0.0, 1.0, 0.0,-1.0]
+    - [-1.0, 0.0, 0.0,-1.0]
+    - [ 0.0, 0.0, 1.0,-1.0]
+    - [ 0.0, 0.0, 0.0, 1.0]
+  v_angles: [-15.0, -13.0, -11.0, -9.0, -7.0, -5.0, -3.0, -1.0, 1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0]
+  h_resolution: 1.0
+  h_start: -180
+  h_end: 180
+  topic: ""

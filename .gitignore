@@ -1,0 +1,12 @@
+cmake-build-debug
+build
+Build
+*.*~
+.idea
+doxgen_generated
+out_puts
+tmp
+tmp2
+frames.pdf
+frames.gv
+*.asv
