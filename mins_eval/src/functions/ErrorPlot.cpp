@@ -374,7 +374,7 @@ void ErrorPlot::plot_extrinsic(DATA data, string sensor, double max_time) {
         error_ori[j].values.push_back(ori_err(j));
         error_ori[j].values_bound.push_back(3 * 180.0 / M_PI * std[i](1 + j));
         error_pos[j].timestamps.push_back(est[i](0));
-        error_pos[j].values.push_back(est[i](5 + j) - gt[i](5 + j));
+        error_pos[j].values.push_back(gt[i](5 + j) - est[i](5 + j));
         error_pos[j].values_bound.push_back(3 * std[i](4 + j));
       }
     }
@@ -455,7 +455,7 @@ void ErrorPlot::plot_vector(DATA data, string sensor, vector<string> names, doub
 
       for (int k = 0; k < vec_size; k++) {
         error[k].timestamps.push_back(est[j](0));
-        error[k].values.push_back(est[j](1 + k) - gt[j](1 + k));
+        error[k].values.push_back(gt[j](1 + k) - est[j](1 + k));
         error[k].values_bound.push_back(3 * std[j](1 + k));
       }
     }
