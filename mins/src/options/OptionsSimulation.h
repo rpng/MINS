@@ -1,7 +1,15 @@
 /*
- * MINS: An Open Platform for Multi-Sensor-Aided Inertial Navigation System
+ * MINS: Efficient and Robust Multisensor-aided Inertial Navigation System
  * Copyright (C) 2023 Woosik Lee
  * Copyright (C) 2023 Guoquan Huang
+ * Copyright (C) 2023 MINS Contributors
+ *
+ * This code is implemented based on:
+ * OpenVINS: An Open Platform for Visual-Inertial Research
+ * Copyright (C) 2018-2023 Patrick Geneva
+ * Copyright (C) 2018-2023 Guoquan Huang
+ * Copyright (C) 2018-2023 OpenVINS Contributors
+ * Copyright (C) 2018-2019 Kevin Eckenhoff
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

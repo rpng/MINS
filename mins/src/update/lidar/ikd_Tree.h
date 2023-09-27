@@ -1,6 +1,10 @@
-/// ADD hku-mars ikd-Tree copyright here
-/// Repo: https://github.com/hku-mars/ikd-Tree/commits/main
-/// Commit version: c0e36a16b6e4d557d3783b16911207f6398dd478
+/*
+ * Description: ikd-Tree: an incremental k-d tree for robotic applications
+ * Author: Yixi Cai
+ * email: yixicai@connect.hku.hk
+ * Repo: https://github.com/hku-mars/ikd-Tree/commits/main
+ * Commit: c0e36a16b6e4d557d3783b16911207f6398dd478
+*/
 
 #pragma once
 #include <algorithm>

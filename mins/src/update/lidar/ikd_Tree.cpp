@@ -1,7 +1,9 @@
 /*
-Description: ikd-Tree: an incremental k-d tree for robotic applications
-Author: Yixi Cai
-email: yixicai@connect.hku.hk
+ * Description: ikd-Tree: an incremental k-d tree for robotic applications
+ * Author: Yixi Cai
+ * email: yixicai@connect.hku.hk
+ * Repo: https://github.com/hku-mars/ikd-Tree/commits/main
+ * Commit: c0e36a16b6e4d557d3783b16911207f6398dd478
 */
 
 #include "ikd_Tree.h"
