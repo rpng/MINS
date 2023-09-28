@@ -1,7 +1,14 @@
 # MINS
-A consistent and robust tightly-coupled **Multi-sensor-aided Inertial Navigation System** (MINS) which is capable of 
-fusing all five sensing modalities (**inertial**, **wheel encoders**, **camera**, **GNSS**, and **LiDAR**) in a filtering 
-fashion by overcoming the hurdles of computational complexity, sensor asynchronicity, and intra-sensor calibration.
+An efficient, robust, and tightly-coupled **Multisensor-aided Inertial Navigation System (MINS)** which is capable of 
+flexibly fusing all five sensing modalities (**IMU**, **wheel** **encoders**, **camera**, **GNSS**, and **LiDAR**) in a filtering 
+fashion by overcoming the hurdles of computational complexity, sensor asynchronicity, and intra-sensor calibration. 
+
+Exemplary use case of MINS: 
+* VINS (mono, stereo, multi-cam)
+* GPS-IMU (single, multiple)
+* LiDAR-IMU (single, multiple)
+* wheel-IMU
+* Camera-GPS-LiDAR-wheel-IMU or more combinations.
 
 ![alt text](thirdparty/frames.png)
 ![alt text](thirdparty/kaist38.gif)
