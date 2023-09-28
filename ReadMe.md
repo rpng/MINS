@@ -6,6 +6,8 @@ fashion by overcoming the hurdles of computational complexity, sensor asynchroni
 ![alt text](thirdparty/frames.png)
 ![alt text](thirdparty/kaist38.gif)
 
+* Publication reference - [https://arxiv.org/pdf/2309.15390.pdf](https://arxiv.org/pdf/2309.15390.pdf)
+  
 ## Key Features
 * Inertial(IMU)-based multi-sensor fusion including wheel odometry and arbitrary numbers of cameras, LiDARs, and GNSSs (+ VICON or loop-closure) for localization.
 * Online calibration of all onboard sensors (check [exemplary results](https://github.com/rpng/mins/blob/master/mins_eval/ReadMe.md#run-example)).
