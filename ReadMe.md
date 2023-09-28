@@ -63,13 +63,12 @@ following:
 The publication reference will be updated soon.
 
 ```bibtex
-@inproceedings{Lee2021ICRA,
-    title        = {Efficient Multi-sensor Aided Inertial Navigation with Online Calibration},
-    author       = {Woosik Lee and Yulin Yang and Guoquan Huang},
-    year         = 2021,
-    pages        = {5706--5712},
-    booktitle    = {Proc. of the IEEE International Conference on Robotics and Automation},
-    address      = {Xi'an, China},
+@article{Lee2023arxiv,
+    title        = {MINS: Efficient and Robust Multisensor-aided Inertial Navigation System},
+    author       = {Woosik Lee and Patrick Geneva and Chuchu Chen and Guoquan Huang},
+    year         = 2023,
+    journal      = {arXiv preprint arXiv:2309.15390},
+    url          = {https://github.com/rpng/MINS},
 }
 ```
 
