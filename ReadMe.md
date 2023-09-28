@@ -41,7 +41,7 @@ source devel/setup.bash
 ![alt text](thirdparty/real_bag.png)
 
 #### Subscribing to the ros messages
-```roslaunch mins subscribe.launch config:=euroc_mav dataset:=rosbag:=V1_03_difficult.bag bag_start_time:=0```
+```roslaunch mins subscribe.launch config:=euroc_mav rosbag:=V1_03_difficult.bag bag_start_time:=0```
 
 ![alt text](thirdparty/real_sub.png)
 
