@@ -36,7 +36,13 @@ endif ()
 
 # We need c++14 for ROS2, thus just require it for everybody
 # NOTE: To future self, hope this isn't an issue...
-set(CMAKE_CXX_STANDARD 14)
+if (HAS_CXX17)
+    set(CMAKE_CXX_STANDARD 17)
+elseif (HAS_CXX14)
+    set(CMAKE_CXX_STANDARD 14)
+else ()
+    message(FATAL_ERROR "Compiler ${CMAKE_CXX_COMPILER} has no C++14 support.")
+endif ()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
