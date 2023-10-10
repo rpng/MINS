@@ -80,11 +80,6 @@ int main(int argc, char **argv) {
   op->sys->save_timing ? save->save_timing_to_file(sys->tc_sensors->get_total_sum()) : void();
   save->check_files();
 
-  // Call destructor for a cleaner termination
-  sys->~SystemManager();
-  pub->~ROSPublisher();
-  op->~Options();
-  save->~State_Logger();
   ros::shutdown();
 
   // Done!
