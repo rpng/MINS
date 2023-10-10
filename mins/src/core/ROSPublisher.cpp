@@ -472,6 +472,7 @@ void ROSPublisher::publish_lidar_map() {
     tr.block(0, 0, 3, 3) = pose_LinG.first.transpose();
     tr.block(0, 3, 3, 1) = pose_LinG.second;
     POINTCLOUD_XYZI_PTR map_inG(new pcl::PointCloud<pcl::PointXYZI>);
+    map_inL->height = map_inL->points.size();
     map_inL->width = 1;
     pcl::transformPointCloud(*map_inL, *map_inG, tr);
     sensor_msgs::PointCloud2 map_pointcloud;
