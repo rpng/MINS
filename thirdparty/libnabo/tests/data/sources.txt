@@ -1,0 +1,9 @@
+scan.2d.txt
+scan.3d.txt
+	François Pomerleau, ETHZ, Switzerland	
+
+scan.3d.large.txt
+	Andreas Nüchter and Kai Lingemann, University of Osnabrück, Germany
+	http://kos.informatik.uni-osnabrueck.de/3Dscans/dagstuhl/scan000.3d
+
+
