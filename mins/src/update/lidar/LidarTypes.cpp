@@ -21,6 +21,7 @@
 #include "LidarTypes.h"
 #include "ikd_Tree.h"
 #include "pcl/point_cloud.h"
+#include "boost/make_shared.hpp"
 
 using namespace mins;
 LiDARData::LiDARData(double time, double ref_time, int id, boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pointcloud, double max_range, double min_range) : time(time), id(id) {
