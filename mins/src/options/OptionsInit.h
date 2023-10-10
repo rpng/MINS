@@ -29,6 +29,7 @@
 #define MINS_OPTIONSINIT_H
 
 #include <memory>
+#include <string>
 namespace ov_core {
 class YamlParser;
 }

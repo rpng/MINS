@@ -31,13 +31,16 @@
 #include <Eigen/Eigen>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
+#include <map>
 #include <string>
+#include <utility>
+#include <vector>
 
 using namespace std;
 using namespace ov_eval;
 using namespace boost;
 using namespace Eigen;
-typedef filesystem::path PATH;
+typedef boost::filesystem::path PATH;
 typedef vector<PATH> VEC_PATH;
 // file and directory paths
 string align_mode, folder_groundtruths, folder_algorithms;
@@ -217,7 +220,7 @@ void basic_setup(int argc, char **argv) {
 /// Get paths of the ground truths
 VEC_PATH get_path_groundtruths() {
   VEC_PATH path_gts_local;
-  for (const auto &p : filesystem::recursive_directory_iterator(folder_groundtruths)) {
+  for (const auto &p : boost::filesystem::recursive_directory_iterator(folder_groundtruths)) {
     if (p.path().extension() == ".txt") {
       path_gts_local.push_back(p.path());
     }
@@ -242,8 +245,8 @@ VEC_PATH get_path_groundtruths() {
 VEC_PATH get_path_algorithms() {
   // Also create empty statistic objects for each of our datasets
   VEC_PATH path_alg;
-  for (const auto &entry : filesystem::directory_iterator(folder_algorithms)) {
-    if (filesystem::is_directory(entry)) {
+  for (const auto &entry : boost::filesystem::directory_iterator(folder_algorithms)) {
+    if (boost::filesystem::is_directory(entry)) {
       path_alg.push_back(entry.path());
     }
   }
@@ -255,8 +258,8 @@ VEC_PATH get_path_algorithms() {
   for (auto &path : path_alg) {
     // Get the list of datasets this algorithm records
     map<string, PATH> path_algo_datasets;
-    for (auto &entry : filesystem::directory_iterator(path)) {
-      if (filesystem::is_directory(entry)) {
+    for (auto &entry : boost::filesystem::directory_iterator(path)) {
+      if (boost::filesystem::is_directory(entry)) {
         found_data.push_back(entry.path().filename().string());
         path_algo_datasets.insert({entry.path().filename().string(), entry.path()});
       }
@@ -354,8 +357,8 @@ map<string, map<PATH, pair<Statistics, Statistics>>> NEES_init() {
 /// Get files given directory path
 map<string, PATH> get_list_of_datasets(const PATH &path) {
   map<string, PATH> path_algo_datasets;
-  for (auto &entry : filesystem::directory_iterator(path)) {
-    if (filesystem::is_directory(entry)) {
+  for (auto &entry : boost::filesystem::directory_iterator(path)) {
+    if (boost::filesystem::is_directory(entry)) {
       path_algo_datasets.insert({entry.path().filename().string(), entry.path()});
     }
   }
@@ -364,7 +367,7 @@ map<string, PATH> get_list_of_datasets(const PATH &path) {
 
 /// search for specific extentioned files for analysis.
 void get_paths_of_run_files(map<string, PATH> datasets, const PATH &path_gt, vector<string> &run_paths, vector<string> &time_paths) {
-  for (auto &entry : filesystem::directory_iterator(datasets.at(path_gt.stem().string()))) {
+  for (auto &entry : boost::filesystem::directory_iterator(datasets.at(path_gt.stem().string()))) {
     // Files containing timing record
     if (entry.path().extension() == ".time") {
       time_paths.push_back(entry.path().string());
