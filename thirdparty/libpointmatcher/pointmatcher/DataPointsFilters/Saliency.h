@@ -36,10 +36,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "PointMatcher.h"
 
-//! Subsampling. Filter points beyond a maximum quantile measured on a specific axis
-template< typename T>
-struct MaxQuantileOnAxisDataPointsFilter: public PointMatcher<T>::DataPointsFilter
+template<typename T>
+struct SaliencyDataPointsFilter : public PointMatcher<T>::DataPointsFilter
 {
+  	// Type definitions
+	typedef PointMatcher<T> PM;
+	typedef typename PM::DataPoints DataPoints;
+	typedef typename PM::DataPointsFilter DataPointsFilter;
+
 	typedef PointMatcherSupport::Parametrizable Parametrizable;
 	typedef PointMatcherSupport::Parametrizable P;
 	typedef Parametrizable::Parameters Parameters;
@@ -47,27 +51,47 @@ struct MaxQuantileOnAxisDataPointsFilter: public PointMatcher<T>::DataPointsFilt
 	typedef Parametrizable::ParametersDoc ParametersDoc;
 	typedef Parametrizable::InvalidParameter InvalidParameter;
 	
-	typedef typename PointMatcher<T>::DataPoints DataPoints;
+	typedef typename DataPoints::Index Index;
+
+	typedef typename PointMatcher<T>::DataPoints::InvalidField InvalidField;
 	
+	typedef typename PM::Matrix Matrix;
+	typedef typename PM::Vector Vector;
+
 	inline static const std::string description()
 	{
-		return "Subsampling. Filter points under or beyond a maximum quantile measured on a specific axis.";
+		return "Point cloud enhancement: compute geometric features saliencies throught Tensor Voting framework.";
 	}
+
 	inline static const ParametersDoc availableParameters()
 	{
 		return {
-			{"dim", "dimension on which the filter will be applied. x=0, y=1, z=2", "0", "0", "2", &P::Comp<unsigned>},
-			{"ratio", "maximum quantile authorized. All points beyond that will be filtered.", "0.5", "0.0000001", "0.9999999", &P::Comp<T>},
-			{"removeBeyond", "If set to true (1), remove points beyond the quantile ratio; else (0), remove points under the quantile ratio", "1", "0", "1", P::Comp<bool>}
+			{"k", "Number of neighbors to consider", "50", "6", "4294967295", &P::Comp<std::size_t>},
+			{"sigma", "Scale of the vote.", "0.2", "0.", "+inf", &P::Comp<T>},
+			{"keepNormals", "Flag to keep normals computed by TV.", "1", "0", "1", P::Comp<bool>},
+			{"keepLabels", "Flag to keep labels computed by TV.", "1", "0", "1", P::Comp<bool>},
+			{"keepTensors", "Flag to keep elements Tensors computed by TV.", "1", "0", "1", P::Comp<bool>}
 		};
 	}
+
+public:
+	const std::size_t k;
+	const T sigma;
+	const bool keepNormals;
+	const bool keepLabels;
+	const bool keepTensors;
 	
-	const unsigned dim;
-	const T ratio;
-	const bool removeBeyond;
+	//Ctor, uses parameter interface
+	SaliencyDataPointsFilter(const Parameters& params = Parameters());
+	//SaliencyDataPointsFilter();
 	
-	//! Constructor, uses parameter interface
-	MaxQuantileOnAxisDataPointsFilter(const Parameters& params = Parameters());
+	//Dtor
+	virtual ~SaliencyDataPointsFilter() {};
+
 	virtual DataPoints filter(const DataPoints& input);
 	virtual void inPlaceFilter(DataPoints& cloud);
+
+private:
 };
+	
+

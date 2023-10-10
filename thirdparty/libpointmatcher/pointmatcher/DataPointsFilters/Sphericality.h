@@ -36,9 +36,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "PointMatcher.h"
 
-//! Subsampling. Filter points beyond a maximum quantile measured on a specific axis
-template< typename T>
-struct MaxQuantileOnAxisDataPointsFilter: public PointMatcher<T>::DataPointsFilter
+/*
+ The SphericalityDataPointFilter estimates a heuristic value which indicates how much local geometry around
+ a given point resemble a plane or a sphere (uniform distribution). The value can lie in <-1,1> interval, -1 for
+ perfect plane, 1 for perfectly uniform distribution. The estimation is based on three eigenvalues coming from another
+ data points filter (this filter can operate only on 3D data). In the case the largest eigenvalue is zero, the filter
+ outputs NaNs. If the middle eigenvalue is zero and the largest one is non-zero, the filter outputs zeros.
+
+ Implemented by Vladimir Kubelka (kubelvla@gmail.com), NORLAB, Universite Laval, 2020
+*/
+
+template<typename T>
+struct SphericalityDataPointsFilter: public PointMatcher<T>::DataPointsFilter
 {
 	typedef PointMatcherSupport::Parametrizable Parametrizable;
 	typedef PointMatcherSupport::Parametrizable P;
@@ -47,27 +56,32 @@ struct MaxQuantileOnAxisDataPointsFilter: public PointMatcher<T>::DataPointsFilt
 	typedef Parametrizable::ParametersDoc ParametersDoc;
 	typedef Parametrizable::InvalidParameter InvalidParameter;
 	
+	typedef typename PointMatcher<T>::Vector Vector;
+	typedef typename PointMatcher<T>::Matrix Matrix;	
 	typedef typename PointMatcher<T>::DataPoints DataPoints;
-	
+	typedef typename PointMatcher<T>::DataPoints::InvalidField InvalidField;
+
 	inline static const std::string description()
 	{
-		return "Subsampling. Filter points under or beyond a maximum quantile measured on a specific axis.";
+		return "This filter computes the level of ’sphericality’ for each point. It describes the shape of local geometry, whether the surrounding points resemble a plane (the sphericality value goes towards -1) or a uniform distribution (the value towards +1). It is intended for 3D point clouds only. Sphericality is computed by subtracting the intermediate values of ‘unstructureness’ and ‘structureness’.\n\n"
+		       "Required descriptors: eigValues (must be three, otherwise exception).\n"
+		       "Produced descritors:  sphericality, unstructureness(optional), structureness(optional).\n"
+			   "Altered descriptors:  none.\n"
+			   "Altered features:     none.";
 	}
 	inline static const ParametersDoc availableParameters()
 	{
 		return {
-			{"dim", "dimension on which the filter will be applied. x=0, y=1, z=2", "0", "0", "2", &P::Comp<unsigned>},
-			{"ratio", "maximum quantile authorized. All points beyond that will be filtered.", "0.5", "0.0000001", "0.9999999", &P::Comp<T>},
-			{"removeBeyond", "If set to true (1), remove points beyond the quantile ratio; else (0), remove points under the quantile ratio", "1", "0", "1", P::Comp<bool>}
-		};
+			{"keepUnstructureness", "whether the value of the unstructureness should be added to the pointcloud", "0"},
+			{"keepStructureness", "whether the value of the structureness should be added to the pointcloud", "0"},
+			};
 	}
 	
-	const unsigned dim;
-	const T ratio;
-	const bool removeBeyond;
-	
-	//! Constructor, uses parameter interface
-	MaxQuantileOnAxisDataPointsFilter(const Parameters& params = Parameters());
+	const bool keepUnstructureness;
+	const bool keepStructureness;
+
+    SphericalityDataPointsFilter(const Parameters& params = Parameters());
+	virtual ~SphericalityDataPointsFilter() {};
 	virtual DataPoints filter(const DataPoints& input);
 	virtual void inPlaceFilter(DataPoints& cloud);
 };
