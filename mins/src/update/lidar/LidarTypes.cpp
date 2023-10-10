@@ -28,9 +28,9 @@ LiDARData::LiDARData(double time, double ref_time, int id, std::shared_ptr<pcl::
   // copy measurement time of the point so that it can be filtered with time.
   // Note: we only store relative time to "reference time" because intensity (float) has only 4 bytes
   // Note: this "reference time" should be the same for all other pointclouds.
-  this->pointcloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  this->pointcloud_original = boost::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  this->pointcloud_in_map = boost::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  this->pointcloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  this->pointcloud_original = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  this->pointcloud_in_map = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
   this->pointcloud->points.reserve(pointcloud->points.size());
   this->pointcloud_original->points.reserve(pointcloud->points.size());
   for (int i = 0; i < (int)pointcloud->size(); i++) {
@@ -58,9 +58,9 @@ LiDARData::LiDARData(double time, double ref_time, int id, std::shared_ptr<pcl::
 LiDARData::LiDARData() {
   time = -1;
   id = -1;
-  pointcloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  pointcloud_original = boost::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  pointcloud_in_map = boost::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  pointcloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  pointcloud_original = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  pointcloud_in_map = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
 }
 
 Eigen::Vector3d LiDARData::p(int p_id) {

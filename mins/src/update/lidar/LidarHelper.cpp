@@ -89,14 +89,14 @@ bool LidarHelper::remove_motion_blur(shared_ptr<State> state, shared_ptr<LiDARDa
 void LidarHelper::downsample(shared_ptr<LiDARData> lidar, double downsample_size) {
   pcl::VoxelGrid<pcl::PointXYZI> downSizeFilter;
   downSizeFilter.setLeafSize((float)downsample_size, (float)downsample_size, (float)downsample_size);
-  downSizeFilter.setInputCloud(lidar->pointcloud);
+  downSizeFilter.setInputCloud((*lidar->pointcloud).makeShared());
   downSizeFilter.filter(*lidar->pointcloud);
 }
 
 void LidarHelper::downsample(POINTCLOUD_XYZI_PTR lidar, double downsample_size) {
   pcl::VoxelGrid<pcl::PointXYZI> downSizeFilter;
   downSizeFilter.setLeafSize((float)downsample_size, (float)downsample_size, (float)downsample_size);
-  downSizeFilter.setInputCloud(lidar);
+  downSizeFilter.setInputCloud((*lidar).makeShared());
   downSizeFilter.filter(*lidar);
 }
 
@@ -154,7 +154,7 @@ bool LidarHelper::transform_to_map(shared_ptr<State> state, shared_ptr<LiDARData
   // Run ICP if we use it to register the map
   //===================================================================
   if (state->op->lidar->map_use_icp) {
-    POINTCLOUD_XYZI_PTR map_pointcloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+    POINTCLOUD_XYZI_PTR map_pointcloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
     ikd->tree->flatten(ikd->tree->Root_Node, map_pointcloud->points, NOT_RECORD);
     POINTCLOUD_XYZI_PTR new_pointcloud = lidar->pointcloud;
 
@@ -209,7 +209,7 @@ void LidarHelper::register_scan(shared_ptr<State> state, shared_ptr<LiDARData> l
 void LidarHelper::propagate_map_to_newest_clone(shared_ptr<State> state, shared_ptr<iKDDATA> ikd, shared_ptr<OptionsLidar> op, double FT) {
 
   // Load map info
-  POINTCLOUD_XYZI_PTR map_points = boost::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  POINTCLOUD_XYZI_PTR map_points = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
   ikd->tree->flatten(ikd->tree->Root_Node, map_points->points, NOT_RECORD);
   op->map_do_downsample ? downsample(map_points, state->op->lidar->map_downsample_size) : void();
 
