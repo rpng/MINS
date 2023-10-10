@@ -1,3 +1,9 @@
 [submodule "mins_data/GroundTruths"]
 	path = mins_data/GroundTruths
 	url = https://github.com/WoosikLee2510/GroundTruths
+[submodule "thirdparty/libpointmatcher"]
+	path = thirdparty/libpointmatcher
+	url = https://github.com/ethz-asl/libpointmatcher.git
+[submodule "thirdparty/libnabo"]
+	path = thirdparty/libnabo
+	url = https://github.com/ethz-asl/libnabo.git
