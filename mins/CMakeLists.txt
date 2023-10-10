@@ -34,13 +34,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -fno-sign
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Wall -Wuninitialized -Wmaybe-uninitialized -fno-omit-frame-pointer")
 
 # Find ROS build system
-find_package(catkin REQUIRED COMPONENTS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_ros libpointmatcher)
+find_package(catkin REQUIRED COMPONENTS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_ros)
 
 add_definitions(-DROS_AVAILABLE=1)
 
 # Add catkin packages
 catkin_package(
-        CATKIN_DEPENDS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_ros libpointmatcher
+        CATKIN_DEPENDS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_ros
         INCLUDE_DIRS src/
         LIBRARIES mins_lib
 )
@@ -127,7 +127,7 @@ install(DIRECTORY src/
 ##################################################
 
 add_executable(simulation src/run_simulation.cpp)
-target_link_libraries(simulation mins_lib ${thirdparty_libraries})
+target_link_libraries(simulation mins_lib)
 install(TARGETS simulation
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -135,7 +135,7 @@ install(TARGETS simulation
         )
 
 add_executable(bag src/run_bag.cpp)
-target_link_libraries(bag mins_lib ${thirdparty_libraries})
+target_link_libraries(bag mins_lib)
 install(TARGETS bag
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -143,7 +143,7 @@ install(TARGETS bag
         )
 
 add_executable(subscribe src/run_subscribe.cpp)
-target_link_libraries(subscribe mins_lib ${thirdparty_libraries})
+target_link_libraries(subscribe mins_lib)
 install(TARGETS subscribe
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
