@@ -123,7 +123,7 @@ public:
    * @param lidar mins::LidarData
    * @return True if we have a measurement
    */
-  bool get_next_lidar(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
+  bool get_next_lidar(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
 
   /// boolean for transforming groundtruth after GPS initialization
   bool trans_gt_to_ENU = false;
@@ -186,7 +186,7 @@ protected:
   bool load_plane_data(std::string path_planes);
 
   /// Generate LiDAR pointcloud
-  bool get_lidar_pointcloud(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar, double time, int id, std::shared_ptr<OptionsLidar> lidar_op);
+  bool get_lidar_pointcloud(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar, double time, int id, std::shared_ptr<OptionsLidar> lidar_op);
 
   /**
    * @brief Will generate points in the fov of the specified camera

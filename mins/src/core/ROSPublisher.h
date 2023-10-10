@@ -81,7 +81,7 @@ public:
   void publish_cam_images(int cam_id);
 
   /// Publish lidar point cloud
-  void publish_lidar_cloud(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
+  void publish_lidar_cloud(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
 
 private:
   /// Publish the current state

@@ -48,7 +48,7 @@ public:
   UpdaterLidar(shared_ptr<State> state);
 
   /// Get lidar measurement
-  void feed_measurement(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
+  void feed_measurement(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
 
   /// Try update with available measurements
   void try_update();

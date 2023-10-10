@@ -31,7 +31,7 @@ class PointXYZ;
 class PointXYZI;
 template <class pointT> class PointCloud;
 } // namespace pcl
-typedef boost::shared_ptr<pcl::PointCloud<pcl::PointXYZI>> POINTCLOUD_XYZI_PTR;
+typedef std::shared_ptr<pcl::PointCloud<pcl::PointXYZI>> POINTCLOUD_XYZI_PTR;
 template <class pointT> class KD_TREE;
 namespace mins {
 class State;

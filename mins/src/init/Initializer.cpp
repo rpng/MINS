@@ -321,7 +321,7 @@ void Initializer::init_lidar_sim() {
     }
 
     // Get the lidar point cloud
-    boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar(new pcl::PointCloud<pcl::PointXYZ>);
+    std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar(new pcl::PointCloud<pcl::PointXYZ>);
     bool success = sim->get_lidar_pointcloud(lidar, sim->timestamp - op->dt.at(i), i, op);
     assert(success);
 

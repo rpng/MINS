@@ -23,7 +23,7 @@
 #include "pcl/point_cloud.h"
 
 using namespace mins;
-LiDARData::LiDARData(double time, double ref_time, int id, boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pointcloud, double max_range, double min_range) : time(time), id(id) {
+LiDARData::LiDARData(double time, double ref_time, int id, std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pointcloud, double max_range, double min_range) : time(time), id(id) {
   // copy over the point cloud
   // copy measurement time of the point so that it can be filtered with time.
   // Note: we only store relative time to "reference time" because intensity (float) has only 4 bytes

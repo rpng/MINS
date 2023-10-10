@@ -174,7 +174,7 @@ void SystemManager::feed_measurement_wheel(const WheelData &wheel) {
   state->initialized ? tc_sensors->dong("WHL") : void();
 }
 
-void SystemManager::feed_measurement_lidar(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {
+void SystemManager::feed_measurement_lidar(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {
   if (!state->op->lidar->enabled)
     return;
   state->initialized ? tc_sensors->ding("LDR") : void();

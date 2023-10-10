@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
     if (op->est->lidar->enabled) {
       for (int lidar_id = 0; lidar_id < op->est->lidar->max_n; lidar_id++) {
         if (msgs.at(i).getTopic() == op->est->lidar->topic.at(lidar_id)) {
-          pcl::PointCloud<pcl::PointXYZ>::Ptr data = ROSHelper::rosPC2pclPC(msgs.at(i).instantiate<sensor_msgs::PointCloud2>(), lidar_id);
+          std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> data = ROSHelper::rosPC2pclPC(msgs.at(i).instantiate<sensor_msgs::PointCloud2>(), lidar_id);
           PRINT1("[BAG] LDR measurement: %.3f|%d|%d\n", (double)data->header.stamp / 1000, lidar_id, data->points.size());
           sys->feed_measurement_lidar(data);
           pub->publish_lidar_cloud(data);

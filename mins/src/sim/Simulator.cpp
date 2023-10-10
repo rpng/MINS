@@ -718,7 +718,7 @@ bool Simulator::get_next_wheel(WheelData &wheel) {
   return true;
 }
 
-bool Simulator::get_next_lidar(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {
+bool Simulator::get_next_lidar(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {
 
   // check turn
   string sensor_type;
@@ -739,7 +739,7 @@ bool Simulator::get_next_lidar(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>>
   return true;
 }
 
-bool Simulator::get_lidar_pointcloud(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar, double time, int id, std::shared_ptr<OptionsLidar> lidar_op) {
+bool Simulator::get_lidar_pointcloud(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar, double time, int id, std::shared_ptr<OptionsLidar> lidar_op) {
   // Lidar id and timestamp
   lidar->header.frame_id = to_string(id);
   lidar->header.stamp = (unsigned long)((time - lidar_op->dt.at(id)) * 1000); // Delivered in micro second

@@ -87,7 +87,7 @@ public:
   void feed_measurement_wheel(const WheelData &wheel);
 
   /// LiDAR measurement feeder
-  void feed_measurement_lidar(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
+  void feed_measurement_lidar(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
   /**
    * @brief After the run has ended, print results
    */

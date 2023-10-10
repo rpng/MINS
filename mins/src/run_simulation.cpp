@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
     }
 
     // LIDAR: get the next simulated lidar range measurements
-    pcl::PointCloud<pcl::PointXYZ>::Ptr lidar(new pcl::PointCloud<pcl::PointXYZ>);
+    std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar(new pcl::PointCloud<pcl::PointXYZ>);
     if (sim->get_next_lidar(lidar)) {
       sys->feed_measurement_lidar(lidar);
       pub->publish_lidar_cloud(lidar);

@@ -116,8 +116,8 @@ ov_core::ImuData ROSHelper::Imu2Data(const Imu::ConstPtr &msg) {
   return message;
 }
 
-boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> ROSHelper::rosPC2pclPC(const sensor_msgs::PointCloud2ConstPtr &msg, int id) {
-  boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pcl_pc2(new pcl::PointCloud<pcl::PointXYZ>);
+std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> ROSHelper::rosPC2pclPC(const sensor_msgs::PointCloud2ConstPtr &msg, int id) {
+  std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pcl_pc2(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromROSMsg(*msg, *pcl_pc2);
   pcl_pc2->header.frame_id = to_string(id);                 // overwrite the id match with system number
   pcl_pc2->header.stamp = msg->header.stamp.toSec() * 1000; // deliver this in msec
