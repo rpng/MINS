@@ -1,0 +1,10 @@
+*.cproject
+*.project
+*~
+*.swp
+*.cur_trans
+build
+.ipynb_checkpoints/
+
+dist/
+*.so

@@ -47,7 +47,7 @@ UpdaterLidar::UpdaterLidar(shared_ptr<State> state) : state(state) {
   }
 }
 
-void UpdaterLidar::feed_measurement(boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {
+void UpdaterLidar::feed_measurement(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {
   // Record first ever measurement time to set up reference time (ref. LidarTypes.h)
   FT < 0 ? FT = (double)lidar->header.stamp / 1000 : double();
 

@@ -89,7 +89,7 @@ public:
 
   static GPSData PoseStamped2Data(const geometry_msgs::PoseStampedPtr &msg, int id, double noise);
 
-  static boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> rosPC2pclPC(const sensor_msgs::PointCloud2ConstPtr &msg, int id);
+  static std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> rosPC2pclPC(const sensor_msgs::PointCloud2ConstPtr &msg, int id);
 
   static GPSData NavSatFix2Data(const sensor_msgs::NavSatFixPtr &msg, int id);
 

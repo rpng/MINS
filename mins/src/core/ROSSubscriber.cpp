@@ -176,7 +176,7 @@ void ROSSubscriber::callback_gnss(const NavSatFixConstPtr &msg, int gps_id) {
 
 void ROSSubscriber::callback_lidar(const PointCloud2ConstPtr &msg, int lidar_id) {
   // convert into correct format & send it to our system
-  boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> data = ROSHelper::rosPC2pclPC(msg, lidar_id);
+  std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> data = ROSHelper::rosPC2pclPC(msg, lidar_id);
   sys->feed_measurement_lidar(data);
   pub->publish_lidar_cloud(data);
 }

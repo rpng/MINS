@@ -30,12 +30,12 @@ class PointXYZ;
 class PointXYZI;
 template <class pointT> class PointCloud;
 } // namespace pcl
-typedef boost::shared_ptr<pcl::PointCloud<pcl::PointXYZI>> POINTCLOUD_XYZI_PTR;
+typedef std::shared_ptr<pcl::PointCloud<pcl::PointXYZI>> POINTCLOUD_XYZI_PTR;
 template <class pointT> class KD_TREE;
 
 namespace mins {
 struct LiDARData {
-  LiDARData(double time, double ref_time, int id, boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pointcloud, double max_range, double min_range);
+  LiDARData(double time, double ref_time, int id, std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pointcloud, double max_range, double min_range);
 
   LiDARData();
 
