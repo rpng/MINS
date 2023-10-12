@@ -112,6 +112,8 @@ void ROSSubscriber::callback_inertial(const Imu::ConstPtr &msg) {
     pub->visualize();
   }
   pub->publish_imu();
+  PRINT1(YELLOW "[SUB] IMU measurement: %.3f" RESET, imu.timestamp);
+  PRINT1(YELLOW "|%.3f,%.3f,%.3f|%.3f,%.3f,%.3f\n" RESET, imu.wm(0), imu.wm(1), imu.wm(2), imu.am(0), imu.am(1), imu.am(2));
 }
 
 void ROSSubscriber::callback_monocular_I(const ImageConstPtr &msg, int cam_id) {
@@ -120,6 +122,7 @@ void ROSSubscriber::callback_monocular_I(const ImageConstPtr &msg, int cam_id) {
   if (ROSHelper::Image2Data(msg, cam_id, cam, op->cam)) {
     sys->feed_measurement_camera(cam);
     pub->publish_cam_images(cam_id);
+    PRINT1(YELLOW "[SUB] MONO Cam measurement: %.3f|%d\n" RESET, msg->header.stamp.toSec(), cam_id);
   }
 }
 
@@ -129,6 +132,7 @@ void ROSSubscriber::callback_monocular_C(const CompressedImageConstPtr &msg, int
   if (ROSHelper::Image2Data(msg, cam_id, cam, op->cam)) {
     sys->feed_measurement_camera(cam);
     pub->publish_cam_images(cam_id);
+    PRINT1(YELLOW "[SUB] MONO Cam measurement: %.3f|%d\n" RESET, msg->header.stamp.toSec(), cam_id);
   }
 }
 
@@ -140,6 +144,7 @@ void ROSSubscriber::callback_stereo_I(const ImageConstPtr &msg0, const ImageCons
   if (success0 && success1) {
     sys->feed_measurement_camera(cam);
     pub->publish_cam_images({cam_id0, cam_id1});
+    PRINT1(YELLOW "[SUB] STEREO Cam measurement: %.3f|%d|%d\n" RESET, msg0->header.stamp.toSec(), cam_id0, cam_id1);
   }
 }
 
@@ -151,6 +156,7 @@ void ROSSubscriber::callback_stereo_C(const CompressedImageConstPtr &msg0, const
   if (success0 && success1) {
     sys->feed_measurement_camera(cam);
     pub->publish_cam_images({cam_id0, cam_id1});
+    PRINT1(YELLOW "[SUB] STEREO Cam measurement: %.3f|%d|%d\n" RESET, msg0->header.stamp.toSec(), cam_id0, cam_id1);
   }
 }
 
@@ -161,6 +167,7 @@ void ROSSubscriber::callback_wheel(const JointStateConstPtr &msg) {
 
   WheelData data = ROSHelper::JointState2Data(msg);
   sys->feed_measurement_wheel(data);
+  PRINT1(YELLOW "[SUB] Wheel measurement: %.3f|%.3f,%.3f\n" RESET, data.time, data.m1, data.m2);
 }
 
 void ROSSubscriber::callback_gnss(const NavSatFixConstPtr &msg, int gps_id) {
@@ -172,6 +179,8 @@ void ROSSubscriber::callback_gnss(const NavSatFixConstPtr &msg, int gps_id) {
   data.noise(2) <= 0.0 || op->gps->overwrite_noise ? data.noise(2) = op->gps->noise * 2 : double();
   sys->feed_measurement_gps(data, true);
   pub->publish_gps(data, true);
+  PRINT1(YELLOW "[SUB] GPS measurement: %.3f|%d|" RESET, data.time, data.id);
+  PRINT1(YELLOW "%.3f,%.3f,%.3f|%.3f,%.3f,%.3f\n" RESET, data.meas(0), data.meas(1), data.meas(2), data.noise(0), data.noise(1), data.noise(2));
 }
 
 void ROSSubscriber::callback_lidar(const PointCloud2ConstPtr &msg, int lidar_id) {
@@ -179,4 +188,5 @@ void ROSSubscriber::callback_lidar(const PointCloud2ConstPtr &msg, int lidar_id)
   std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> data = ROSHelper::rosPC2pclPC(msg, lidar_id);
   sys->feed_measurement_lidar(data);
   pub->publish_lidar_cloud(data);
+  PRINT1(YELLOW "[SUB] LiDAR measurement: %.3f|%d\n" RESET, (double)msg->header.stamp.toSec() / 1000, lidar_id);
 }
