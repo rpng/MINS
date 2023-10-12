@@ -150,8 +150,8 @@ void UpdaterLidar::propagate_map_frame() {
     if (!ikd_data.at(i)->tree->initialized())
       continue;
 
-    // Skip if we have less than 2 clones
-    if (state->clones.size() < 2)
+    // Skip if we do not have enough clones to perform propagation
+    if (state->clones.size() < state->op->intr_order + 1)
       continue;
 
     if (ikd_data.at(i)->time + state->lidar_dt.at(i)->value()(0) <= state->oldest_3rd_clone_time())
