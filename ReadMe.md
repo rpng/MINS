@@ -1,4 +1,6 @@
 # MINS
+[![Docker Image CI](https://github.com/rpng/MINS/actions/workflows/docker-image.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/docker-image.yml)
+
 An efficient, robust, and tightly-coupled **Multisensor-aided Inertial Navigation System (MINS)** which is capable of 
 flexibly fusing all five sensing modalities (**IMU**, **wheel** **encoders**, **camera**, **GNSS**, and **LiDAR**) in a filtering 
 fashion by overcoming the hurdles of computational complexity, sensor asynchronicity, and intra-sensor calibration. 
