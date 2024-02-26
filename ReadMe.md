@@ -45,7 +45,7 @@ source devel/setup.bash
 
 ### Real-World Dataset
 #### Directly reading the ros bag file
-```roslaunch mins serial.launch config:=kaist/kaist_LC path_gt:=urban30.txt path_bag:=urban30.bag```
+```roslaunch mins rosbag.launch config:=kaist/kaist_LC path_gt:=urban30.txt path_bag:=urban30.bag```
 
 ![alt text](thirdparty/real_bag.png)
 
