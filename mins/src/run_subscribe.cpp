@@ -32,12 +32,12 @@
 #include "core/SystemManager.h"
 #include "options/Options.h"
 #include "options/OptionsSystem.h"
+#include "rclcpp/rclcpp.hpp"
 #include "utils/Print_Logger.h"
 #include "utils/State_Logger.h"
 #include "utils/TimeChecker.h"
 #include "utils/colors.h"
 #include "utils/opencv_yaml_parse.h"
-#include <ros/ros.h>
 
 using namespace std;
 using namespace mins;
@@ -50,21 +50,27 @@ int main(int argc, char **argv) {
   argc > 1 ? config_path = argv[1] : string();
 
   // Launch our ros node
-  ros::init(argc, argv, "mins_subscribe");
-  auto nh = make_shared<ros::NodeHandle>("~");
-  nh->param<string>("config_path", config_path, config_path);
+  rclcpp::init(argc, argv);
+
+  rclcpp::NodeOptions options;
+  options.allow_undeclared_parameters(true);
+  options.automatically_declare_parameters_from_overrides(true);
+  auto node = std::make_shared<rclcpp::Node>("mins_subscribe", options);
+  node->get_parameter<std::string>("config_path", config_path);
 
   // Load the config
   auto parser = make_shared<ov_core::YamlParser>(config_path);
-  parser->set_node_handler(nh);
+#if ROS_AVAILABLE == 2
+  parser->set_node(node);
+#endif
   shared_ptr<Options> op = make_shared<Options>();
   op->load_print(parser);
   shared_ptr<State_Logger> save = make_shared<State_Logger>(op);
 
   // Create our system
   shared_ptr<SystemManager> sys = make_shared<SystemManager>(op->est);
-  shared_ptr<ROSPublisher> pub = make_shared<ROSPublisher>(nh, sys, op);
-  shared_ptr<ROSSubscriber> sub = make_shared<ROSSubscriber>(nh, sys, pub);
+  shared_ptr<ROSPublisher> pub = make_shared<ROSPublisher>(node, sys, op);
+  shared_ptr<ROSSubscriber> sub = make_shared<ROSSubscriber>(node, sys, pub);
 
   // Ensure we read in all parameters required
   if (!parser->successful()) {
@@ -72,16 +78,18 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
+  // rclcpp::spin(node);
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node);
+  executor.spin();
   // Spin off to ROS
-  ros::spin();
 
   // Final visualization
   sys->visualize_final();
   op->sys->save_timing ? save->save_timing_to_file(sys->tc_sensors->get_total_sum()) : void();
   save->check_files();
 
-  ros::shutdown();
-
+  rclcpp::shutdown();
   // Done!
   return EXIT_SUCCESS;
 }

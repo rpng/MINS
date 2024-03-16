@@ -34,33 +34,64 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -fno-sign
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Wall -Wuninitialized -Wmaybe-uninitialized -fno-omit-frame-pointer")
 
 # Find ROS build system
-find_package(catkin REQUIRED COMPONENTS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_ros)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rosbag2 REQUIRED COMPONENTS rmw_adapters message_filters rosbag2_storage_builtin)
+find_package(tf2_ros REQUIRED COMPONENTS tf2_cpp)  # Replaces tf
 
-add_definitions(-DROS_AVAILABLE=1)
+# Find message packages (geometry_msgs, sensor_msgs, etc.)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(image_geometry REQUIRED)  # Might require additional setup
+find_package(visualization_msgs REQUIRED)
+find_package(image_transport REQUIRED)  # Might require additional setup
+find_package(cv_bridge REQUIRED)        # Might require additional setup
+find_package(pcl_conversions REQUIRED)
 
-# Add catkin packages
-catkin_package(
-        CATKIN_DEPENDS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_ros
-        INCLUDE_DIRS src/
-        LIBRARIES mins_lib
+# Other dependencies (if available through ROS 2 packages)
+# find_package(pcl_ros2 REQUIRED)  # Might require building ROS 2 wrapper for PCL
+find_package(ov_core REQUIRED)   # Might not be available as a ROS 2 package
+
+add_definitions(-DROS_AVAILABLE=2)
+ament_export_dependencies(rclcpp rosbag2 tf2_ros std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_conversions)
+ament_export_include_directories(src/)
+ament_export_libraries(mins_lib)
+
+list(APPEND ament_libraries
+        rclcpp
+        rosbag2
+        tf2_ros
+        std_msgs
+        geometry_msgs
+        visualization_msgs
+        sensor_msgs
+        nav_msgs
+        cv_bridge
+        image_transport
+        ov_core
+        pcl_conversions
+        image_geometry
+        libpointmatcher
 )
+
 
 # Include our header files
 include_directories(
         src
         ${EIGEN3_INCLUDE_DIR}
-        ${PCL_INCLUDE_DIRS}
         ${Boost_INCLUDE_DIRS}
-        ${catkin_INCLUDE_DIRS}
-        ${libpointmatcher_INCLUDE_DIRS}
 )
 
 # Set link libraries used by all binaries
 list(APPEND thirdparty_libraries
         ${Boost_LIBRARIES}
         ${OpenCV_LIBRARIES}
-        ${catkin_LIBRARIES}
         ${libpointmatcher_LIBRARIES}
+        ${libnabo_LIBRARIES}
+        ${PCL_LIBRARIES}
         )
 
 ##################################################
@@ -110,42 +141,81 @@ list(APPEND LIBRARY_SOURCES
 
 file(GLOB_RECURSE LIBRARY_HEADERS "src/*.h")
 add_library(mins_lib SHARED ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
-target_link_libraries(mins_lib ${thirdparty_libraries})
-target_include_directories(mins_lib PUBLIC src/)
-install(TARGETS mins_lib
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
-install(DIRECTORY src/
-        DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
-        FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
-        )
+ament_target_dependencies(mins_lib ${ament_libraries})
+target_link_libraries(mins_lib ${thirdparty_libraries} ${rclcpp_LIBRARIES})
 
+# target_include_directories(mins_lib PUBLIC src/)
+
+target_include_directories(mins_lib PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+# install(TARGETS mins_lib
+#         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#         )
+install(TARGETS mins_lib
+  EXPORT mins_targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+# install(DIRECTORY src/
+#         DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+#         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+#         )
+# Install header files
+install(DIRECTORY src/
+  DESTINATION include
+  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
+ament_export_include_directories(include)
+ament_export_targets(mins_targets)
+
+# Add packages
 ##################################################
 # Make binary files!
 ##################################################
-
 add_executable(simulation src/run_simulation.cpp)
 target_link_libraries(simulation mins_lib)
-install(TARGETS simulation
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
 
-add_executable(bag src/run_bag.cpp)
-target_link_libraries(bag mins_lib)
-install(TARGETS bag
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
+# add_executable(bag src/run_bag.cpp)
+# target_link_libraries(bag mins_lib)
 
 add_executable(subscribe src/run_subscribe.cpp)
 target_link_libraries(subscribe mins_lib)
-install(TARGETS subscribe
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
+
+# Install executables
+install(TARGETS subscribe simulation DESTINATION lib/${PROJECT_NAME})
+
+
+install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch/)
+install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config/)
+
+# add_executable(simulation src/run_simulation.cpp)
+# target_link_libraries(simulation mins_lib)
+# install(TARGETS simulation
+#         ARCHIVE DESTINATION lib/${PROJECT_NAME}
+#         LIBRARY DESTINATION lib/${PROJECT_NAME}
+#         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#         )
+
+# add_executable(bag src/run_bag.cpp)
+# target_link_libraries(bag mins_lib)
+# install(TARGETS bag
+#         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#         LIBRARY DESTINATION lib/${PROJECT_NAME}
+#         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#         )
+
+# add_executable(subscribe src/run_subscribe.cpp)
+# target_link_libraries(subscribe mins_lib)
+# install(TARGETS subscribe
+#         ARCHIVE DESTINATION lib/${PROJECT_NAME}
+#         LIBRARY DESTINATION lib/${PROJECT_NAME}
+#         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#         )
+
+ament_package()

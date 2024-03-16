@@ -21,7 +21,7 @@
 #include "OptionsSystem.h"
 #include "utils/Print_Logger.h"
 #include "utils/opencv_yaml_parse.h"
-#include <ros/package.h>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 void mins::OptionsSystem::load_print(const std::shared_ptr<ov_core::YamlParser> &parser) {
   if (parser != nullptr) {
@@ -42,9 +42,10 @@ void mins::OptionsSystem::load_print(const std::shared_ptr<ov_core::YamlParser> 
     parser->parse_external(f, "sys", "bag_durr", bag_durr);
     parser->parse_external(f, "sys", "path_gt", path_gt, false);
     // Replace MINS_DIR if we have it
-    path_timing.substr(0, 8) == "MINS_DIR" ? path_timing.replace(0, 8, ros::package::getPath("mins")) : std::string();
-    path_state.substr(0, 8) == "MINS_DIR" ? path_state.replace(0, 8, ros::package::getPath("mins")) : std::string();
-    path_trajectory.substr(0, 8) == "MINS_DIR" ? path_trajectory.replace(0, 8, ros::package::getPath("mins")) : std::string();
+    auto dir = ament_index_cpp::get_package_share_directory("mins");
+    path_timing.substr(0, 8) == "MINS_DIR" ? path_timing.replace(0, 8, dir) : std::string();
+    path_state.substr(0, 8) == "MINS_DIR" ? path_state.replace(0, 8, dir) : std::string();
+    path_trajectory.substr(0, 8) == "MINS_DIR" ? path_trajectory.replace(0, 8, dir) : std::string();
   }
   PRINT1(BOLDBLUE "Options - System\n" RESET);
   PRINT1("\t- save_timing: %s\n", save_timing ? "true" : "false");

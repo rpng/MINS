@@ -52,7 +52,7 @@
 #include "utils/sensor_data.h"
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 using namespace mins;
 using namespace std;
@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
   // Load parameters
   system_setup(argc, argv);
   // run simulation
-  while (sim->ok() && ros::ok()) {
+  while (sim->ok() && rclcpp::ok()) {
     // imu: get the next simulated imu measurement if we have it
     ov_core::ImuData imu;
     if (sim->get_next_imu(imu)) {
@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
   op->sys->save_timing ? save->save_timing_to_file(sys->tc_sensors->get_total_sum()) : void();
   save->check_files();
 
-  ros::shutdown();
+  rclcpp::shutdown();
   return EXIT_SUCCESS;
 }
 
@@ -139,13 +139,18 @@ void system_setup(int argc, char **argv) {
   argc > 1 ? config_path = argv[1] : string();
 
   // Launch our ros node
-  ros::init(argc, argv, "mins_simulation");
-  auto nh = make_shared<ros::NodeHandle>("~");
-  nh->param<string>("config_path", config_path, config_path);
+  rclcpp::init(argc, argv);
+
+  auto node = std::make_shared<rclcpp::Node>("mins_simulation");
+
+  node->get_parameter<std::string>("config_path", config_path);
 
   // Load the config
   auto parser = make_shared<ov_core::YamlParser>(config_path);
-  parser->set_node_handler(nh);
+
+#if ROS_AVAILABLE == 2
+  parser->set_node(node);
+#endif
   op = make_shared<Options>();
   op->load_print(parser);
   op->sys->save_prints ? mins::Print_Logger::open_file(op->sys->path_state, true) : void();
@@ -153,8 +158,8 @@ void system_setup(int argc, char **argv) {
   // Create our system
   sim = make_shared<Simulator>(op);
   sys = make_shared<SystemManager>(op->est, sim);
-  pub = make_shared<ROSPublisher>(nh, sys, op);
-  sim_viz = make_shared<SimVisualizer>(nh, sys, sim);
+  pub = make_shared<ROSPublisher>(node, sys, op);
+  sim_viz = make_shared<SimVisualizer>(node, sys, sim);
 
   // Ensure we read in all parameters required
   if (!parser->successful()) {
