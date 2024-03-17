@@ -4,7 +4,7 @@
  * email: yixicai@connect.hku.hk
  * Repo: https://github.com/hku-mars/ikd-Tree/commits/main
  * Commit: c0e36a16b6e4d557d3783b16911207f6398dd478
-*/
+ */
 
 #pragma once
 #include <algorithm>
@@ -244,8 +244,7 @@ public:
   int validnum();
   void root_alpha(float &alpha_bal, float &alpha_del);
   void Build(PointVector point_cloud);
-  void Nearest_Search(PointType point, int k_nearest, PointVector &Nearest_Points, vector<float> &Point_Distance,
-                      double max_dist = INFINITY);
+  void Nearest_Search(PointType point, int k_nearest, PointVector &Nearest_Points, vector<float> &Point_Distance, double max_dist = INFINITY);
   void Box_Search(const BoxPointType &Box_of_Point, PointVector &Storage);
   void Radius_Search(PointType point, const float radius, PointVector &Storage);
   int Add_Points(PointVector &PointToAdd, bool downsample_on);

@@ -28,65 +28,69 @@
 #ifndef MINS_ROSSUBSCRIBER_H
 #define MINS_ROSSUBSCRIBER_H
 
-#include "ros/ros.h"
-#include "sensor_msgs/CompressedImage.h"
-#include "sensor_msgs/Image.h"
-#include "sensor_msgs/Imu.h"
-#include "sensor_msgs/JointState.h"
-#include "sensor_msgs/NavSatFix.h"
-#include "sensor_msgs/PointCloud2.h"
+#include "nav_msgs/msg/path.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/compressed_image.hpp"
+#include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/imu.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/time_synchronizer.h>
 
 using namespace std;
-using namespace sensor_msgs;
+using namespace sensor_msgs::msg;
 namespace mins {
 
 class SystemManager;
 struct OptionsEstimator;
-class ROSPublisher;
-class ROSSubscriber {
+class ROS2Publisher;
+class ROS2Subscriber {
 
 public:
   /// ROS message subscriber
-  ROSSubscriber(shared_ptr<ros::NodeHandle> nh, shared_ptr<SystemManager> sys, shared_ptr<ROSPublisher> pub);
+  ROS2Subscriber(shared_ptr<rclcpp::Node> node, shared_ptr<SystemManager> sys, shared_ptr<ROS2Publisher> pub);
 
   /// Callback for IMU
-  void callback_inertial(const Imu::ConstPtr &msg);
+  void callback_inertial(const Imu::SharedPtr msg);
 
   /// Callback for Wheel
-  void callback_wheel(const JointStateConstPtr &msg);
+  void callback_wheel(const JointState::SharedPtr msg);
 
   /// Callback for GNSS
-  void callback_gnss(const NavSatFixConstPtr &msg, int gps_id);
+  void callback_gnss(const NavSatFix::SharedPtr msg, int gps_id);
 
   /// Callback for LiDAR
-  void callback_lidar(const PointCloud2ConstPtr &msg, int lidar_id);
+  void callback_lidar(const PointCloud2::SharedPtr msg, int lidar_id);
 
   /// Callback for monocular camera (image, compressed image)
-  void callback_monocular_I(const ImageConstPtr &msg, int cam_id);
-  void callback_monocular_C(const CompressedImageConstPtr &msg, int cam_id);
+  void callback_monocular_I(const Image::SharedPtr msg, int cam_id);
+  void callback_monocular_C(const CompressedImage::SharedPtr msg, int cam_id);
 
   /// Callback for synchronized stereo camera (image, compressed image)
-  void callback_stereo_I(const ImageConstPtr &msg0, const ImageConstPtr &msg1, int cam_id0, int cam_id1);
-  void callback_stereo_C(const CompressedImageConstPtr &msg0, const CompressedImageConstPtr &msg1, int cam_id0, int cam_id1);
+  void callback_stereo_I(const Image::ConstSharedPtr msg0, const Image::ConstSharedPtr msg1, int cam_id0, int cam_id1);
+  void callback_stereo_C(const CompressedImage::ConstSharedPtr msg0, const CompressedImage::ConstSharedPtr msg1, int cam_id0, int cam_id1);
 
 private:
   /// Global node handler
-  shared_ptr<ros::NodeHandle> nh;
+  shared_ptr<rclcpp::Node> node;
 
   /// MINS system
   shared_ptr<SystemManager> sys;
 
   /// ROS publisher
-  shared_ptr<ROSPublisher> pub;
+  shared_ptr<ROS2Publisher> pub;
 
   /// Options
   shared_ptr<OptionsEstimator> op;
 
   /// Our subscribers and camera synchronizers
-  vector<ros::Subscriber> subs;
+  rclcpp::Subscription<Imu>::SharedPtr sub_imu;
+
+  vector<rclcpp::SubscriptionBase::WeakPtr> subs;
+  vector<rclcpp::Subscription<Image>::SharedPtr> image_subs;
   typedef message_filters::sync_policies::ApproximateTime<Image, Image> sync_pol;
   vector<shared_ptr<message_filters::Synchronizer<sync_pol>>> sync_cam;
   vector<shared_ptr<message_filters::Subscriber<Image>>> sync_subs_cam;

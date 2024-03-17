@@ -18,11 +18,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "SimVisualizer.h"
+#include "Sim2Visualizer.h"
 #include "SimulationPlane.h"
-#include "core/ROSHelper.h"
+
+#include "core/ROS2Helper.h"
+
 #include "core/SystemManager.h"
-#include "nav_msgs/Path.h"
 #include "options/Options.h"
 #include "options/OptionsCamera.h"
 #include "options/OptionsEstimator.h"
@@ -30,7 +31,6 @@
 #include "options/OptionsInit.h"
 #include "options/OptionsLidar.h"
 #include "options/OptionsSimulation.h"
-#include "sensor_msgs/PointCloud2.h"
 #include "sim/Simulator.h"
 #include "state/State.h"
 #include "state/StateHelper.h"
@@ -39,52 +39,51 @@
 #include "update/gps/UpdaterGPS.h"
 #include "utils/Print_Logger.h"
 #include "utils/dataset_reader.h"
-#include <tf/transform_broadcaster.h>
-#include <visualization_msgs/MarkerArray.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 using namespace std;
 using namespace ov_core;
 using namespace ov_type;
 using namespace mins;
-using namespace visualization_msgs;
-SimVisualizer::SimVisualizer(shared_ptr<ros::NodeHandle> nh, shared_ptr<SystemManager> sys, shared_ptr<Simulator> sim) : nh(nh), sys(sys), sim(sim) {
+using namespace visualization_msgs::msg;
+Sim2Visualizer::Sim2Visualizer(shared_ptr<rclcpp::Node> node, shared_ptr<SystemManager> sys, shared_ptr<Simulator> sim) : node(node), sys(sys), sim(sim) {
 
   // Publish simulated camera point cloud if simulation enabled
   if (sim != nullptr && sys->state->op->cam->enabled) {
-    pub_sim_cam_points = make_shared<ros::Publisher>(nh->advertise<sensor_msgs::PointCloud2>("/mins/cam/points_sim", 2));
-    PRINT1("Publishing: %s\n", pub_sim_cam_points->getTopic().c_str());
+    pub_sim_cam_points = node->create_publisher<sensor_msgs::msg::PointCloud2>("/mins/cam/points_sim", 2);
+    PRINT1("Publishing: %s\n", pub_sim_cam_points->get_topic_name());
   }
 
   if (sim != nullptr && sys->state->op->lidar->enabled) {
-    pub_sim_lidar_map = make_shared<ros::Publisher>(nh->advertise<MarkerArray>("/mins/sim_lidar_map", 2));
-    PRINT1("Publishing: %s\n", pub_sim_lidar_map->getTopic().c_str());
+    pub_sim_lidar_map = node->create_publisher<MarkerArray>("/mins/sim_lidar_map", 2);
+    PRINT1("Publishing: %s\n", pub_sim_lidar_map->get_topic_name());
   }
 
   // Groundtruth publishers
-  mTfBr = make_shared<tf::TransformBroadcaster>();
-  pub_posegt = make_shared<ros::Publisher>(nh->advertise<geometry_msgs::PoseStamped>("/mins/imu/pose_gt", 2));
-  PRINT1("Publishing: %s\n", pub_posegt->getTopic().c_str());
-  pub_pathgt = make_shared<ros::Publisher>(nh->advertise<nav_msgs::Path>("/mins/imu/path_gt", 2));
-  PRINT1("Publishing: %s\n", pub_pathgt->getTopic().c_str());
+  mTfBr = make_shared<tf2_ros::TransformBroadcaster>(node);
+  pub_posegt = node->create_publisher<geometry_msgs::msg::PoseStamped>("/mins/imu/pose_gt", 2);
+  PRINT1("Publishing: %s\n", pub_posegt->get_topic_name());
+  pub_pathgt = node->create_publisher<nav_msgs::msg::Path>("/mins/imu/path_gt", 2);
+  PRINT1("Publishing: %s\n", pub_pathgt->get_topic_name());
 }
 
-void SimVisualizer::publish_sim_cam_features() {
+void Sim2Visualizer::publish_sim_cam_features() {
   // Check if we have subscribers
-  if (sim == nullptr || pub_sim_cam_points->getNumSubscribers() == 0)
+  if (sim == nullptr || pub_sim_cam_points->get_subscription_count() == 0)
     return;
 
   // Get our good SIMULATION features
   vector<Eigen::Vector3d> feats_sim = sim->get_cam_map_vec();
-  sensor_msgs::PointCloud2 cloud_SIM = ROSHelper::ToPointcloud(feats_sim, "global");
+  sensor_msgs::msg::PointCloud2 cloud_SIM = ROS2Helper::ToPointcloud(feats_sim, "global");
   pub_sim_cam_points->publish(cloud_SIM);
 }
 
-void SimVisualizer::publish_groundtruth() {
+void Sim2Visualizer::publish_groundtruth() {
   // Transform the path history if GNSS is initialized
   if (sys->state->op->gps->enabled && sys->up_gps->initialized && !traj_in_enu) {
     // Transform individual pose stored in the path
     for (auto &pose : poses_gt) {
-      pose = ROSHelper::ToENU(pose, sys->state->trans_WtoE->value());
+      pose = ROS2Helper::ToENU(pose, sys->state->trans_WtoE->value());
     }
     // We only transform the trajectory once.
     traj_in_enu = true;
@@ -107,9 +106,9 @@ void SimVisualizer::publish_groundtruth() {
   }
 
   // Create pose of IMU
-  geometry_msgs::PoseStamped poseIinM;
-  poseIinM.header.stamp = ros::Time(sys->state->time);
-  poseIinM.header.seq = poses_seq_gt;
+  geometry_msgs::msg::PoseStamped poseIinM;
+  poseIinM.header.stamp = rclcpp::Time(sys->state->time);
+  //  poseIinM.header.seq = poses_seq_gt;
   poseIinM.header.frame_id = "global";
   poseIinM.pose.orientation.x = state_gt(1, 0);
   poseIinM.pose.orientation.y = state_gt(2, 0);
@@ -126,9 +125,9 @@ void SimVisualizer::publish_groundtruth() {
   // Create our path (IMU)
   // NOTE: We downsample the number of poses as needed to prevent rviz crashes
   // NOTE: https://github.com/ros-visualization/rviz/issues/1107
-  nav_msgs::Path arrIMU;
-  arrIMU.header.stamp = ros::Time::now();
-  arrIMU.header.seq = poses_seq_gt;
+  nav_msgs::msg::Path arrIMU;
+  arrIMU.header.stamp = rclcpp::Clock().now();
+  //  arrIMU.header.seq = poses_seq_gt;
   arrIMU.header.frame_id = "global";
   for (size_t i = 0; i < poses_gt.size(); i += floor((double)poses_gt.size() / 16384.0) + 1) {
     arrIMU.poses.push_back(poses_gt[i]);
@@ -139,14 +138,23 @@ void SimVisualizer::publish_groundtruth() {
   poses_seq_gt++;
 
   // Publish our transform on TF
-  tf::StampedTransform trans;
-  trans.stamp_ = ros::Time::now();
-  trans.frame_id_ = "global";
-  trans.child_frame_id_ = "truth";
-  tf::Quaternion quat(state_gt(1, 0), state_gt(2, 0), state_gt(3, 0), state_gt(4, 0));
-  trans.setRotation(quat);
-  tf::Vector3 orig(state_gt(5, 0), state_gt(6, 0), state_gt(7, 0));
-  trans.setOrigin(orig);
+  geometry_msgs::msg::TransformStamped trans;
+  trans.header.stamp = rclcpp::Clock().now();
+  trans.header.frame_id = "global";
+  trans.child_frame_id = "truth";
+  geometry_msgs::msg::Quaternion quat;
+
+  quat.x = state_gt(1, 0);
+  quat.y = state_gt(2, 0);
+  quat.z = state_gt(3, 0);
+  quat.w = state_gt(4, 0);
+  trans.transform.rotation = quat;
+  geometry_msgs::msg::Vector3 orig;
+
+  orig.x = state_gt(5, 0);
+  orig.y = state_gt(6, 0);
+  orig.z = state_gt(7, 0);
+  trans.transform.translation = orig;
   mTfBr->sendTransform(trans);
 
   //==========================================================================
@@ -174,7 +182,7 @@ void SimVisualizer::publish_groundtruth() {
   }
 }
 
-void SimVisualizer::publish_lidar_structure() {
+void Sim2Visualizer::publish_lidar_structure() {
   // Skip the rest of we are not doing simulation
   if (sim == nullptr || sim->get_lidar_planes().empty())
     return;
@@ -200,7 +208,7 @@ void SimVisualizer::publish_lidar_structure() {
     // Our plane will be a line list
     Marker marker_plane;
     marker_plane.header.frame_id = "global";
-    marker_plane.header.stamp = ros::Time::now();
+    marker_plane.header.stamp = rclcpp::Clock().now();
     marker_plane.ns = "sim_lidar_map";
     marker_plane.id = ct;
     marker_plane.type = Marker::LINE_LIST;
@@ -210,7 +218,7 @@ void SimVisualizer::publish_lidar_structure() {
     marker_plane.color.a = 1.0;
 
     // Convert our 4 points to the right format
-    geometry_msgs::Point pt_tl, pt_tr, pt_bl, pt_br;
+    geometry_msgs::msg::Point pt_tl, pt_tr, pt_bl, pt_br;
     pt_tl.x = plane->pt_top_left(0);
     pt_tl.y = plane->pt_top_left(1);
     pt_tl.z = plane->pt_top_left(2);
@@ -248,7 +256,7 @@ void SimVisualizer::publish_lidar_structure() {
   pub_sim_lidar_map->publish(marker_arr);
 }
 
-void SimVisualizer::visualize_final() {
+void Sim2Visualizer::visualize_final() {
   PRINT2(BOLDYELLOW "RMSE average: %.3f, %.3f (deg,m)\n" RESET, sum_rmse_ori / sum_cnt, sum_rmse_pos / sum_cnt);
   PRINT2(BOLDYELLOW "NEES average: %.3f, %.3f (deg,m)\n" RESET, sum_nees_ori / sum_cnt, sum_nees_pos / sum_cnt);
 }

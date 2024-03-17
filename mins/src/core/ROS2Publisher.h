@@ -28,22 +28,17 @@
 #ifndef MINS_ROSPUBLISHER_H
 #define MINS_ROSPUBLISHER_H
 
-#include "geometry_msgs/PoseStamped.h"
-#include "ros/ros.h"
-#include <image_transport/image_transport.h>
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "nav_msgs/msg/path.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "tf2_ros/transform_broadcaster.h"
+#include <image_transport/image_transport.hpp>
 #include <memory>
 #include <vector>
 
-namespace ros {
-class Publisher;
-class NodeHandle;
-} // namespace ros
-namespace image_transport {
-class Publisher;
-}
-namespace tf {
-class TransformBroadcaster;
-}
 namespace pcl {
 class PointXYZ;
 template <class pointT> class PointCloud;
@@ -57,12 +52,12 @@ struct ViconData;
 class State;
 struct LiDARData;
 struct Options;
-class ROSPublisher {
+class ROS2Publisher {
 public:
   /// ROS message publisher
-  ROSPublisher(std::shared_ptr<ros::NodeHandle> nh, std::shared_ptr<SystemManager> sys, std::shared_ptr<Options> op);
+  ROS2Publisher(std::shared_ptr<rclcpp::Node> node, std::shared_ptr<SystemManager> sys, std::shared_ptr<Options> op);
 
-  ~ROSPublisher(){};
+  ~ROS2Publisher(){};
 
   /// Visualize state, camera & LiDAR features
   void visualize();
@@ -97,7 +92,7 @@ private:
   void publish_tf();
 
   /// Global node handler
-  std::shared_ptr<ros::NodeHandle> nh;
+  std::shared_ptr<rclcpp::Node> node;
 
   /// Core application of the filter system
   std::shared_ptr<SystemManager> sys;
@@ -106,16 +101,27 @@ private:
   std::shared_ptr<Options> op;
 
   // Our publishers
-  std::shared_ptr<tf::TransformBroadcaster> mTfBr;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> mTfBr;
   std::vector<image_transport::Publisher> pub_cam_image;
-  ros::Publisher pub_imu_pose, pub_imu_odom, pub_imu_path, pub_cam_msckf, pub_cam_slam;
-  std::vector<ros::Publisher> pub_gps_pose, pub_gps_path, pub_vicon_pose, pub_vicon_path, pub_lidar_cloud, pub_lidar_map;
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pub_imu_pose;
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_imu_odom;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_imu_path;
+
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_cam_msckf, pub_cam_slam;
+
+  std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> pub_gps_pose;
+  std::vector<rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr> pub_gps_path;
+
+  std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> pub_vicon_pose;
+  std::vector<rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr> pub_vicon_path;
+  std::vector<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr> pub_lidar_cloud;
+  std::vector<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr> pub_lidar_map;
 
   // For path viz
   unsigned int seq_imu = 0;
   std::vector<unsigned int> seq_gps, seq_vicon;
-  std::vector<geometry_msgs::PoseStamped> path_imu;
-  std::vector<std::vector<geometry_msgs::PoseStamped>> path_gps, path_vicon;
+  std::vector<geometry_msgs::msg::PoseStamped> path_imu;
+  std::vector<std::vector<geometry_msgs::msg::PoseStamped>> path_gps, path_vicon;
   bool traj_in_enu = false;
 };
 } // namespace mins

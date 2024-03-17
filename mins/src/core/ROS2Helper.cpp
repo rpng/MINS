@@ -25,9 +25,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "ROSHelper.h"
+#include "ROS2Helper.h"
 #include "options/OptionsCamera.h"
 #include "pcl_conversions/pcl_conversions.h"
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "state/State.h"
 #include "types/PoseJPL.h"
 #include "types/Vec.h"
@@ -36,15 +39,15 @@
 #include "update/wheel/WheelTypes.h"
 #include "utils/Print_Logger.h"
 #include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/point_cloud2_iterator.h>
 
+using namespace sensor_msgs::msg;
 using namespace mins;
-PointCloud2 ROSHelper::ToPointcloud(const std::vector<Eigen::Vector3d> &feats, std::string frame_id) {
+PointCloud2 ROS2Helper::ToPointcloud(const std::vector<Eigen::Vector3d> &feats, std::string frame_id) {
 
   // Declare message and sizes
   PointCloud2 cloud;
   cloud.header.frame_id = frame_id;
-  cloud.header.stamp = ros::Time::now();
+  cloud.header.stamp = rclcpp::Clock().now();
   cloud.width = feats.size();
   cloud.height = 1;
   cloud.is_bigendian = false;
@@ -72,7 +75,7 @@ PointCloud2 ROSHelper::ToPointcloud(const std::vector<Eigen::Vector3d> &feats, s
   return cloud;
 }
 
-tf::StampedTransform ROSHelper::Pose2TF(const shared_ptr<ov_type::PoseJPL> &pose, bool flip_trans) {
+geometry_msgs::msg::TransformStamped ROS2Helper::Pose2TF(const shared_ptr<ov_type::PoseJPL> &pose, bool flip_trans) {
 
   // Need to flip the transform to the imu frame
   Eigen::Vector4d q_ItoC = pose->quat();
@@ -84,49 +87,62 @@ tf::StampedTransform ROSHelper::Pose2TF(const shared_ptr<ov_type::PoseJPL> &pose
   // publish our transform on TF
   // NOTE: since we use JPL we have an implicit conversion to Hamilton when we publish
   // NOTE: a rotation from ItoC in JPL has the same xyzw as a CtoI Hamilton rotation
-  tf::StampedTransform trans;
-  trans.stamp_ = ros::Time::now();
-  tf::Quaternion quat(q_ItoC(0), q_ItoC(1), q_ItoC(2), q_ItoC(3));
-  trans.setRotation(quat);
-  tf::Vector3 orig(p_CinI(0), p_CinI(1), p_CinI(2));
-  trans.setOrigin(orig);
+  geometry_msgs::msg::TransformStamped trans;
+  trans.header.stamp = rclcpp::Clock().now();
+  geometry_msgs::msg::Quaternion quat;
+  quat.x = q_ItoC(0);
+  quat.y = q_ItoC(1);
+  quat.z = q_ItoC(2);
+  quat.w = q_ItoC(3);
+  trans.transform.rotation = quat;
+  geometry_msgs::msg::Vector3 orig;
+  orig.x = p_CinI(0);
+  orig.y = p_CinI(1);
+  orig.z = p_CinI(2);
+  trans.transform.translation = orig;
   return trans;
 }
 
-tf::StampedTransform ROSHelper::Pos2TF(const shared_ptr<ov_type::Vec> &pos, bool flip_trans) {
+geometry_msgs::msg::TransformStamped ROS2Helper::Pos2TF(const shared_ptr<ov_type::Vec> &pos, bool flip_trans) {
   assert(pos->size() == 3);
   // Need to flip the transform to the imu frame
   Eigen::Vector3d p_XinI = pos->value();
 
   // publish our transform on TF
-  tf::StampedTransform trans;
-  trans.stamp_ = ros::Time::now();
-  tf::Quaternion quat(0, 0, 0, 1);
-  trans.setRotation(quat);
-  tf::Vector3 orig(p_XinI(0), p_XinI(1), p_XinI(2));
-  trans.setOrigin(orig);
+  geometry_msgs::msg::TransformStamped trans;
+  trans.header.stamp = rclcpp::Clock().now();
+  geometry_msgs::msg::Quaternion quat;
+  quat.w = 1;
+  trans.transform.rotation = quat;
+
+  geometry_msgs::msg::Vector3 orig;
+  orig.x = p_XinI(0);
+  orig.y = p_XinI(1);
+  orig.z = p_XinI(2);
+
+  trans.transform.translation = orig;
   return trans;
 }
 
-ov_core::ImuData ROSHelper::Imu2Data(const Imu::ConstPtr &msg) {
+ov_core::ImuData ROS2Helper::Imu2Data(const sensor_msgs::msg::Imu::SharedPtr msg) {
   ov_core::ImuData message;
-  message.timestamp = msg->header.stamp.toSec();
+  message.timestamp = rclcpp::Time(msg->header.stamp).seconds();
   message.wm << msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z;
   message.am << msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z;
   return message;
 }
 
-std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> ROSHelper::rosPC2pclPC(const sensor_msgs::PointCloud2ConstPtr &msg, int id) {
+std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> ROS2Helper::rosPC2pclPC(const sensor_msgs::msg::PointCloud2::SharedPtr msg, int id) {
   std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pcl_pc2(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromROSMsg(*msg, *pcl_pc2);
-  pcl_pc2->header.frame_id = to_string(id);                 // overwrite the id match with system number
-  pcl_pc2->header.stamp = msg->header.stamp.toSec() * 1000; // deliver this in msec
+  pcl_pc2->header.frame_id = to_string(id);                                 // overwrite the id match with system number
+  pcl_pc2->header.stamp = rclcpp::Time(msg->header.stamp).seconds() * 1000; // deliver this in msec
   return pcl_pc2;
 }
 
-GPSData ROSHelper::NavSatFix2Data(const sensor_msgs::NavSatFixPtr &msg, int id) {
+GPSData ROS2Helper::NavSatFix2Data(const sensor_msgs::msg::NavSatFix::SharedPtr msg, int id) {
   GPSData data;
-  data.time = msg->header.stamp.toSec();
+  data.time = rclcpp::Time(msg->header.stamp).seconds();
   data.id = id;
   data.meas(0) = msg->latitude;
   data.meas(1) = msg->longitude;
@@ -137,9 +153,9 @@ GPSData ROSHelper::NavSatFix2Data(const sensor_msgs::NavSatFixPtr &msg, int id) 
   return data;
 }
 
-GPSData ROSHelper::NavSatFix2Data(const sensor_msgs::NavSatFixConstPtr &msg, int id) {
+GPSData ROS2Helper::NavSatFix2Data(const sensor_msgs::msg::NavSatFix::ConstSharedPtr msg, int id) {
   GPSData data;
-  data.time = msg->header.stamp.toSec();
+  data.time = rclcpp::Time(msg->header.stamp).seconds();
   data.id = id;
   data.meas(0) = msg->latitude;
   data.meas(1) = msg->longitude;
@@ -150,7 +166,7 @@ GPSData ROSHelper::NavSatFix2Data(const sensor_msgs::NavSatFixConstPtr &msg, int
   return data;
 }
 
-bool ROSHelper::Image2Data(const ImageConstPtr &msg, int cam_id, ov_core::CameraData &cam, shared_ptr<OptionsCamera> op) {
+bool ROS2Helper::Image2Data(const sensor_msgs::msg::Image::ConstSharedPtr msg, int cam_id, ov_core::CameraData &cam, shared_ptr<OptionsCamera> op) {
 
   cv_bridge::CvImageConstPtr cv_ptr;
   try {
@@ -161,7 +177,7 @@ bool ROSHelper::Image2Data(const ImageConstPtr &msg, int cam_id, ov_core::Camera
   }
 
   // Create the measurement
-  cam.timestamp = cv_ptr->header.stamp.toSec();
+  cam.timestamp = rclcpp::Time(cv_ptr->header.stamp).seconds();
   cam.sensor_ids.push_back(cam_id);
   cam.images.push_back(cv_ptr->image.clone());
 
@@ -174,47 +190,47 @@ bool ROSHelper::Image2Data(const ImageConstPtr &msg, int cam_id, ov_core::Camera
   return true;
 }
 
-WheelData ROSHelper::JointState2Data(const JointStateConstPtr &msg) {
+WheelData ROS2Helper::JointState2Data(const sensor_msgs::msg::JointState::SharedPtr msg) {
   WheelData data;
-  data.time = msg->header.stamp.toSec();
+  data.time = rclcpp::Time(msg->header.stamp).seconds();
   data.m1 = msg->velocity.at(0); // front_left_wheel_joint velocity
   data.m2 = msg->velocity.at(1); // front_right_wheel_joint velocity
   return data;
 }
 
-WheelData ROSHelper::Odometry2Data(const nav_msgs::OdometryPtr &msg) {
+WheelData ROS2Helper::Odometry2Data(const nav_msgs::msg::Odometry::SharedPtr msg) {
   WheelData data;
-  data.time = msg->header.stamp.toSec();
+  data.time = rclcpp::Time(msg->header.stamp).seconds();
   data.m1 = msg->twist.twist.angular.z;
   data.m2 = msg->twist.twist.linear.x;
   return data;
 }
 
-ViconData ROSHelper::PoseStamped2Data(const geometry_msgs::PoseStampedPtr &msg, int id) {
+ViconData ROS2Helper::PoseStamped2Data(const geometry_msgs::msg::PoseStamped::SharedPtr msg, int id) {
   Eigen::Vector4d q(msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z, msg->pose.orientation.w);
   Eigen::Vector3d p(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
   ViconData vicon;
-  vicon.time = msg->header.stamp.toSec();
+  vicon.time = rclcpp::Time(msg->header.stamp).seconds();
   vicon.id = id;
   vicon.pose.block(0, 0, 3, 1) = ov_core::log_so3(ov_core::quat_2_Rot(q));
   vicon.pose.block(3, 0, 3, 1) = p;
   return vicon;
 }
 
-GPSData ROSHelper::PoseStamped2Data(const geometry_msgs::PoseStampedPtr &msg, int id, double noise) {
+GPSData ROS2Helper::PoseStamped2Data(const geometry_msgs::msg::PoseStamped::SharedPtr msg, int id, double noise) {
   Eigen::Vector3d p(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
   GPSData gps;
-  gps.time = msg->header.stamp.toSec();
+  gps.time = rclcpp::Time(msg->header.stamp).seconds();
   gps.id = id;
   gps.meas = p;
   gps.noise = noise * Eigen::Vector3d::Ones();
   return gps;
 }
 
-bool ROSHelper::Image2Data(const CompressedImageConstPtr &msg, int cam_id, ov_core::CameraData &cam, shared_ptr<OptionsCamera> op) {
+bool ROS2Helper::Image2Data(const sensor_msgs::msg::CompressedImage::ConstSharedPtr msg, int cam_id, ov_core::CameraData &cam, shared_ptr<OptionsCamera> op) {
 
   // Create the measurement
-  cam.timestamp = msg->header.stamp.toSec();
+  cam.timestamp = rclcpp::Time(msg->header.stamp).seconds();
   cam.sensor_ids.push_back(cam_id);
   cam.images.push_back(cv::imdecode(cv::Mat(msg->data), 0));
 
@@ -228,8 +244,8 @@ bool ROSHelper::Image2Data(const CompressedImageConstPtr &msg, int cam_id, ov_co
   return true;
 }
 
-nav_msgs::Odometry ROSHelper::ToOdometry(Eigen::Matrix<double, 13, 1> state) {
-  nav_msgs::Odometry odom;
+nav_msgs::msg::Odometry ROS2Helper::ToOdometry(Eigen::Matrix<double, 13, 1> state) {
+  nav_msgs::msg::Odometry odom;
   // The POSE component (orientation and position)
   odom.pose.pose.orientation.x = state(0);
   odom.pose.pose.orientation.y = state(1);
@@ -248,8 +264,8 @@ nav_msgs::Odometry ROSHelper::ToOdometry(Eigen::Matrix<double, 13, 1> state) {
   return odom;
 }
 
-geometry_msgs::PoseWithCovarianceStamped ROSHelper::ToPoseCov(Eigen::Matrix<double, 7, 1> state) {
-  geometry_msgs::PoseWithCovarianceStamped odom;
+geometry_msgs::msg::PoseWithCovarianceStamped ROS2Helper::ToPoseCov(Eigen::Matrix<double, 7, 1> state) {
+  geometry_msgs::msg::PoseWithCovarianceStamped odom;
   // The POSE component (orientation and position)
   odom.pose.pose.orientation.x = state(0);
   odom.pose.pose.orientation.y = state(1);
@@ -261,7 +277,7 @@ geometry_msgs::PoseWithCovarianceStamped ROSHelper::ToPoseCov(Eigen::Matrix<doub
   return odom;
 }
 
-geometry_msgs::PoseStamped ROSHelper::ToENU(geometry_msgs::PoseStamped pose, Eigen::Matrix<double, 7, 1> trans_WtoE) {
+geometry_msgs::msg::PoseStamped ROS2Helper::ToENU(geometry_msgs::msg::PoseStamped pose, Eigen::Matrix<double, 7, 1> trans_WtoE) {
   // Take the readings out
   Vector4d q_WtoI;
   q_WtoI(0) = pose.pose.orientation.x;
@@ -284,7 +300,7 @@ geometry_msgs::PoseStamped ROSHelper::ToENU(geometry_msgs::PoseStamped pose, Eig
   Vector3d p_IinE = p_WinE + R_WtoE * p_IinW;
 
   // construct pose message and return
-  geometry_msgs::PoseStamped poseENU;
+  geometry_msgs::msg::PoseStamped poseENU;
   poseENU.header = pose.header;
   poseENU.pose.orientation.x = q_EtoI(0);
   poseENU.pose.orientation.y = q_EtoI(1);

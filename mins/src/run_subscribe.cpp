@@ -27,12 +27,17 @@
 
 #include <memory>
 
+#if ROS_AVAILABLE == 2
+#include "core/ROS2Publisher.h"
+#include "core/ROS2Subscriber.h"
+#include "rclcpp/rclcpp.hpp"
+#elif ROS_AVAILABLE == 1
 #include "core/ROSPublisher.h"
 #include "core/ROSSubscriber.h"
+#endif
 #include "core/SystemManager.h"
 #include "options/Options.h"
 #include "options/OptionsSystem.h"
-#include "rclcpp/rclcpp.hpp"
 #include "utils/Print_Logger.h"
 #include "utils/State_Logger.h"
 #include "utils/TimeChecker.h"
@@ -50,14 +55,15 @@ int main(int argc, char **argv) {
   argc > 1 ? config_path = argv[1] : string();
 
   // Launch our ros node
+#if ROS_AVAILABLE == 2
   rclcpp::init(argc, argv);
-
   rclcpp::NodeOptions options;
+
   options.allow_undeclared_parameters(true);
   options.automatically_declare_parameters_from_overrides(true);
   auto node = std::make_shared<rclcpp::Node>("mins_subscribe", options);
   node->get_parameter<std::string>("config_path", config_path);
-
+#endif
   // Load the config
   auto parser = make_shared<ov_core::YamlParser>(config_path);
 #if ROS_AVAILABLE == 2
@@ -69,8 +75,10 @@ int main(int argc, char **argv) {
 
   // Create our system
   shared_ptr<SystemManager> sys = make_shared<SystemManager>(op->est);
-  shared_ptr<ROSPublisher> pub = make_shared<ROSPublisher>(node, sys, op);
-  shared_ptr<ROSSubscriber> sub = make_shared<ROSSubscriber>(node, sys, pub);
+#if ROS_AVAILABLE == 2
+  shared_ptr<ROS2Publisher> pub = make_shared<ROS2Publisher>(node, sys, op);
+  shared_ptr<ROS2Subscriber> sub = make_shared<ROS2Subscriber>(node, sys, pub);
+#endif
 
   // Ensure we read in all parameters required
   if (!parser->successful()) {
@@ -78,18 +86,22 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
+#if ROS_AVAILABLE == 2
   // rclcpp::spin(node);
   rclcpp::executors::MultiThreadedExecutor executor;
   executor.add_node(node);
   executor.spin();
   // Spin off to ROS
+#endif
 
   // Final visualization
   sys->visualize_final();
   op->sys->save_timing ? save->save_timing_to_file(sys->tc_sensors->get_total_sum()) : void();
   save->check_files();
 
+#if ROS_AVAILABLE == 2
   rclcpp::shutdown();
+#endif
   // Done!
   return EXIT_SUCCESS;
 }

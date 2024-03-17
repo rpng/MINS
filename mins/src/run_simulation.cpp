@@ -27,7 +27,13 @@
 
 #include <memory>
 
+#if ROS_AVAILABLE == 2
+#include "core/ROS2Publisher.h"
+#include "sim/Sim2Visualizer.h"
+#include <rclcpp/rclcpp.hpp>
+#elif ROS_AVAILABLE == 1
 #include "core/ROSPublisher.h"
+#endif
 #include "core/SystemManager.h"
 #include "options/Options.h"
 #include "options/OptionsCamera.h"
@@ -37,7 +43,6 @@
 #include "options/OptionsSystem.h"
 #include "options/OptionsVicon.h"
 #include "options/OptionsWheel.h"
-#include "sim/SimVisualizer.h"
 #include "sim/Simulator.h"
 #include "update/cam/CamTypes.h"
 #include "update/gps/GPSTypes.h"
@@ -52,7 +57,6 @@
 #include "utils/sensor_data.h"
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <rclcpp/rclcpp.hpp>
 
 using namespace mins;
 using namespace std;
@@ -60,8 +64,10 @@ using namespace Eigen;
 
 shared_ptr<Simulator> sim;
 shared_ptr<SystemManager> sys;
-shared_ptr<ROSPublisher> pub;
-shared_ptr<SimVisualizer> sim_viz;
+#if ROS_AVAILABLE == 2
+shared_ptr<ROS2Publisher> pub;
+shared_ptr<Sim2Visualizer> sim_viz;
+#endif
 shared_ptr<Options> op;
 shared_ptr<State_Logger> save;
 
@@ -72,7 +78,11 @@ int main(int argc, char **argv) {
   // Load parameters
   system_setup(argc, argv);
   // run simulation
+#if ROS_AVAILABLE == 2
   while (sim->ok() && rclcpp::ok()) {
+#else
+  while (sim->ok() && ros::ok()) {
+#endif
     // imu: get the next simulated imu measurement if we have it
     ov_core::ImuData imu;
     if (sim->get_next_imu(imu)) {
@@ -129,7 +139,9 @@ int main(int argc, char **argv) {
   op->sys->save_timing ? save->save_timing_to_file(sys->tc_sensors->get_total_sum()) : void();
   save->check_files();
 
+#if ROS_AVAILABLE == 2
   rclcpp::shutdown();
+#endif
   return EXIT_SUCCESS;
 }
 
@@ -139,12 +151,13 @@ void system_setup(int argc, char **argv) {
   argc > 1 ? config_path = argv[1] : string();
 
   // Launch our ros node
+#if ROS_AVAILABLE == 2
   rclcpp::init(argc, argv);
 
   auto node = std::make_shared<rclcpp::Node>("mins_simulation");
 
   node->get_parameter<std::string>("config_path", config_path);
-
+#endif
   // Load the config
   auto parser = make_shared<ov_core::YamlParser>(config_path);
 
@@ -158,8 +171,11 @@ void system_setup(int argc, char **argv) {
   // Create our system
   sim = make_shared<Simulator>(op);
   sys = make_shared<SystemManager>(op->est, sim);
-  pub = make_shared<ROSPublisher>(node, sys, op);
-  sim_viz = make_shared<SimVisualizer>(node, sys, sim);
+
+#if ROS_AVAILABLE == 2
+  pub = make_shared<ROS2Publisher>(node, sys, op);
+  sim_viz = make_shared<Sim2Visualizer>(node, sys, sim);
+#endif
 
   // Ensure we read in all parameters required
   if (!parser->successful()) {
