@@ -117,22 +117,12 @@ target_include_directories(mins_lib PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
-# install(TARGETS mins_lib
-#         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-#         )
 install(TARGETS mins_lib
   EXPORT mins_targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-# install(DIRECTORY src/
-#         DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
-#         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
-#         )
-# Install header files
 install(DIRECTORY
   DESTINATION include
   FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
@@ -147,41 +137,13 @@ ament_export_targets(mins_targets)
 add_executable(simulation src/run_simulation.cpp)
 target_link_libraries(simulation mins_lib)
 
-# add_executable(bag src/run_bag.cpp)
-# target_link_libraries(bag mins_lib)
-
 add_executable(subscribe src/run_subscribe.cpp)
 target_link_libraries(subscribe mins_lib)
 
 # Install executables
 install(TARGETS subscribe simulation DESTINATION lib/${PROJECT_NAME})
 
-
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch/)
 install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config/)
-
-# add_executable(simulation src/run_simulation.cpp)
-# target_link_libraries(simulation mins_lib)
-# install(TARGETS simulation
-#         ARCHIVE DESTINATION lib/${PROJECT_NAME}
-#         LIBRARY DESTINATION lib/${PROJECT_NAME}
-#         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-#         )
-
-# add_executable(bag src/run_bag.cpp)
-# target_link_libraries(bag mins_lib)
-# install(TARGETS bag
-#         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#         LIBRARY DESTINATION lib/${PROJECT_NAME}
-#         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-#         )
-
-# add_executable(subscribe src/run_subscribe.cpp)
-# target_link_libraries(subscribe mins_lib)
-# install(TARGETS subscribe
-#         ARCHIVE DESTINATION lib/${PROJECT_NAME}
-#         LIBRARY DESTINATION lib/${PROJECT_NAME}
-#         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-#         )
 
 ament_package()
