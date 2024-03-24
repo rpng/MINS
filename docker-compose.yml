@@ -1,0 +1,11 @@
+version: "3"
+
+services:
+  ros:
+    build:
+      dockerfile: Dockerfile_humble_22_04
+      context: .
+    command: bash
+    volumes:
+      - ./outputs:/work/outputs
+      - ./data:/work/data

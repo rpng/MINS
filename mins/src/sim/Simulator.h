@@ -130,7 +130,9 @@ public:
 
 protected:
   friend class Initializer;
-  friend class SimVisualizer;
+#if ROS_AVAILABLE == 2
+  friend class Sim2Visualizer;
+#endif
   friend class State_Logger;
 
   /// Get LiDAR plane info

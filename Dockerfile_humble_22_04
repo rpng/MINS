@@ -1,0 +1,27 @@
+FROM ros:humble-perception-jammy
+
+RUN rm -f /etc/apt/apt.conf.d/docker-clean
+RUN --mount=type=cache,target=/var/cache/apt apt-get update --fix-missing && apt-get upgrade -y
+
+RUN --mount=type=cache,target=/var/cache/apt\
+  DEBIAN_FRONTEND=noninteractive \
+  apt-get install --no-install-recommends --yes \
+  python3-colcon-common-extensions \
+  python3-rosdep
+
+WORKDIR /work
+
+RUN useradd -ms /bin/bash ros &&\
+  chown ros:ros /work &&\
+  usermod -aG sudo ros &&\
+  echo "ros ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers &&\
+  echo "ros:ros" | chpasswd
+
+USER ros
+
+COPY . /work/src/MINS
+
+RUN bash /work/src/MINS/build_ros2.sh
+
+RUN echo "source '/work/install/setup.bash'" >> ~/.bashrc
+
