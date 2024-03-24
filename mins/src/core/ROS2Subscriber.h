@@ -66,8 +66,8 @@ public:
   void callback_lidar(const PointCloud2::SharedPtr msg, int lidar_id);
 
   /// Callback for monocular camera (image, compressed image)
-  void callback_monocular_I(const Image::SharedPtr msg, int cam_id);
-  void callback_monocular_C(const CompressedImage::SharedPtr msg, int cam_id);
+  void callback_monocular_I(const Image::ConstSharedPtr msg, int cam_id);
+  void callback_monocular_C(const CompressedImage::ConstSharedPtr msg, int cam_id);
 
   /// Callback for synchronized stereo camera (image, compressed image)
   void callback_stereo_I(const Image::ConstSharedPtr msg0, const Image::ConstSharedPtr msg1, int cam_id0, int cam_id1);
@@ -90,7 +90,8 @@ private:
   rclcpp::Subscription<Imu>::SharedPtr sub_imu;
 
   vector<rclcpp::SubscriptionBase::WeakPtr> subs;
-  vector<rclcpp::Subscription<Image>::SharedPtr> image_subs;
+  vector<std::shared_ptr<message_filters::Subscriber<Image>>> image_subs;
+
   typedef message_filters::sync_policies::ApproximateTime<Image, Image> sync_pol;
   vector<shared_ptr<message_filters::Synchronizer<sync_pol>>> sync_cam;
   vector<shared_ptr<message_filters::Subscriber<Image>>> sync_subs_cam;

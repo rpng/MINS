@@ -68,7 +68,7 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
           auto image_sub0 = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(cam_id0));
           auto image_sub1 = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(cam_id1));
           auto sync = std::make_shared<message_filters::Synchronizer<sync_pol>>(sync_pol(10), *image_sub0, *image_sub1);
-          sync->registerCallback(std::bind(&ROS2Subscriber::callback_stereo_I, this, std::placeholders::_1, std::placeholders::_2, 0, 1));
+          sync->registerCallback(std::bind(&ROS2Subscriber::callback_stereo_I, this, std::placeholders::_1, std::placeholders::_2, cam_id0, cam_id1));
           // Append to our vector of subscribers
           sync_cam.push_back(sync);
           sync_subs_cam.push_back(image_sub0);
@@ -79,9 +79,9 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
       } else {
         // create MONO subscriber
 
-        auto sub = node->create_subscription<Image>(op->cam->topic.at(i), 10, [this, i](const sensor_msgs::msg::Image::SharedPtr msg0) { this->callback_monocular_I(msg0, i); });
-        subs.push_back(sub);
-        //        subs.push_back(sub);
+        auto image_sub = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(i));
+        image_sub->registerCallback(std::bind(&ROS2Subscriber::callback_monocular_I, this, std::placeholders::_1, i));
+        image_subs.push_back(image_sub);
         PRINT2("subscribing to cam (mono): %s\n", op->cam->topic.at(i).c_str());
       }
     }
@@ -121,7 +121,7 @@ void ROS2Subscriber::callback_inertial(const Imu::SharedPtr msg) {
   PRINT1(YELLOW "|%.3f,%.3f,%.3f|%.3f,%.3f,%.3f\n" RESET, imu.wm(0), imu.wm(1), imu.wm(2), imu.am(0), imu.am(1), imu.am(2));
 }
 
-void ROS2Subscriber::callback_monocular_I(const Image::SharedPtr msg, int cam_id) {
+void ROS2Subscriber::callback_monocular_I(const Image::ConstSharedPtr msg, int cam_id) {
   // convert into correct format & send it to our system
   //
   ov_core::CameraData cam;
@@ -132,7 +132,7 @@ void ROS2Subscriber::callback_monocular_I(const Image::SharedPtr msg, int cam_id
   }
 }
 
-void ROS2Subscriber::callback_monocular_C(const CompressedImage::SharedPtr msg, int cam_id) {
+void ROS2Subscriber::callback_monocular_C(const CompressedImage::ConstSharedPtr msg, int cam_id) {
   // convert into correct format & send it to our system
   ov_core::CameraData cam;
   if (ROS2Helper::Image2Data(msg, cam_id, cam, op->cam)) {
