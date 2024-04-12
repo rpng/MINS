@@ -59,6 +59,8 @@ public:
   /// Callback for Wheel
   void callback_wheel(const JointState::SharedPtr msg);
 
+  void callback_rover(const JointState::SharedPtr msg);
+
   /// Callback for GNSS
   void callback_gnss(const NavSatFix::SharedPtr msg, int gps_id);
 

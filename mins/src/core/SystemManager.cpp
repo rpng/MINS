@@ -48,6 +48,7 @@
 #include "update/vicon/UpdaterVicon.h"
 #include "update/vicon/ViconTypes.h"
 #include "update/wheel/UpdaterWheel.h"
+#include "update/wheel/UpdaterRoverWheel.h"
 #include "update/wheel/WheelTypes.h"
 #include "utils/Jabdongsani.h"
 #include "utils/TimeChecker.h"
@@ -171,6 +172,17 @@ void SystemManager::feed_measurement_wheel(const WheelData &wheel) {
   // Feed measurement & try update
   up_whl->feed_measurement(wheel);
   state->initialized ? up_whl->try_update() : void();
+  state->initialized ? tc_sensors->dong("WHL") : void();
+}
+
+void SystemManager::feed_measurement_rover(const RoverWheelData &wheel) {
+  if (!state->op->wheel->enabled)
+    return;
+
+  state->initialized ? tc_sensors->ding("WHL") : void();
+  // Feed measurement & try update
+  up_whl_rover->feed_measurement(wheel);
+  state->initialized ? up_whl_rover->try_update() : void();
   state->initialized ? tc_sensors->dong("WHL") : void();
 }
 

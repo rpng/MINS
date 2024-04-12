@@ -81,14 +81,14 @@ void mins::OptionsWheel::load(const std::shared_ptr<ov_core::YamlParser> &parser
     intrinsics = intr;
 
     parser->parse_external(f, "wheel", "type", type);
-    if (type != "Wheel2DAng" && type != "Wheel2DLin" && type != "Wheel2DCen" && type != "Wheel3DAng" && type != "Wheel3DLin" && type != "Wheel3DCen") {
+    if (type != "Wheel2DAng" && type != "Wheel2DLin" && type != "Wheel2DCen" && type != "Wheel3DAng" && type != "Wheel3DLin" && type != "Wheel3DCen" && type != "Rover") {
       PRINT4(RED "%s is not a supported type of wheel.\n" RESET, type.c_str());
-      PRINT4(RED "Available: Wheel2DAng, Wheel2DLin, Wheel2DCen, Wheel3DAng, Wheel3DLin, Wheel3DCen\n" RESET);
+      PRINT4(RED "Available: Wheel2DAng, Wheel2DLin, Wheel2DCen, Wheel3DAng, Wheel3DLin, Wheel3DCen, Rover\n" RESET);
       exit(EXIT_FAILURE);
     }
 
     // should disable intrinsic calibration if not using angular velocity of wheel
-    if (type != "Wheel2DAng" && type != "Wheel3DAng") {
+    if (type != "Wheel2DAng" && type != "Wheel3DAng" && type != "Rover") {
       do_calib_int = false;
     }
   }

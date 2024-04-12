@@ -89,8 +89,12 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
 
   // Create wheel subscriber
   if (op->wheel->enabled) {
-    subs.push_back(node->create_subscription<JointState>(op->wheel->topic, 1000, [this](const JointState::SharedPtr msg0) { this->callback_wheel(msg0); }));
-    PRINT2("subscribing to wheel: %s\n", op->wheel->topic.c_str());
+    if (op->wheel->type == "Rover") {
+      subs.push_back(node->create_subscription<JointState>(op->wheel->topic, 1000, [this](const JointState::SharedPtr msg0) { this->callback_rover(msg0); }));
+    } else {
+      subs.push_back(node->create_subscription<JointState>(op->wheel->topic, 1000, [this](const JointState::SharedPtr msg0) { this->callback_wheel(msg0); }));
+      PRINT2("subscribing to wheel: %s\n", op->wheel->topic.c_str());
+    }
   }
 
   // Create gps subscriber
@@ -176,6 +180,11 @@ void ROS2Subscriber::callback_wheel(const JointState::SharedPtr msg) {
   WheelData data = ROS2Helper::JointState2Data(msg);
   sys->feed_measurement_wheel(data);
   PRINT1(YELLOW "[SUB] Wheel measurement: %.3f|%.3f,%.3f\n" RESET, data.time, data.m1, data.m2);
+}
+
+void mins::ROS2Subscriber::callback_rover(const JointState::SharedPtr msg) {
+  RoverWheelData data = ROS2Helper::JointState2DataRover(msg);
+  sys->feed_measurement_rover(data);
 }
 
 void ROS2Subscriber::callback_gnss(const NavSatFix::SharedPtr msg, int gps_id) {

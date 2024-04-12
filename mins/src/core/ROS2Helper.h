@@ -62,6 +62,7 @@ namespace mins {
 class State;
 struct OptionsCamera;
 struct WheelData;
+struct RoverWheelData;
 struct ViconData;
 struct GPSData;
 
@@ -87,6 +88,8 @@ public:
   static WheelData JointState2Data(const sensor_msgs::msg::JointState::SharedPtr msg);
 
   static WheelData Odometry2Data(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+  static RoverWheelData JointState2DataRover(const sensor_msgs::msg::JointState::SharedPtr msg);
 
   static ViconData PoseStamped2Data(const geometry_msgs::msg::PoseStamped::SharedPtr msg, int id);
 

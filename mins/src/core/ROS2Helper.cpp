@@ -39,6 +39,7 @@
 #include "update/wheel/WheelTypes.h"
 #include "utils/Print_Logger.h"
 #include <cv_bridge/cv_bridge.h>
+#include <vector>
 
 using namespace sensor_msgs::msg;
 using namespace mins;
@@ -203,6 +204,23 @@ WheelData ROS2Helper::Odometry2Data(const nav_msgs::msg::Odometry::SharedPtr msg
   data.time = rclcpp::Time(msg->header.stamp).seconds();
   data.m1 = msg->twist.twist.angular.z;
   data.m2 = msg->twist.twist.linear.x;
+  return data;
+}
+
+RoverWheelData mins::ROS2Helper::JointState2DataRover(const sensor_msgs::msg::JointState::SharedPtr msg) {
+  RoverWheelData data;
+  data.time = rclcpp::Time(msg->header.stamp).seconds();
+
+  data.w_a = msg->velocity.at(0);
+  data.w_b = msg->velocity.at(1);
+  data.w_c = msg->velocity.at(2);
+  data.w_d = msg->velocity.at(3);
+
+  data.ph_a = msg->velocity.at(0);
+  data.ph_b = msg->velocity.at(1);
+  data.ph_c = msg->velocity.at(2);
+  data.ph_d = msg->velocity.at(3);
+
   return data;
 }
 
