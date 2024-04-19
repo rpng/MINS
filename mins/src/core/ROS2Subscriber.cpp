@@ -52,7 +52,7 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
   //  subs.push_back(node->create_subscription<Imu>(op->imu->topic, rclcpp::SensorDataQoS(), std::bind(&ROS2Subscriber::callback_inertial, this, std::placeholders::_1)));
 
   sub_imu = node->create_subscription<sensor_msgs::msg::Imu>(op->imu->topic, rclcpp::SensorDataQoS(), std::bind(&ROS2Subscriber::callback_inertial, this, std::placeholders::_1));
-  PRINT2("subscribing to imu: %s\n", sub_imu->get_topic_name());
+  PRINT1("subscribing to imu: %s\n", sub_imu->get_topic_name());
 
   // Create camera subscriber
   if (op->cam->enabled) {
@@ -91,6 +91,7 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
   if (op->wheel->enabled) {
     if (op->wheel->type == "Rover") {
       subs.push_back(node->create_subscription<JointState>(op->wheel->topic, 1000, [this](const JointState::SharedPtr msg0) { this->callback_rover(msg0); }));
+      PRINT2("subscribing to rover: %s\n", op->wheel->topic.c_str());
     } else {
       subs.push_back(node->create_subscription<JointState>(op->wheel->topic, 1000, [this](const JointState::SharedPtr msg0) { this->callback_wheel(msg0); }));
       PRINT2("subscribing to wheel: %s\n", op->wheel->topic.c_str());

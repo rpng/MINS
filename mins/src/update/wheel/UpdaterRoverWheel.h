@@ -35,7 +35,7 @@ class UpdaterRoverWheel {
 
 public:
   /// Wheel updater
-  UpdaterRoverWheel::UpdaterRoverWheel(StatePtr state) : state(state) { Chi = make_shared<UpdaterStatistics>(state->op->wheel->chi2_mult, "WHEEL"); }
+  UpdaterRoverWheel(std::shared_ptr<State> state);
 
   /// Get wheel measurement
   void feed_measurement(RoverWheelData data);
@@ -97,7 +97,7 @@ private:
    */
   void preintegration_3D(double dt, RoverWheelData data1, RoverWheelData data2);
 
-  void perform_calc(RoverWheelData data, Vector3d w, Vector3d v);
+  void perform_calc(RoverWheelData data, Eigen::Vector3d w, Eigen::Vector3d v);
 
   /**
    * @brief Collects a set of wheel measurements between time0 and time1

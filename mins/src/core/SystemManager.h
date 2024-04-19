@@ -53,6 +53,7 @@ struct CamSimData;
 struct GPSData;
 struct STAT;
 struct WheelData;
+struct RoverWheelData;
 class UpdaterCamera;
 class UpdaterGPS;
 class UpdaterLidar;

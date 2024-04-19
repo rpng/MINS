@@ -64,6 +64,7 @@ int main(int argc, char **argv) {
   auto node = std::make_shared<rclcpp::Node>("mins_subscribe", options);
   node->get_parameter<std::string>("config_path", config_path);
 #endif
+  std::cout << "Loading config from path: " << config_path << std::endl;
   // Load the config
   auto parser = make_shared<ov_core::YamlParser>(config_path);
 #if ROS_AVAILABLE == 2

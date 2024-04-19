@@ -36,6 +36,8 @@ using namespace std;
 using namespace ov_type;
 using namespace ov_core;
 
+UpdaterRoverWheel::UpdaterRoverWheel(StatePtr state) : state(state) { Chi = make_shared<UpdaterStatistics>(state->op->wheel->chi2_mult, "WHEEL"); }
+
 void UpdaterRoverWheel::try_update() {
   // If we just want to update the oldest to newest
   if (state->op->wheel->reuse_of_information) {
@@ -405,7 +407,7 @@ void UpdaterRoverWheel::perform_calc(RoverWheelData data, Vector3d w, Vector3d v
   w_c = data.w_c;
   w_d = data.w_d;
 
-  double vx, vy, w;
+  double vx, vy;
 
   double vx_a, vx_b, vx_c, vx_d, vy_a, vy_b, vy_c, vy_d;
   vx_a = r * w_a * cos(phi_a);
@@ -438,16 +440,16 @@ void UpdaterRoverWheel::perform_calc(RoverWheelData data, Vector3d w, Vector3d v
   double w_ = (((vx_a - vx) / -py_a) + ((vy_a - vy) / px_a) + ((vx_b - vx) / -py_b) + ((vy_b - vy) / px_b) + ((vx_c - vx) / -py_c) + ((vy_c - vy) / px_c) + ((vx_d - vx) / -py_d) +
                ((vy_d - vy) / px_d)) *
               0.125;
-  w << 0, 0, w_;
-  v << vx, vy, 0;
+  w << 0.0, 0.0, w_;
+  v << vx, vy, 0.0;
 }
 
 void UpdaterRoverWheel::preintegration_3D(double dt, RoverWheelData data1, RoverWheelData data2) {
 
   // load intrinsic values
-  double r = state->wheel_intrinsic->value()(0);
-  double b = state->wheel_intrinsic->value()(1);
-  double t = state->wheel_intrinsic->value()(2);
+  // double r = state->wheel_intrinsic->value()(0);
+  // double b = state->wheel_intrinsic->value()(1);
+  // double t = state->wheel_intrinsic->value()(2);
 
   // compute the velocities at the odometry frame
   Vector3d w_hat1, v_hat1, w_hat2, v_hat2;
