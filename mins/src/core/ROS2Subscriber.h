@@ -90,13 +90,17 @@ private:
 
   /// Our subscribers and camera synchronizers
   rclcpp::Subscription<Imu>::SharedPtr sub_imu;
+  rclcpp::Subscription<JointState>::SharedPtr sub_wheel;
 
-  vector<rclcpp::SubscriptionBase::WeakPtr> subs;
+  vector<rclcpp::SubscriptionBase::SharedPtr> subs;
   vector<std::shared_ptr<message_filters::Subscriber<Image>>> image_subs;
+  vector<std::shared_ptr<message_filters::Subscriber<CompressedImage>>> cimage_subs;
 
   typedef message_filters::sync_policies::ApproximateTime<Image, Image> sync_pol;
   vector<shared_ptr<message_filters::Synchronizer<sync_pol>>> sync_cam;
-  vector<shared_ptr<message_filters::Subscriber<Image>>> sync_subs_cam;
+
+  typedef message_filters::sync_policies::ApproximateTime<CompressedImage, CompressedImage> csync_pol;
+  vector<shared_ptr<message_filters::Synchronizer<csync_pol>>> csync_cam;
 };
 } // namespace mins
 

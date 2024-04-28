@@ -47,8 +47,8 @@
 #include "update/lidar/UpdaterLidar.h"
 #include "update/vicon/UpdaterVicon.h"
 #include "update/vicon/ViconTypes.h"
-#include "update/wheel/UpdaterWheel.h"
 #include "update/wheel/UpdaterRoverWheel.h"
+#include "update/wheel/UpdaterWheel.h"
 #include "update/wheel/WheelTypes.h"
 #include "utils/Jabdongsani.h"
 #include "utils/TimeChecker.h"
@@ -67,13 +67,19 @@ SystemManager::SystemManager(shared_ptr<OptionsEstimator> op, shared_ptr<Simulat
   state->op->cam->enabled ? up_cam = make_shared<UpdaterCamera>(state) : shared_ptr<UpdaterCamera>();
   state->op->vicon->enabled ? up_vcn = make_shared<UpdaterVicon>(state) : shared_ptr<UpdaterVicon>();
   state->op->gps->enabled ? up_gps = make_shared<UpdaterGPS>(state) : shared_ptr<UpdaterGPS>();
-  state->op->wheel->enabled ? up_whl = make_shared<UpdaterWheel>(state) : shared_ptr<UpdaterWheel>();
+  if (state->op->wheel->enabled) {
+    if (state->op->wheel->rover) {
+      state->op->wheel->enabled ? up_whl_rover = make_shared<UpdaterRoverWheel>(state) : shared_ptr<UpdaterRoverWheel>();
+    } else {
+      state->op->wheel->enabled ? up_whl = make_shared<UpdaterWheel>(state) : shared_ptr<UpdaterWheel>();
+    }
+  }
   state->op->lidar->enabled ? up_ldr = make_shared<UpdaterLidar>(state) : shared_ptr<UpdaterLidar>();
 
   // Propagator & Initializer
   prop = std::make_shared<Propagator>(state);
   state->op->use_imu_res ? state->hook_propagator(prop) : void();
-  initializer = std::make_shared<Initializer>(state, prop, up_whl, up_gps, up_cam, up_ldr, sim);
+  initializer = std::make_shared<Initializer>(state, prop, up_whl, up_whl_rover, up_gps, up_cam, up_ldr, sim);
 
   // Average interpolation order and cloning frequency
   avg_order = make_shared<STAT>();
@@ -176,7 +182,7 @@ void SystemManager::feed_measurement_wheel(const WheelData &wheel) {
 }
 
 void SystemManager::feed_measurement_rover(const RoverWheelData &wheel) {
-  if (!state->op->wheel->enabled)
+  if (!state->op->wheel->rover)
     return;
 
   state->initialized ? tc_sensors->ding("WHL") : void();
@@ -418,7 +424,7 @@ void SystemManager::print_status() {
       up_cam->Chi.at(cam_id)->print();
   }
   if (state->op->wheel->enabled) {
-    up_whl->Chi->print();
+    state->op->wheel->rover ? up_whl_rover->Chi->print() : up_whl->Chi->print();
   }
 
   if (state->op->vicon->enabled) {

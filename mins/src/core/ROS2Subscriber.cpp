@@ -51,7 +51,7 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
   // Create imu subscriber (handle legacy ros param info)
   //  subs.push_back(node->create_subscription<Imu>(op->imu->topic, rclcpp::SensorDataQoS(), std::bind(&ROS2Subscriber::callback_inertial, this, std::placeholders::_1)));
 
-  sub_imu = node->create_subscription<sensor_msgs::msg::Imu>(op->imu->topic, rclcpp::SensorDataQoS(), std::bind(&ROS2Subscriber::callback_inertial, this, std::placeholders::_1));
+  sub_imu = node->create_subscription<sensor_msgs::msg::Imu>(op->imu->topic, rclcpp::QoS(100), std::bind(&ROS2Subscriber::callback_inertial, this, std::placeholders::_1));
   PRINT1("subscribing to imu: %s\n", sub_imu->get_topic_name());
 
   // Create camera subscriber
@@ -65,24 +65,44 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
           int cam_id0 = i;
           int cam_id1 = op->cam->stereo_pairs.at(i);
           // Create sync filter (they have unique pointers internally, so we have to use move logic here...)
-          auto image_sub0 = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(cam_id0));
-          auto image_sub1 = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(cam_id1));
-          auto sync = std::make_shared<message_filters::Synchronizer<sync_pol>>(sync_pol(10), *image_sub0, *image_sub1);
-          sync->registerCallback(std::bind(&ROS2Subscriber::callback_stereo_I, this, std::placeholders::_1, std::placeholders::_2, cam_id0, cam_id1));
-          // Append to our vector of subscribers
-          sync_cam.push_back(sync);
-          sync_subs_cam.push_back(image_sub0);
-          sync_subs_cam.push_back(image_sub1);
-          PRINT2("subscribing to cam (stereo): %s\n", op->cam->topic.at(cam_id0).c_str());
-          PRINT2("subscribing to cam (stereo): %s\n", op->cam->topic.at(cam_id1).c_str());
+          if (op->cam->compressed.at(cam_id0)) {
+            auto image_sub0 = std::make_shared<message_filters::Subscriber<CompressedImage>>(node, op->cam->topic.at(cam_id0));
+            auto image_sub1 = std::make_shared<message_filters::Subscriber<CompressedImage>>(node, op->cam->topic.at(cam_id1));
+            auto sync = std::make_shared<message_filters::Synchronizer<csync_pol>>(csync_pol(10), *image_sub0, *image_sub1);
+            sync->registerCallback(std::bind(&ROS2Subscriber::callback_stereo_C, this, std::placeholders::_1, std::placeholders::_2, cam_id0, cam_id1));
+            // Append to our vector of subscribers
+            csync_cam.push_back(sync);
+            cimage_subs.push_back(image_sub0);
+            cimage_subs.push_back(image_sub1);
+            PRINT2("subscribing to cam (stereo, compressed): %s\n", op->cam->topic.at(cam_id0).c_str());
+            PRINT2("subscribing to cam (stereo, compressed): %s\n", op->cam->topic.at(cam_id1).c_str());
+
+          } else {
+            auto image_sub0 = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(cam_id0));
+            auto image_sub1 = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(cam_id1));
+            auto sync = std::make_shared<message_filters::Synchronizer<sync_pol>>(sync_pol(10), *image_sub0, *image_sub1);
+            sync->registerCallback(std::bind(&ROS2Subscriber::callback_stereo_I, this, std::placeholders::_1, std::placeholders::_2, cam_id0, cam_id1));
+            // Append to our vector of subscribers
+            sync_cam.push_back(sync);
+            image_subs.push_back(image_sub0);
+            image_subs.push_back(image_sub1);
+            PRINT2("subscribing to cam (stereo): %s\n", op->cam->topic.at(cam_id0).c_str());
+            PRINT2("subscribing to cam (stereo): %s\n", op->cam->topic.at(cam_id1).c_str());
+          }
         }
       } else {
         // create MONO subscriber
-
-        auto image_sub = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(i));
-        image_sub->registerCallback(std::bind(&ROS2Subscriber::callback_monocular_I, this, std::placeholders::_1, i));
-        image_subs.push_back(image_sub);
-        PRINT2("subscribing to cam (mono): %s\n", op->cam->topic.at(i).c_str());
+        if (op->cam->compressed.at(i)) {
+          auto image_sub = std::make_shared<message_filters::Subscriber<CompressedImage>>(node, op->cam->topic.at(i));
+          image_sub->registerCallback(std::bind(&ROS2Subscriber::callback_monocular_C, this, std::placeholders::_1, i));
+          cimage_subs.push_back(image_sub);
+          PRINT2("subscribing to cam (mono, compressed): %s\n", op->cam->topic.at(i).c_str());
+        } else {
+          auto image_sub = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(i));
+          image_sub->registerCallback(std::bind(&ROS2Subscriber::callback_monocular_I, this, std::placeholders::_1, i));
+          image_subs.push_back(image_sub);
+          PRINT2("subscribing to cam (mono): %s\n", op->cam->topic.at(i).c_str());
+        }
       }
     }
   }
@@ -90,10 +110,12 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
   // Create wheel subscriber
   if (op->wheel->enabled) {
     if (op->wheel->type == "Rover") {
-      subs.push_back(node->create_subscription<JointState>(op->wheel->topic, 1000, [this](const JointState::SharedPtr msg0) { this->callback_rover(msg0); }));
+
+      sub_wheel = node->create_subscription<sensor_msgs::msg::JointState>(op->wheel->topic, rclcpp::SensorDataQoS(),
+                                                                          std::bind(&ROS2Subscriber::callback_rover, this, std::placeholders::_1));
       PRINT2("subscribing to rover: %s\n", op->wheel->topic.c_str());
     } else {
-      subs.push_back(node->create_subscription<JointState>(op->wheel->topic, 1000, [this](const JointState::SharedPtr msg0) { this->callback_wheel(msg0); }));
+      subs.push_back(node->create_subscription<JointState>(op->wheel->topic, rclcpp::SensorDataQoS(), std::bind(&ROS2Subscriber::callback_wheel, this, std::placeholders::_1)));
       PRINT2("subscribing to wheel: %s\n", op->wheel->topic.c_str());
     }
   }
@@ -186,6 +208,7 @@ void ROS2Subscriber::callback_wheel(const JointState::SharedPtr msg) {
 void mins::ROS2Subscriber::callback_rover(const JointState::SharedPtr msg) {
   RoverWheelData data = ROS2Helper::JointState2DataRover(msg);
   sys->feed_measurement_rover(data);
+  PRINT1(YELLOW "[SUB] Rover measurement: %.3f\n", data.w_a);
 }
 
 void ROS2Subscriber::callback_gnss(const NavSatFix::SharedPtr msg, int gps_id) {

@@ -91,6 +91,9 @@ void mins::OptionsWheel::load(const std::shared_ptr<ov_core::YamlParser> &parser
     if (type != "Wheel2DAng" && type != "Wheel3DAng" && type != "Rover") {
       do_calib_int = false;
     }
+    if (type == "Rover") {
+      rover = true;
+    }
   }
 }
 void mins::OptionsWheel::print() {

@@ -24,6 +24,7 @@
 #include <Eigen/Eigen>
 #include <deque>
 #include <memory>
+#include <tuple>
 
 namespace mins {
 

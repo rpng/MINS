@@ -123,13 +123,8 @@ bool UpdaterRoverWheel::update(double time0, double time1) {
     x_order.push_back(state->wheel_intrinsic);
 
   // Perform update
-  if (state->op->wheel->type == "Wheel3DAng" || state->op->wheel->type == "Wheel3DLin" || state->op->wheel->type == "Wheel3DCen") {
-    if (Chi->Chi2Check(state, x_order, H, res, Cov_3D))
-      StateHelper::EKFUpdate(state, x_order, H, res, Cov_3D, "WHEEL");
-  } else {
-    if (Chi->Chi2Check(state, x_order, H, res, Cov_2D))
-      StateHelper::EKFUpdate(state, x_order, H, res, Cov_2D, "WHEEL");
-  }
+  if (Chi->Chi2Check(state, x_order, H, res, Cov_3D))
+    StateHelper::EKFUpdate(state, x_order, H, res, Cov_3D, "WHEEL");
 
   // record last updated time and return success
   last_updated_clone_time = time1;
@@ -364,9 +359,11 @@ void UpdaterRoverWheel::preintegration_intrinsics_3D(double dt, RoverWheelData d
   double w_ = (((vx_a - vx) / -py_a) + ((vy_a - vy) / px_a) + ((vx_b - vx) / -py_b) + ((vy_b - vy) / px_b) + ((vx_c - vx) / -py_c) + ((vy_c - vy) / px_c) + ((vx_d - vx) / -py_d) +
                ((vy_d - vy) / px_d)) *
               0.125;
-  // load intrinsic values
+
+  // Compute angular and linear velocity
   Vector3d w(0., 0., w_);
   Vector3d v(vx, vy, 0.);
+
   // Compute Jacobians of w and v respect to intrinsics
   Matrix3d Hwx = Matrix3d::Zero();
   Hwx(2, 0) = (b * (-w_a * cos(phi_a) - w_b * cos(phi_b) - w_c * cos(phi_c) + 3 * w_d * cos(phi_d)) +
