@@ -21,6 +21,7 @@
 #include "IW_Initializer.h"
 #include "state/Propagator.h"
 #include "types/PoseJPL.h"
+#include "update/wheel/UpdaterRoverWheel.h"
 #include "update/wheel/UpdaterWheel.h"
 #include "update/wheel/WheelTypes.h"
 #include "utils/Print_Logger.h"
@@ -30,8 +31,9 @@
 using namespace mins;
 using namespace ov_core;
 
-IW_Initializer::IW_Initializer(shared_ptr<IW_Initializer::IW_Initializer_Options> op, shared_ptr<Propagator> imu_pp, shared_ptr<UpdaterWheel> wheel_up)
-    : op(op), imu_pp(imu_pp), wheel_up(wheel_up) {
+IW_Initializer::IW_Initializer(shared_ptr<IW_Initializer::IW_Initializer_Options> op, shared_ptr<Propagator> imu_pp, shared_ptr<UpdaterWheel> wheel_up,
+                               shared_ptr<UpdaterRoverWheel> wheel_up_rvr)
+    : op(op), imu_pp(imu_pp), wheel_up(wheel_up), wheel_up_rvr(wheel_up_rvr) {
   // Load wheel calibration parameters
   R_OtoI = op->wheel_extrinsic->Rot().transpose();
   p_IinO = op->wheel_extrinsic->pos();
@@ -39,6 +41,23 @@ IW_Initializer::IW_Initializer(shared_ptr<IW_Initializer::IW_Initializer_Options
   rl = op->wheel_intrinsic->value()(0);
   rr = op->wheel_intrinsic->value()(1);
   base_length = op->wheel_intrinsic->value()(2);
+  if (op->wheel_type == "Rover") {
+    r = op->wheel_intrinsic->value()(0);
+    double b = op->wheel_intrinsic->value()(1);
+    double t = op->wheel_intrinsic->value()(2);
+
+    px_a = -b / 2;
+    py_a = t / 2;
+
+    px_b = b / 2;
+    py_b = t / 2;
+
+    px_c = b / 2;
+    py_c = t / 2;
+
+    px_d = -b / 2;
+    py_d = -t / 2;
+  }
 }
 
 bool IW_Initializer::initialization(Matrix<double, 17, 1> &imustate) {
@@ -110,16 +129,24 @@ bool IW_Initializer::initialization(Matrix<double, 17, 1> &imustate) {
 bool IW_Initializer::get_IMU_Wheel_data(vector<ImuData> &imu_data, vector<pair<double, VectorXd>> &wheel_data) {
 
   // do not perform initialization if we don't have enough data
-  if (imu_pp->imu_data.size() < 3 || wheel_up->data_stack.size() < 3) {
-    PRINT1(YELLOW "[IW-Init]: Waiting for collecting IMU(%d < 3) and wheel data(%d < 3).\n" RESET, imu_pp->imu_data.size(), wheel_up->data_stack.size());
+  size_t wheel_count = op->wheel_type == "Rover" ? wheel_up_rvr->data_stack.size() : wheel_up->data_stack.size();
+
+  if (imu_pp->imu_data.size() < 3 || wheel_count < 3) {
+    PRINT1(YELLOW "[IW-Init]: Waiting for collecting IMU(%d < 3) and wheel data(%d < 3).\n" RESET, imu_pp->imu_data.size(), wheel_count);
     return false;
   }
 
   // get the min max times of imu and wheel data
   double min_imu_t = imu_pp->imu_data.at(1).timestamp;
   double max_imu_t = imu_pp->imu_data.at(imu_pp->imu_data.size() - 2).timestamp;
-  double min_wheel_t = wheel_up->data_stack.at(1).time + toff;                               // convert to IMU time
-  double max_wheel_t = wheel_up->data_stack.at(wheel_up->data_stack.size() - 2).time + toff; // convert to IMU time
+  double min_wheel_t, max_wheel_t;
+  if (op->wheel_type != "Rover") {
+    min_wheel_t = wheel_up->data_stack.at(1).time + toff;                               // convert to IMU time
+    max_wheel_t = wheel_up->data_stack.at(wheel_up->data_stack.size() - 2).time + toff; // convert to IMU time
+  } else {
+    min_wheel_t = wheel_up_rvr->data_stack.at(1).time + toff;                               // convert to IMU time
+    max_wheel_t = wheel_up_rvr->data_stack.at(wheel_up->data_stack.size() - 2).time + toff; // convert to IMU time
+  }
 
   // find common time zone
   double min_t = max(min_imu_t, min_wheel_t);
@@ -131,41 +158,100 @@ bool IW_Initializer::get_IMU_Wheel_data(vector<ImuData> &imu_data, vector<pair<d
     return false;
   }
 
-  vector<WheelData> wheel_raw_data;
-  if (!wheel_up->select_wheel_data(min_t - toff, max_t - toff, wheel_raw_data)) {
-    PRINT1(YELLOW "[IW-Init]: Failed to get wheel measurements between %.4f - %.4f.\n" RESET, min_t - toff, max_t - toff);
-    return false;
-  }
+  if (op->wheel_type != "Rover") {
 
-  // do not perform initialization if we don't have enough data 2
-  if (imu_data.size() < 20 || wheel_raw_data.size() < 20) {
-    PRINT1(YELLOW "[IW-Init]: Not enough IMU (%d / 20) and wheel measurements (%d / 20).\n" RESET, imu_data.size(), wheel_raw_data.size());
-    return false;
-  }
-
-  // Convert the wheel data to ang/lin velocities
-  for (auto wheel : wheel_raw_data) {
-    // compute the angular velocity at the odometry frame
-    Vector3d w_OinO, v_OinO;
-    if (op->wheel_type == "Wheel2DAng" || op->wheel_type == "Wheel3DAng") {
-      w_OinO << 0, 0, (wheel.m2 * rr - wheel.m1 * rl) / base_length;
-      v_OinO << (wheel.m2 * rr + wheel.m1 * rl) / 2, 0, 0;
-    } else if (op->wheel_type == "Wheel2DLin" || op->wheel_type == "Wheel3DLin") {
-      w_OinO << 0, 0, (wheel.m2 - wheel.m1) / base_length;
-      v_OinO << (wheel.m2 + wheel.m1) / 2, 0, 0;
-    } else if (op->wheel_type == "Wheel2DCen" || op->wheel_type == "Wheel3DCen") {
-      w_OinO << 0, 0, wheel.m1;
-      v_OinO << wheel.m2, 0, 0;
-    } else {
-      PRINT4("Wrong wheel type selected!");
-      exit(EXIT_FAILURE);
+    vector<WheelData> wheel_raw_data;
+    if (!wheel_up->select_wheel_data(min_t - toff, max_t - toff, wheel_raw_data)) {
+      PRINT1(YELLOW "[IW-Init]: Failed to get wheel measurements between %.4f - %.4f.\n" RESET, min_t - toff, max_t - toff);
+      return false;
+    }
+    // do not perform initialization if we don't have enough data 2
+    if (imu_data.size() < 20 || wheel_raw_data.size() < 20) {
+      PRINT1(YELLOW "[IW-Init]: Not enough IMU (%d / 20) and wheel measurements (%d / 20).\n" RESET, imu_data.size(), wheel_raw_data.size());
+      return false;
     }
 
-    // append the velocities
-    VectorXd wv = VectorXd::Zero(6);
-    wv.block(0, 0, 3, 1) = w_OinO;
-    wv.block(3, 0, 3, 1) = v_OinO;
-    wheel_data.emplace_back(wheel.time, wv);
+    // Convert the wheel data to ang/lin velocities
+    for (auto wheel : wheel_raw_data) {
+      // compute the angular velocity at the odometry frame
+      Vector3d w_OinO, v_OinO;
+      if (op->wheel_type == "Wheel2DAng" || op->wheel_type == "Wheel3DAng") {
+        w_OinO << 0, 0, (wheel.m2 * rr - wheel.m1 * rl) / base_length;
+        v_OinO << (wheel.m2 * rr + wheel.m1 * rl) / 2, 0, 0;
+      } else if (op->wheel_type == "Wheel2DLin" || op->wheel_type == "Wheel3DLin") {
+        w_OinO << 0, 0, (wheel.m2 - wheel.m1) / base_length;
+        v_OinO << (wheel.m2 + wheel.m1) / 2, 0, 0;
+      } else if (op->wheel_type == "Wheel2DCen" || op->wheel_type == "Wheel3DCen") {
+        w_OinO << 0, 0, wheel.m1;
+        v_OinO << wheel.m2, 0, 0;
+      } else {
+        PRINT4("Wrong wheel type selected!");
+        exit(EXIT_FAILURE);
+      }
+
+      // append the velocities
+      VectorXd wv = VectorXd::Zero(6);
+      wv.block(0, 0, 3, 1) = w_OinO;
+      wv.block(3, 0, 3, 1) = v_OinO;
+      wheel_data.emplace_back(wheel.time, wv);
+    }
+  } else {
+
+    vector<RoverWheelData> wheel_raw_data;
+    if (!wheel_up_rvr->select_wheel_data(min_t - toff, max_t - toff, wheel_raw_data)) {
+      PRINT1(YELLOW "[IW-Init]: Failed to get wheel measurements between %.4f - %.4f.\n" RESET, min_t - toff, max_t - toff);
+      return false;
+    }
+    // do not perform initialization if we don't have enough data 2
+    if (imu_data.size() < 20 || wheel_raw_data.size() < 20) {
+      PRINT1(YELLOW "[IW-Init]: Not enough IMU (%d / 20) and wheel measurements (%d / 20).\n" RESET, imu_data.size(), wheel_raw_data.size());
+      return false;
+    }
+
+    // Convert the wheel data to ang/lin velocities
+    for (auto wheel : wheel_raw_data) {
+      // compute the angular velocity at the odometry frame
+      Vector3d w_OinO, v_OinO;
+      double phi_a, phi_b, phi_c, phi_d, w_a, w_b, w_c, w_d;
+
+      phi_a = wheel.ph_a;
+      phi_b = wheel.ph_b;
+      phi_c = wheel.ph_c;
+      phi_d = wheel.ph_d;
+
+      w_a = wheel.w_a;
+      w_b = wheel.w_b;
+      w_c = wheel.w_c;
+      w_d = wheel.w_d;
+
+      double vx, vy;
+
+      double vx_a, vx_b, vx_c, vx_d, vy_a, vy_b, vy_c, vy_d;
+      vx_a = r * w_a * cos(phi_a);
+      vx_b = r * w_b * cos(phi_b);
+      vx_c = r * w_c * cos(phi_c);
+      vx_d = r * w_d * cos(phi_d);
+
+      vy_a = r * w_a * sin(phi_a);
+      vy_b = r * w_b * sin(phi_b);
+      vy_c = r * w_c * sin(phi_c);
+      vy_d = r * w_d * sin(phi_d);
+
+      vx = 0.25 * (vx_a + vx_b + vx_c + vx_d);
+      vy = 0.25 * (vy_a + vy_b + vy_c + vy_d);
+
+      double w_ = (((vx_a - vx) / -py_a) + ((vy_a - vy) / px_a) + ((vx_b - vx) / -py_b) + ((vy_b - vy) / px_b) + ((vx_c - vx) / -py_c) + ((vy_c - vy) / px_c) +
+                   ((vx_d - vx) / -py_d) + ((vy_d - vy) / px_d)) *
+                  0.125;
+      w_OinO << 0.0, 0.0, w_;
+      v_OinO << vx, vy, 0.0;
+
+      // append the velocities
+      VectorXd wv = VectorXd::Zero(6);
+      wv.block(0, 0, 3, 1) = w_OinO;
+      wv.block(3, 0, 3, 1) = v_OinO;
+      wheel_data.emplace_back(wheel.time, wv);
+    }
   }
   return true;
 }

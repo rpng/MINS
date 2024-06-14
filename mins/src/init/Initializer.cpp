@@ -63,8 +63,8 @@ using namespace Eigen;
 using namespace mins;
 using namespace ov_core;
 
-Initializer::Initializer(shared_ptr<State> state, PP pp_imu, UP_WHL up_whl, UP_GPS up_gps, UP_CAM up_cam, UP_LDR up_ldr, SIM sim)
-    : sim(sim), pp_imu(pp_imu), up_gps(up_gps), up_whl(up_whl), up_ldr(up_ldr), up_cam(up_cam), state(state) {
+Initializer::Initializer(shared_ptr<State> state, PP pp_imu, UP_WHL up_whl, UP_WHL_RVR up_whl_rvr, UP_GPS up_gps, UP_CAM up_cam, UP_LDR up_ldr, SIM sim)
+    : sim(sim), pp_imu(pp_imu), up_gps(up_gps), up_whl(up_whl), up_whl_rvr(up_whl_rvr), up_ldr(up_ldr), up_cam(up_cam), state(state) {
 
   tc = make_shared<TimeChecker>();
 
@@ -85,7 +85,7 @@ Initializer::Initializer(shared_ptr<State> state, PP pp_imu, UP_WHL up_whl, UP_G
     op->threshold = state->op->init->imu_wheel_thresh;
     op->gravity = state->op->gravity;
     op->imu_gravity_aligned = state->op->init->imu_gravity_aligned;
-    iw_init = make_shared<IW_Initializer>(op, pp_imu, up_whl);
+    iw_init = make_shared<IW_Initializer>(op, pp_imu, up_whl, up_whl_rvr);
     return;
   }
 
@@ -161,7 +161,7 @@ void Initializer::delete_old_measurements() {
       // delete camera measurements in 1/100 cam Hz because it is costy
       double cam_hz = (up_cam->t_hist.begin()->second.size() - 1) / (up_cam->t_hist.begin()->second.back() - up_cam->t_hist.begin()->second.front());
       if (last_cam_delete_t + 100.0 / cam_hz < old_time) {
-        for (int i = 0; i < up_cam->trackDATABASE.size(); i++) {
+        for (long unsigned int i = 0; i < up_cam->trackDATABASE.size(); i++) {
           auto db = up_cam->trackDATABASE.at(i);
           auto tr = up_cam->trackFEATS.at(i)->get_feature_database();
           int db_sz = db->size();

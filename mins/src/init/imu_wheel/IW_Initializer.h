@@ -41,6 +41,7 @@ namespace mins {
 class Simulator;
 class Propagator;
 class UpdaterWheel;
+class UpdaterRoverWheel;
 
 class IW_Initializer {
 public:
@@ -56,7 +57,7 @@ public:
   };
 
   /// IMU-Wheel based initializer
-  IW_Initializer(shared_ptr<IW_Initializer_Options> op, shared_ptr<Propagator> imu_pp, shared_ptr<UpdaterWheel> wheel_up);
+  IW_Initializer(shared_ptr<IW_Initializer_Options> op, shared_ptr<Propagator> imu_pp, shared_ptr<UpdaterWheel> wheel_up, shared_ptr<UpdaterRoverWheel> wheel_up_rvr);
 
   /// Try initialization
   bool initialization(Matrix<double, 17, 1> &imustate);
@@ -104,6 +105,7 @@ private:
   /// IMU and wheel sensor data
   shared_ptr<Propagator> imu_pp;
   shared_ptr<UpdaterWheel> wheel_up;
+  shared_ptr<UpdaterRoverWheel> wheel_up_rvr;
 
   /// number of continuous initialization success
   int cnt_smooth = -1;
@@ -117,7 +119,11 @@ private:
   double toff;
   double rl;
   double rr;
+  double r;
   double base_length;
+  double base_width;
+
+  double px_a, px_b, px_c, px_d, py_a, py_b, py_c, py_d;
 };
 
 } // namespace mins

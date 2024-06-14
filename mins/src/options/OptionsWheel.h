@@ -41,6 +41,7 @@ struct OptionsWheel {
 
   /// boolean for sensor use
   bool enabled = true;
+  bool rover = false;
 
   /// rostopic to subscribe
   std::string topic;

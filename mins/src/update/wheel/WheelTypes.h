@@ -21,6 +21,8 @@
 #ifndef MINS_WHEELTYPES_H
 #define MINS_WHEELTYPES_H
 
+#include <Eigen/Eigen>
+
 namespace mins {
 
 /// Types of wheel measurements supported
@@ -44,6 +46,13 @@ struct WheelData {
 
   /// Sort function to allow for using of STL containers
   bool operator<(const WheelData &other) const { return time < other.time; }
+};
+
+struct RoverWheelData {
+  double time = -1;
+
+  double w_a, w_b, w_c, w_d;
+  double ph_a, ph_b, ph_c, ph_d;
 };
 } // namespace mins
 

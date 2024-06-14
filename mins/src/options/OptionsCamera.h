@@ -74,6 +74,8 @@ struct OptionsCamera {
   /// Map between camid and camera extrinsics (q_ItoC, p_IinC).
   std::map<size_t, Eigen::VectorXd> extrinsics;
 
+  std::map<size_t, bool> compressed;
+
   /// initial covariance values for calibration parameters
   double init_cov_dt = 1e-4;
   double init_cov_ex_o = 1e-4;

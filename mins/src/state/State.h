@@ -216,6 +216,8 @@ public:
   /// Time offset base IMU to camera (t_imu = t_cam + t_off)
   unordered_map<size_t, shared_ptr<ov_type::Vec>> cam_dt;
 
+  shared_ptr<ov_type::Vec> tlio_dt;
+
   /// Calibration poses for each camera (R_ItoC, p_IinC)
   unordered_map<size_t, shared_ptr<ov_type::PoseJPL>> cam_extrinsic;
 
@@ -311,6 +313,7 @@ private:
   void set_gps_state(int &current_id);
   void set_wheel_state(int &current_id);
   void set_lidar_state(int &current_id);
+  void set_tlio_state(int &current_id);
 
   /// Init state covariance
   void set_state_covariance(int &current_id);

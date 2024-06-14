@@ -1,7 +1,7 @@
 %YAML:1.0 # need to specify the file type at the top!
 
 sys:
-  verbosity: 2
+  verbosity: 1
   save_timing: true
   path_timing: "MINS_DIR/../../../../outputs/tmp/0.time"
   save_state: false

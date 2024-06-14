@@ -53,11 +53,15 @@ struct CamSimData;
 struct GPSData;
 struct STAT;
 struct WheelData;
+struct RoverWheelData;
+struct TLIOData;
 class UpdaterCamera;
 class UpdaterGPS;
 class UpdaterLidar;
 class UpdaterVicon;
 class UpdaterWheel;
+class UpdaterRoverWheel;
+class UpdaterTLIO;
 class TimeChecker;
 
 class SystemManager {
@@ -85,6 +89,10 @@ public:
 
   /// Wheel measurement feeder
   void feed_measurement_wheel(const WheelData &wheel);
+
+  void feed_measurement_rover(const RoverWheelData &wheel);
+
+  void feed_measurement_tlio(const TLIOData &tlio);
 
   /// LiDAR measurement feeder
   void feed_measurement_lidar(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
@@ -135,6 +143,8 @@ protected:
 
   /// Wheel updater
   std::shared_ptr<UpdaterWheel> up_whl;
+  std::shared_ptr<UpdaterRoverWheel> up_whl_rover;
+  std::shared_ptr<UpdaterTLIO> up_tlio;
 
   /// Average order and cloning frequency of the system
   std::shared_ptr<STAT> avg_order, avg_freq;
