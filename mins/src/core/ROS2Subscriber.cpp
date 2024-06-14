@@ -34,9 +34,11 @@
 #include "options/OptionsGPS.h"
 #include "options/OptionsIMU.h"
 #include "options/OptionsLidar.h"
+#include "options/OptionsTLIO.h"
 #include "options/OptionsWheel.h"
 #include "state/State.h"
 #include "update/gps/GPSTypes.h"
+#include "update/tlio/TLIOTypes.h"
 #include "update/wheel/WheelTypes.h"
 #include "utils/Print_Logger.h"
 
@@ -123,7 +125,7 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
   // Create gps subscriber
   if (op->gps->enabled) {
     for (int i = 0; i < op->gps->max_n; i++) {
-      subs.push_back(node->create_subscription<NavSatFix>(op->gps->topic.at(i), 1000, [this, i](const NavSatFix::SharedPtr msg0) { this->callback_gnss(msg0, i); }));
+      subs.push_back(node->create_subscription<NavSatFix>(op->gps->topic.at(i), rclcpp::QoS(1000), [this, i](const NavSatFix::SharedPtr msg0) { this->callback_gnss(msg0, i); }));
       PRINT2("subscribing to GNSS: %s\n", op->gps->topic.at(i).c_str());
     }
   }
@@ -134,6 +136,11 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
       subs.push_back(node->create_subscription<PointCloud2>(op->lidar->topic.at(i), 2, [this, i](const PointCloud2::SharedPtr msg) { this->callback_lidar(msg, i); }));
       PRINT2("subscribing to LiDAR: %s\n", op->lidar->topic.at(i).c_str());
     }
+  }
+
+  if (op->tlio->enabled) {
+    subs.push_back(node->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(op->tlio->topic, rclcpp::QoS(100), std::bind(&ROS2Subscriber::callback_tlio, this, std::placeholders::_1)));
+    PRINT2("Subscribing to TLIO: %s\n", op->tlio->topic.c_str());
   }
 }
 
@@ -177,10 +184,15 @@ void ROS2Subscriber::callback_stereo_I(const Image::ConstSharedPtr msg0, const I
   if (success0 && success1) {
     sys->feed_measurement_camera(cam);
     pub->publish_cam_images({cam_id0, cam_id1});
-    PRINT2(YELLOW "[SUB] STEREO Cam measurement: %.3f|%d|%d\n" RESET, cam.timestamp, cam_id0, cam_id1);
+    PRINT1(YELLOW "[SUB] STEREO Cam measurement: %.3f|%d|%d\n" RESET, cam.timestamp, cam_id0, cam_id1);
   } else {
     PRINT_ERROR("[SUB] Stereo Image Error!");
   }
+}
+
+void ROS2Subscriber::callback_tlio(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg) {
+  auto m = ROS2Helper::Pose2TLIO(msg);
+  sys->feed_measurement_tlio(m);
 }
 
 void ROS2Subscriber::callback_stereo_C(const CompressedImage::ConstSharedPtr msg0, const CompressedImage::ConstSharedPtr msg1, int cam_id0, int cam_id1) {
@@ -191,7 +203,7 @@ void ROS2Subscriber::callback_stereo_C(const CompressedImage::ConstSharedPtr msg
   if (success0 && success1) {
     sys->feed_measurement_camera(cam);
     pub->publish_cam_images({cam_id0, cam_id1});
-    PRINT2(YELLOW "[SUB] STEREO Cam measurement: %.3f|%d|%d\n" RESET, rclcpp::Time(msg0->header.stamp).seconds(), cam_id0, cam_id1);
+    PRINT1(YELLOW "[SUB] STEREO Cam measurement: %.3f|%d|%d\n" RESET, rclcpp::Time(msg0->header.stamp).seconds(), cam_id0, cam_id1);
   }
 }
 

@@ -36,6 +36,7 @@
 #include "options/OptionsIMU.h"
 #include "options/OptionsInit.h"
 #include "options/OptionsLidar.h"
+#include "options/OptionsTLIO.h"
 #include "options/OptionsVicon.h"
 #include "options/OptionsWheel.h"
 #include "types/IMU.h"
@@ -79,6 +80,9 @@ State::State(shared_ptr<OptionsEstimator> op, std::shared_ptr<Simulator> sim) : 
   // set LiDAR state
   if (op->lidar->enabled)
     set_lidar_state(current_id);
+
+  if (op->tlio->enabled)
+    set_tlio_state(current_id);
 
   // set state covariance
   set_state_covariance(current_id);
@@ -237,6 +241,15 @@ void State::set_gps_state(int &current_id) {
   }
 }
 
+void State::set_tlio_state(int &current_id) {
+  auto dt = make_shared<ov_type::Vec>(1);
+
+  dt->set_value(VectorXd::Ones(1) * op->tlio->dt);
+  dt->set_fej(VectorXd::Ones(1) * op->tlio->dt);
+
+  tlio_dt = dt;
+}
+
 void State::set_wheel_state(int &current_id) {
   // Loop through each camera and create timeoffset, extrinsic, and intrinsic
   // Allocate timeoffset
@@ -342,6 +355,7 @@ void State::set_state_covariance(int &current_id) {
       }
     }
   }
+  // TODO: Add our own stuff here
   if (op->vicon->enabled) {
     for (int i = 0; i < op->vicon->max_n; i++) {
       if (op->vicon->do_calib_dt) {
@@ -796,6 +810,8 @@ bool State::get_interpolated_jacobian(double t_given, Matrix3d &RGtoI, Vector3d 
       calib_dt = true;
       dt = vicon_dt.at(id);
     }
+  } else if (sensor == "TLIO") {
+
   } else {
     PRINT4(RED "State::get_interpolated_pose::Jacobian request on wrong sensor: %s.\n" RESET, sensor.c_str());
     exit(EXIT_FAILURE);
@@ -1158,6 +1174,7 @@ void State::print_info() {
       PRINT2("dt(%d), ", wheel_dt->id());
       state_size += 1;
     }
+
     if (op->wheel->do_calib_ext || op->wheel->do_calib_int || op->wheel->do_calib_dt)
       PRINT2("\b\b], ");
   }

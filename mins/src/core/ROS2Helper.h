@@ -65,6 +65,7 @@ struct WheelData;
 struct RoverWheelData;
 struct ViconData;
 struct GPSData;
+struct TLIOData;
 
 /**
  * @brief Helper class that handles some common versions into and out of ROS formats
@@ -90,6 +91,8 @@ public:
   static WheelData Odometry2Data(const nav_msgs::msg::Odometry::SharedPtr msg);
 
   static RoverWheelData JointState2DataRover(const sensor_msgs::msg::JointState::SharedPtr msg);
+
+  static TLIOData Pose2TLIO(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg);
 
   static ViconData PoseStamped2Data(const geometry_msgs::msg::PoseStamped::SharedPtr msg, int id);
 

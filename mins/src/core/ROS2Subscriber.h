@@ -28,6 +28,7 @@
 #ifndef MINS_ROSSUBSCRIBER_H
 #define MINS_ROSSUBSCRIBER_H
 
+#include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/compressed_image.hpp"
@@ -36,12 +37,14 @@
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/time_synchronizer.h>
 
 using namespace std;
 using namespace sensor_msgs::msg;
+using namespace nav_msgs::msg;
 namespace mins {
 
 class SystemManager;
@@ -74,6 +77,8 @@ public:
   /// Callback for synchronized stereo camera (image, compressed image)
   void callback_stereo_I(const Image::ConstSharedPtr msg0, const Image::ConstSharedPtr msg1, int cam_id0, int cam_id1);
   void callback_stereo_C(const CompressedImage::ConstSharedPtr msg0, const CompressedImage::ConstSharedPtr msg1, int cam_id0, int cam_id1);
+
+  void callback_tlio(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg) ;
 
 private:
   /// Global node handler

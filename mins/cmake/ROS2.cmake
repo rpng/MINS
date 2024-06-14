@@ -76,6 +76,7 @@ list(APPEND LIBRARY_SOURCES
         src/options/OptionsSystem.cpp
         src/options/OptionsVicon.cpp
         src/options/OptionsWheel.cpp
+        src/options/OptionsTLIO.cpp
         src/core/ROS2Publisher.cpp
         src/core/ROS2Subscriber.cpp
         src/core/ROS2Helper.cpp
@@ -100,6 +101,7 @@ list(APPEND LIBRARY_SOURCES
         src/update/lidar/LidarHelper.cpp
         src/update/lidar/LidarTypes.cpp
         src/update/UpdaterStatistics.cpp
+        src/update/tlio/UpdaterTLIO.cpp
         src/init/Initializer.cpp
         src/init/imu/I_Initializer.cpp
         src/init/imu_wheel/IW_Initializer.cpp

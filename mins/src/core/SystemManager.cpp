@@ -31,6 +31,7 @@
 #include "options/OptionsEstimator.h"
 #include "options/OptionsGPS.h"
 #include "options/OptionsLidar.h"
+#include "options/OptionsTLIO.h"
 #include "options/OptionsVicon.h"
 #include "options/OptionsWheel.h"
 #include "state/Propagator.h"
@@ -45,6 +46,8 @@
 #include "update/gps/MathGPS.h"
 #include "update/gps/UpdaterGPS.h"
 #include "update/lidar/UpdaterLidar.h"
+#include "update/tlio/TLIOTypes.h"
+#include "update/tlio/UpdaterTLIO.h"
 #include "update/vicon/UpdaterVicon.h"
 #include "update/vicon/ViconTypes.h"
 #include "update/wheel/UpdaterRoverWheel.h"
@@ -75,6 +78,8 @@ SystemManager::SystemManager(shared_ptr<OptionsEstimator> op, shared_ptr<Simulat
     }
   }
   state->op->lidar->enabled ? up_ldr = make_shared<UpdaterLidar>(state) : shared_ptr<UpdaterLidar>();
+
+  state->op->tlio->enabled ? up_tlio = make_shared<UpdaterTLIO>(state) : shared_ptr<UpdaterTLIO>();
 
   // Propagator & Initializer
   prop = std::make_shared<Propagator>(state);
@@ -131,6 +136,7 @@ bool SystemManager::feed_measurement_imu(const ov_core::ImuData &imu) {
   // Insert IMU pose in the clone list
   if (!state->have_clone(state->time))
     state->clones.insert({state->time, state->imu->pose()});
+  PRINT2("IMU pose inserted, size: %d", state->clones.size());
 
   // Update polynomial
   state->add_polynomial();
@@ -190,6 +196,16 @@ void SystemManager::feed_measurement_rover(const RoverWheelData &wheel) {
   up_whl_rover->feed_measurement(wheel);
   state->initialized ? up_whl_rover->try_update() : void();
   state->initialized ? tc_sensors->dong("WHL") : void();
+}
+
+void mins::SystemManager::feed_measurement_tlio(const TLIOData &tlio) {
+  if (!state->op->tlio->enabled) {
+    return;
+  }
+  state->initialized ? tc_sensors->ding("TLIO") : void();
+  up_tlio->feed_measurement(tlio);
+  state->initialized ? up_tlio->try_update() : void();
+  state->initialized ? tc_sensors->dong("TLIO") : void();
 }
 
 void SystemManager::feed_measurement_lidar(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {

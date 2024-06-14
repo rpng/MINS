@@ -21,6 +21,8 @@
 #ifndef MINS_WHEELTYPES_H
 #define MINS_WHEELTYPES_H
 
+#include <Eigen/Eigen>
+
 namespace mins {
 
 /// Types of wheel measurements supported

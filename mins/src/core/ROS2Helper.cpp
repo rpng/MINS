@@ -35,6 +35,7 @@
 #include "types/PoseJPL.h"
 #include "types/Vec.h"
 #include "update/gps/GPSTypes.h"
+#include "update/tlio/TLIOTypes.h"
 #include "update/vicon/ViconTypes.h"
 #include "update/wheel/WheelTypes.h"
 #include "utils/Print_Logger.h"
@@ -205,6 +206,25 @@ WheelData ROS2Helper::Odometry2Data(const nav_msgs::msg::Odometry::SharedPtr msg
   data.m1 = msg->twist.twist.angular.z;
   data.m2 = msg->twist.twist.linear.x;
   return data;
+}
+
+TLIOData ROS2Helper::Pose2TLIO(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg) {
+  Eigen::Vector4d q(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
+  Eigen::Vector3d p(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
+
+  TLIOData m;
+  m.time = rclcpp::Time(msg->header.stamp).seconds();
+  m.id = 0;
+  m.meas.block(0, 0, 3, 1) = ov_core::log_so3(ov_core::quat_2_Rot(q));
+  m.meas.block(3, 0, 3, 1) = p;
+
+  for (int i = 0; i < 6; ++i) {
+    for (int j = 0; j < 6; ++j) {
+      m.cov(i, j) = msg->pose.covariance.data()[i * 6 + j];
+    }
+  }
+
+  return m;
 }
 
 RoverWheelData mins::ROS2Helper::JointState2DataRover(const sensor_msgs::msg::JointState::SharedPtr msg) {
