@@ -29,7 +29,7 @@
 #include "OptionsEstimator.h"
 #include "utils/Print_Logger.h"
 #include "utils/opencv_yaml_parse.h"
-#include <ros/package.h>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 mins::OptionsSimulation::OptionsSimulation() { est_true = std::make_shared<OptionsEstimator>(); }
 
@@ -61,8 +61,10 @@ void mins::OptionsSimulation::load_print(const std::shared_ptr<ov_core::YamlPars
     WtoE_trans.block(0, 0, 4, 1) = ov_core::rot_2_quat(T.block(0, 0, 3, 3));
     WtoE_trans.block(4, 0, 3, 1) = T.block(0, 3, 3, 1);
     // Replace MINS_DATA_DIR if we have it
-    BSpline_path.substr(0, 13) == "MINS_DATA_DIR" ? BSpline_path.replace(0, 13, ros::package::getPath("mins_data")) : std::string();
-    planes_path.substr(0, 13) == "MINS_DATA_DIR" ? planes_path.replace(0, 13, ros::package::getPath("mins_data")) : std::string();
+
+    auto dir = ament_index_cpp::get_package_share_directory("mins");
+    BSpline_path.substr(0, 13) == "MINS_DATA_DIR" ? BSpline_path.replace(0, 13, dir) : std::string();
+    planes_path.substr(0, 13) == "MINS_DATA_DIR" ? planes_path.replace(0, 13, dir) : std::string();
 
     // Load Ground truth estimator parameters
     est_true->load(parser);

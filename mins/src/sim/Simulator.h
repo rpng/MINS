@@ -131,6 +131,7 @@ public:
 protected:
   friend class Initializer;
   friend class SimVisualizer;
+  friend class Sim2Visualizer;
   friend class State_Logger;
 
   /// Get LiDAR plane info

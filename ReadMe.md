@@ -29,6 +29,31 @@ Exemplary use case of MINS:
 MINS is tested on Ubuntu 18 and 20 and only requires corresponding ROS ([Melodic](https://wiki.ros.org/melodic) and [Noetic](https://wiki.ros.org/noetic)).
 * Default Eigen version will be 3.3.7 (Noetic) or lower, but if one has a higher version the compilation can be failed due to thirdparty library (libpointmatcher) for LiDAR.
 
+## ROS2
+
+For instructions and dependencies for building the package on ros2 you can look into the Dockerfile. After building and sourcing, you should be able to start the simulation with 
+
+```sh
+ros2 run mins simulation mins/config/simulation/config.yaml
+```
+
+You can then start rviz2 to look at the path as estimated through MINS.
+
+For running in real mode you can use:
+
+```sh
+ros2 run mins subscribe mins/config/euroc_mav/config.yaml
+```
+
+And then play a bag in another terminal, for example from the [euroc_mav](https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets), after converting it using [rosbags](https://pypi.org/project/rosbags/):
+
+```sh
+ros2 bag play data/MH_01_easy
+```
+
+Again, you can look at the paths and the pose estimated by MINS with rviz2.
+
+
 ## Build and Source
 ```
 mkdir -p $MINS_WORKSPACE/catkin_ws/src/ && cd $MINS_WORKSPACE/catkin_ws/src/
@@ -42,6 +67,7 @@ source devel/setup.bash
 ```roslaunch mins simulation.launch cam_enabled:=true lidar_enabled:=true```
 
 ![alt text](thirdparty/simulation.png)
+
 
 ### Real-World Dataset
 #### Directly reading the ros bag file

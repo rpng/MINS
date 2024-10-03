@@ -16,11 +16,13 @@
     <license>GNU General Public License v3.0</license>
 
     <!-- ROS1: Dependencies needed to compile this package. -->
-    <buildtool_depend>catkin</buildtool_depend>
+    <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+    <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
 
     <!-- Note the export is required to expose the executables -->
     <export>
-        <build_type>catkin</build_type>
+        <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+        <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
     </export>
 
 </package>
