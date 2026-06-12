@@ -1,0 +1,50 @@
+name: Probe new OS
+
+# Informational only - measures what breaks when building MINS's vendored LiDAR
+# deps (libnabo, libpointmatcher) against newer system libraries (Eigen 3.4, newer
+# CMake) on Ubuntu 22.04 / 24.04. These are the deps that currently force
+# Eigen <= 3.3.7, so this is the concrete gap list for the multi-OS work.
+# Never blocks merge - keep off the required-checks list.
+
+on:
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    name: "Probe ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04, ubuntu-24.04 ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libeigen3-dev libboost-all-dev libyaml-cpp-dev
+      - name: Build libnabo
+        id: libnabo
+        continue-on-error: true
+        run: |
+          cmake -S thirdparty/libnabo -B build/libnabo -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/libnabo -j2
+          sudo cmake --install build/libnabo
+      - name: Build libpointmatcher
+        id: lpm
+        continue-on-error: true
+        run: |
+          cmake -S thirdparty/libpointmatcher -B build/lpm -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/lpm -j2
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Probe ${{ matrix.os }}"
+            echo "- cmake: $(cmake --version | head -1)"
+            echo "- eigen: $(dpkg -s libeigen3-dev 2>/dev/null | grep '^Version' || echo unknown)"
+            echo "- libnabo build: ${{ steps.libnabo.outcome }}"
+            echo "- libpointmatcher build: ${{ steps.lpm.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"
