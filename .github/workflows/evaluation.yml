@@ -1,0 +1,178 @@
+name: Evaluation Report
+
+# Simulation-based regression REPORT (master vs PR). Informational only:
+# it posts a per-sensor accuracy / consistency / timing comparison to the PR so
+# the contributor is aware of any change. It is NOT a required check and never
+# blocks merge. Keep it off the branch-protection required-checks list.
+
+on:
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write   # to post / update the PR comment
+
+env:
+  SEEDS: 8               # simulations per algorithm per sensor config
+  DATASET: UD_Warehouse  # bundled B-spline sim trajectory
+
+jobs:
+
+  # 1) Build the master-baseline and PR Noetic images once each (parallel).
+  build:
+    name: "Build image (${{ matrix.ref }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ref: pr
+            checkout: ""                       # PR merge ref (default)
+          - ref: master
+            checkout: ${{ github.base_ref }}   # master baseline
+    steps:
+      - name: Checkout (${{ matrix.ref }})
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.checkout }}
+          submodules: recursive                # GroundTruths needed for eval
+      - name: Build Docker image
+        run: docker build . --file Dockerfile_noetic_20_04 --tag mins:${{ matrix.ref }}
+      - name: Export image
+        run: docker save mins:${{ matrix.ref }} | gzip > image_${{ matrix.ref }}.tar.gz
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.ref }}
+          path: image_${{ matrix.ref }}.tar.gz
+          retention-days: 1
+
+  # 2) Per sensor config (parallel): run SEEDS sims for master & PR, then compare.
+  evaluate:
+    name: "Eval ${{ matrix.config }}"
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - config: vio_stereo
+            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=false wheel_enabled:=false vicon_enabled:=false"
+          - config: stereo_lidar
+            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=true gps_enabled:=false wheel_enabled:=false vicon_enabled:=false"
+          - config: stereo_gps
+            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=true wheel_enabled:=false vicon_enabled:=false"
+          - config: stereo_wheel
+            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=false"
+          - config: full
+            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=true gps_enabled:=true wheel_enabled:=true vicon_enabled:=false"
+    steps:
+      - name: Checkout (for report script)
+        uses: actions/checkout@v4
+      - name: Download images
+        uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          path: images
+      - name: Load images
+        run: |
+          docker load < images/image-master/image_master.tar.gz
+          docker load < images/image-pr/image_pr.tar.gz
+      - name: Run ${{ env.SEEDS }} simulations per algorithm
+        run: |
+          set -e
+          last=$((SEEDS-1))
+          for ref in master pr; do
+            mkdir -p out_$ref
+            docker run --rm -v "$PWD/out_$ref:/outputs" "mins:$ref" bash -c '
+              source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
+              export OMP_NUM_THREADS=1
+              for s in $(seq 0 '"$last"'); do
+                rm -f /outputs/tmp/$s.txt /outputs/tmp/$s.time
+                roslaunch mins simulation.launch sim_seed:=$s sys_verbosity:=3 \
+                  sys_save_state:=false '"${{ matrix.args }}"'
+              done'
+          done
+      - name: Arrange results for run_comparison
+        run: |
+          for ref in master pr; do
+            mkdir -p "alg/MINS_$ref/${DATASET}"
+            cp out_$ref/tmp/*.txt out_$ref/tmp/*.time "alg/MINS_$ref/${DATASET}/" 2>/dev/null || true
+          done
+          echo "Staged result tree:"; ls -R alg || true
+      - name: Run comparison (master vs PR)
+        run: |
+          docker run --rm -v "$PWD/alg:/alg" mins:pr bash -c '
+            source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
+            roslaunch mins_eval comparison.launch viz_type:=0 align_mode:=se3 \
+              path_alg:=/alg \
+              path_gts:=/catkin_ws/src/MINS/mins_data/GroundTruths/holonomic' \
+            2>/dev/null | tee "comparison_${{ matrix.config }}.txt"
+      - name: Parse to markdown
+        run: |
+          python3 .github/scripts/eval_report.py "${{ matrix.config }}" \
+            "comparison_${{ matrix.config }}.txt" > "report_${{ matrix.config }}.md"
+          cat "report_${{ matrix.config }}.md"
+      - name: Upload report snippet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-${{ matrix.config }}
+          path: report_${{ matrix.config }}.md
+          retention-days: 1
+
+  # 3) Assemble all per-config snippets into one PR comment + job summary.
+  report:
+    name: "Post report"
+    needs: evaluate
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download report snippets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: report-*
+          path: reports
+          merge-multiple: true
+      - name: Assemble report
+        run: |
+          {
+            echo "<!-- mins-eval-report -->"
+            echo "## Simulation regression report - master vs PR"
+            echo ""
+            echo "_${SEEDS:-8} seeds/config, sim \`${DATASET:-UD_Warehouse}\`, informational only (does not block merge)._"
+            echo "Delta is PR relative to master (mean). Lower is better for RMSE / Time; NEES closer to ~1-3 is well-calibrated."
+            echo ""
+            if ls reports/report_*.md >/dev/null 2>&1; then
+              for f in $(ls reports/report_*.md | sort); do cat "$f"; echo ""; done
+            else
+              echo "> Note: no report snippets were produced - check the \`evaluate\` jobs."
+            fi
+          } > final_report.md
+          cat final_report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Post / update PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('final_report.md', 'utf8');
+            const marker = '<!-- mins-eval-report -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body,
+              });
+            }
