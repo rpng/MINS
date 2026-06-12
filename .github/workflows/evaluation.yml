@@ -38,6 +38,10 @@ jobs:
         with:
           ref: ${{ matrix.checkout }}
           submodules: recursive                # GroundTruths needed for eval
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL /usr/local/share/boost /opt/microsoft || true
+          df -h /
       - name: Build Docker image
         run: docker build . --file Dockerfile_noetic_20_04 --tag mins:${{ matrix.ref }}
       - name: Export image
@@ -71,6 +75,10 @@ jobs:
     steps:
       - name: Checkout (for report script)
         uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL /usr/local/share/boost /opt/microsoft || true
+          df -h /
       - name: Download images
         uses: actions/download-artifact@v4
         with:
