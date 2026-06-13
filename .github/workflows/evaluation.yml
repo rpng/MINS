@@ -94,7 +94,7 @@ jobs:
           last=$((SEEDS-1))
           for ref in master pr; do
             mkdir -p out_$ref
-            docker run --rm -v "$PWD/out_$ref:/outputs" "mins:$ref" bash -c '
+            docker run --rm --entrypoint /bin/bash -v "$PWD/out_$ref:/outputs" "mins:$ref" -c '
               source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
               export OMP_NUM_THREADS=1
               for s in $(seq 0 '"$last"'); do
@@ -112,7 +112,7 @@ jobs:
           echo "Staged result tree:"; ls -R alg || true
       - name: Run comparison (master vs PR)
         run: |
-          docker run --rm -v "$PWD/alg:/alg" mins:pr bash -c '
+          docker run --rm --entrypoint /bin/bash -v "$PWD/alg:/alg" mins:pr -c '
             source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
             roslaunch mins_eval comparison.launch viz_type:=0 align_mode:=se3 \
               path_alg:=/alg \
