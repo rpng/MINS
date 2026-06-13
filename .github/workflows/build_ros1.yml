@@ -1,0 +1,37 @@
+name: ROS 1 Workflow
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build_1804:
+    name: "ROS1 Ubuntu 18.04"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Docker image (Melodic 18.04)
+        run: docker build . --file Dockerfile_melodic_18_04 --tag mins:melodic
+      - name: Run MINS simulation (smoke test)
+        run: docker run --rm --entrypoint /bin/bash mins:melodic -c "source /opt/ros/melodic/setup.bash && source /catkin_ws/devel/setup.bash && export OMP_NUM_THREADS=1 && roslaunch mins simulation.launch sys_verbosity:=3"
+
+  build_2004:
+    name: "ROS1 Ubuntu 20.04"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Docker image (Noetic 20.04)
+        run: docker build . --file Dockerfile_noetic_20_04 --tag mins:noetic
+      - name: Run MINS simulation (smoke test)
+        run: docker run --rm --entrypoint /bin/bash mins:noetic -c "source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash && export OMP_NUM_THREADS=1 && roslaunch mins simulation.launch sys_verbosity:=3"
+
+  # build_1604 ("ROS1 Ubuntu 16.04", Kinetic): PARKED - revisit later.
+  # MINS's LiDAR dependencies (libpointmatcher / libnabo require Eigen >= 3.3, while
+  # Ubuntu 16.04/Xenial ships Eigen 3.2) plus the modern PCL/Ceres usage make a clean
+  # 16.04 build unlikely without dedicated dependency work. To re-enable:
+  #   1. Add Dockerfile_kinetic_16_04 (FROM osrf/ros:kinetic-perception, python-catkin-tools,
+  #      Eigen upgraded to 3.3.7 from source), and
+  #   2. Add a build_1604 job here mirroring the two above.
