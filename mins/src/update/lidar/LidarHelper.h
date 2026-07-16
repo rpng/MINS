@@ -21,7 +21,7 @@
 #ifndef MINS_LIDARHELPER_H
 #define MINS_LIDARHELPER_H
 #include <memory>
-#include <pointmatcher/PointMatcher.h>
+#include <Eigen/Eigen>
 
 using namespace std;
 using namespace Eigen;
@@ -67,7 +67,6 @@ public:
   static bool compute_plane(Vector4d &plane_abcd, POINTCLOUD_XYZI_PTR pointcloud, shared_ptr<OptionsLidar> op);
 
   /// format convert
-  static PointMatcher<float>::DataPoints PCL2DM(POINTCLOUD_XYZI_PTR pcl_points);
 };
 } // namespace mins
 

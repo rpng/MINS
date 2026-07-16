@@ -24,7 +24,7 @@ lidar:
   map_decay_time: 120 # sec
   map_decay_dist: 100 # m
   map_icp_dist: 50 # m
-  map_use_icp: true
+  map_use_icp: false
   plane_max_p2pd: 0.1
   plane_max_condi: 200.0
 

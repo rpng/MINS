@@ -10,18 +10,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 
 WORKDIR /work
 
-# Build the standalone thirdparty libs first (they change rarely) so editing MINS
-# source does not rebuild them - COPY them alone before the rest of the tree.
-COPY thirdparty/libnabo /work/src/MINS/thirdparty/libnabo
-RUN cmake -S src/MINS/thirdparty/libnabo -B build/libnabo \
-      -DCMAKE_BUILD_TYPE=Release -DLIBNABO_BUILD_TESTS=OFF -DLIBNABO_BUILD_EXAMPLES=OFF -DLIBNABO_BUILD_PYTHON=OFF \
- && cmake --build build/libnabo -j"$(nproc)" && cmake --install build/libnabo
-
-COPY thirdparty/libpointmatcher /work/src/MINS/thirdparty/libpointmatcher
-RUN cmake -S src/MINS/thirdparty/libpointmatcher -B build/libpointmatcher \
-      -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF \
- && cmake --build build/libpointmatcher -j"$(nproc)" && cmake --install build/libpointmatcher
-
 # Now the rest of the tree. MINS core + headless CLI, no ROS.
 # ov_core is pulled in via add_subdirectory by ROS1.cmake.
 COPY . /work/src/MINS
