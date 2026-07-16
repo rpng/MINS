@@ -29,7 +29,6 @@ Exemplary use case of MINS:
 
 ## Dependency
 MINS is tested on Ubuntu 18 and 20 and only requires corresponding ROS ([Melodic](https://wiki.ros.org/melodic) and [Noetic](https://wiki.ros.org/noetic)).
-* Default Eigen version will be 3.3.7 (Noetic) or lower, but if one has a higher version the compilation can be failed due to thirdparty library (libpointmatcher) for LiDAR.
 
 ## ROS2
 
@@ -97,7 +96,6 @@ We provide mirrors of the converted rosbags (`urban18`-`urban39`) and their grou
 This project was built on top of the following libraries which are in the thirdparty folder.
 * [OpenVINS](https://github.com/rpng/open_vins): Open-source filter-based visual-inertial estimator.
 * [ikd-tree](https://github.com/hku-mars/ikd-Tree): Incremental k-d tree.
-* [libpointmatcher](https://github.com/ethz-asl/libpointmatcher): Modular Iterative Closest Point library based on [libnabo](https://github.com/ethz-asl/libnabo)
 
 ## Credit / Licensing
 
