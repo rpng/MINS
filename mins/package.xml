@@ -35,7 +35,6 @@
     <depend>cv_bridge</depend>
     <depend>ov_core</depend>
     <depend>pcl_ros</depend>
-    <depend>libpointmatcher</depend>
 
     <!-- Note the export is required to expose the executables -->
     <export>

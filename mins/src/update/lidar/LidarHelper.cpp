@@ -151,40 +151,12 @@ bool LidarHelper::transform_to_map(shared_ptr<State> state, shared_ptr<LiDARData
   T_LtoM.block(0, 3, 3, 1) = pLinM.cast<float>();
 
   //===================================================================
-  // Run ICP if we use it to register the map
+  // ICP scan-to-map registration was removed (dropped libpointmatcher/libnabo).
+  // TODO: reimplement point-to-plane ICP in-house (ikd_Tree NN search + Eigen)
+  //       and honor lidar->map_use_icp again. For now use the predicted transform.
   //===================================================================
-  if (state->op->lidar->map_use_icp) {
-    POINTCLOUD_XYZI_PTR map_pointcloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-    ikd->tree->flatten(ikd->tree->Root_Node, map_pointcloud->points, NOT_RECORD);
-    POINTCLOUD_XYZI_PTR new_pointcloud = lidar->pointcloud;
-
-    typedef PointMatcher<float> PM;
-    PM::ICP icp;
-    icp.setDefault();
-    // Adjust referenceDataPointsFilters
-    auto params = PM::Parameters();
-    params["maxDist"] = to_string(state->op->lidar->map_icp_dist);
-    icp.referenceDataPointsFilters.clear();
-    icp.referenceDataPointsFilters.push_back(PM::get().DataPointsFilterRegistrar.create("MaxDistDataPointsFilter", params));
-    icp.referenceDataPointsFilters.push_back(PM::get().DataPointsFilterRegistrar.create("SamplingSurfaceNormalDataPointsFilter"));
-
-    PM::DataPoints map_points = PCL2DM(map_pointcloud);
-    PM::DataPoints new_points = PCL2DM(new_pointcloud);
-    PM::TransformationParameters T_icp = icp.compute(new_points, map_points, T_LtoM);
-
-    // Get transform
-    Matrix4f T_diff = T_icp * T_LtoM.inverse();
-    if (icp.getMaxNumIterationsReached() || T_diff.block(0, 3, 3, 1).norm() > 1) {
-      lidar->T_LtoM = T_LtoM;
-      lidar->icp_success = false;
-    } else {
-      lidar->T_LtoM = T_icp;
-      lidar->icp_success = true;
-    }
-  } else {
-    lidar->T_LtoM = T_LtoM;
-    lidar->icp_success = true;
-  }
+  lidar->T_LtoM = T_LtoM;
+  lidar->icp_success = true;
 
   //===================================================================
   // Register new scan
@@ -325,24 +297,4 @@ bool LidarHelper::compute_plane(Vector4d &plane_abcd, POINTCLOUD_XYZI_PTR pointc
   }
   // All good :)
   return true;
-}
-
-PointMatcher<float>::DataPoints LidarHelper::PCL2DM(POINTCLOUD_XYZI_PTR pcl_points) {
-  // Labels. Can it work with xyzi??
-  PointMatcher<float>::DataPoints::Labels labels;
-  labels.push_back(PointMatcher<float>::DataPoints::Label("x", 1));
-  labels.push_back(PointMatcher<float>::DataPoints::Label("y", 1));
-  labels.push_back(PointMatcher<float>::DataPoints::Label("z", 1));
-  labels.push_back(PointMatcher<float>::DataPoints::Label("pad", 1));
-
-  // Convert the pcl points to matrix. Bottom row is 1 (pad)
-  MatrixXf matrix = MatrixXf::Ones(4, pcl_points->size());
-  for (int i = 0; i < pcl_points->size(); i++) {
-    matrix(0, i) = pcl_points->points.at(i).x;
-    matrix(1, i) = pcl_points->points.at(i).y;
-    matrix(2, i) = pcl_points->points.at(i).z;
-  }
-
-  // return PointMatcher<float>::DataPoints
-  return {matrix, labels};
 }

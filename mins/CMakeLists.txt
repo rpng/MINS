@@ -26,11 +26,8 @@ if (NOT OpenCV_FOUND)
     find_package(OpenCV 3 REQUIRED QUIET)
 endif ()
 find_package(Boost REQUIRED QUIET COMPONENTS system filesystem thread date_time program_options chrono)
-find_package(libpointmatcher REQUIRED QUIET)
-find_package(libnabo REQUIRED QUIET)
-
-message(STATUS "OPENCV: " ${OpenCV_VERSION} " | BOOST: " ${Boost_VERSION} " | LIBPOINTMATCHER: " ${libpointmatcher_VERSION})
-message(STATUS "Eigen3: " ${Eigen3_VERSION} " | PCL: " ${PCL_VERSION} "   | LIBNABO: " ${libnabo_VERSION})
+message(STATUS "OPENCV: " ${OpenCV_VERSION} " | BOOST: " ${Boost_VERSION})
+message(STATUS "Eigen3: " ${Eigen3_VERSION} " | PCL: " ${PCL_VERSION})
 
 # Enable compile optimizations
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -fno-signed-zeros -fno-math-errno -funroll-loops")

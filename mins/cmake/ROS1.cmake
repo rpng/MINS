@@ -17,14 +17,12 @@ include_directories(
         src
         ${EIGEN3_INCLUDE_DIR}
         ${Boost_INCLUDE_DIRS}
-        ${libpointmatcher_INCLUDE_DIRS}
 )
 
 # Set link libraries used by all binaries
 list(APPEND thirdparty_libraries
         ${Boost_LIBRARIES}
         ${OpenCV_LIBRARIES}
-        ${libpointmatcher_LIBRARIES}
         )
 
 # Core (ROS-free) library sources

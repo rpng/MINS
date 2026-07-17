@@ -10,11 +10,6 @@ find_package(std_msgs REQUIRED)
 
 find_package(ov_core REQUIRED)   # Might not be available as a ROS 2 package
 find_package(ov_eval REQUIRED)   # Might not be available as a ROS 2 package
-# mins (below) exports libpointmatcher/libnabo, so they must be in scope here
-# to resolve the imported pointmatcher target. ROS1 mins_eval does not link
-# mins and so does not need these (see CMakeLists.txt).
-find_package(libpointmatcher REQUIRED)
-find_package(libnabo REQUIRED)
 find_package(mins REQUIRED)
 
 add_definitions(-DROS_AVAILABLE=2)
@@ -39,7 +34,6 @@ include_directories(
         ${EIGEN3_INCLUDE_DIR}
         ${Boost_INCLUDE_DIRS}
         ${PYTHON_INCLUDE_DIRS}
-        ${libpointmatcher_INCLUDE_DIRS}
 )
 
 # Set link libraries used by all binaries
