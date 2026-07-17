@@ -1,0 +1,63 @@
+name: macOS Workflow
+
+# Builds the MINS core library + headless CLI natively on macOS (Apple Silicon, Apple Clang,
+# libc++). No ROS, and no Docker -- macOS runners cannot run the Linux images, so this is the
+# only job proving MINS builds outside the GNU/Linux toolchain. It also uploads mins_cli, so
+# every build produces a downloadable macOS binary.
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build_macos:
+    name: "No ROS - macOS (arm64)"
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          # Boost is deliberately absent: MINS does not use it. PCL still pulls it in itself.
+          brew install eigen opencv pcl yaml-cpp
+          echo "--- toolchain ---"
+          clang++ --version | head -2
+          cmake --version | head -1
+
+      - name: Configure
+        run: |
+          cmake -S mins -B build/mins \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_ROS=OFF \
+            -DENABLE_ARUCO_TAGS=OFF \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+
+      - name: Build
+        run: cmake --build build/mins -j"$(sysctl -n hw.ncpu)"
+
+      - name: Inspect binary
+        run: |
+          file build/mins/mins_cli
+          otool -L build/mins/mins_cli
+
+      - name: Run headless CLI end to end
+        run: |
+          set -eo pipefail
+          export MINS_ROOT="$PWD"
+          # config_system.yaml writes to MINS_DIR/../../../../outputs, i.e. four levels above
+          # $MINS_ROOT/mins -- outside the checkout. Create it up front like the Linux job does.
+          mkdir -p "$PWD/../../../outputs/tmp/0"
+          ./build/mins/mins_cli mins/config/simulation/config.yaml 2>&1 | tee /tmp/cli.log
+          grep -q "RMSE average" /tmp/cli.log
+
+      - name: Upload macOS binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: mins_cli-macos-arm64
+          path: build/mins/mins_cli
+          retention-days: 14
