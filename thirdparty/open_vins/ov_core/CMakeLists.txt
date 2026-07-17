@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.5.1)
 project(ov_core)
 
 # Include libraries (if we don't have opencv 4, then fallback to opencv 3)
