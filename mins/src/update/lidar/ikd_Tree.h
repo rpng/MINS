@@ -11,12 +11,12 @@
 #include <chrono>
 #include <math.h>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <pcl/point_types.h>
-#include <pthread.h>
 #include <queue>
 #include <stdio.h>
 #include <time.h>
-#include <unistd.h>
 
 #define EPSS 1e-6
 #define Minimal_Unbalanced_Tree_Size 10
@@ -79,7 +79,7 @@ public:
     bool need_push_down_to_right = false;
     bool working_flag = false;
     float radius_sq;
-    pthread_mutex_t push_down_mutex_lock;
+    std::mutex push_down_mutex_lock;
     float node_range_x[2], node_range_y[2], node_range_z[2];
     KD_TREE_NODE *left_son_ptr = nullptr;
     KD_TREE_NODE *right_son_ptr = nullptr;
@@ -186,15 +186,14 @@ private:
   // Multi-thread Tree Rebuild
   bool termination_flag = false;
   bool rebuild_flag = false;
-  pthread_t rebuild_thread;
-  pthread_mutex_t termination_flag_mutex_lock, rebuild_ptr_mutex_lock, working_flag_mutex, search_flag_mutex;
-  pthread_mutex_t rebuild_logger_mutex_lock, points_deleted_rebuild_mutex_lock;
+  std::thread rebuild_thread;
+  std::mutex termination_flag_mutex_lock, rebuild_ptr_mutex_lock, working_flag_mutex, search_flag_mutex;
+  std::mutex rebuild_logger_mutex_lock, points_deleted_rebuild_mutex_lock;
   // queue<Operation_Logger_Type> Rebuild_Logger;
   MANUAL_Q<Operation_Logger_Type> Rebuild_Logger;
   PointVector Rebuild_PCL_Storage;
   KD_TREE_NODE **Rebuild_Ptr = nullptr;
   int search_mutex_counter = 0;
-  static void *multi_thread_ptr(void *arg);
   void multi_thread_rebuild();
   void start_thread();
   void stop_thread();
