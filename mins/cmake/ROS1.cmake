@@ -21,6 +21,7 @@ include_directories(
 # Set link libraries used by all binaries
 list(APPEND thirdparty_libraries
         ${OpenCV_LIBRARIES}
+        Eigen3::Eigen
         )
 
 # Core (ROS-free) library sources

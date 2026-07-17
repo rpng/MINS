@@ -32,6 +32,7 @@ include_directories(
 list(APPEND thirdparty_libraries
         ${OpenCV_LIBRARIES}
         ${catkin_LIBRARIES}
+        Eigen3::Eigen
 )
 
 ##################################################
