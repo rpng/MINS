@@ -62,16 +62,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # gt: which GroundTruths set the run must be scored against.
+          # Wheel configs: MINS forces a non-holonomic sim trajectory whenever wheel is
+          # enabled (see Options.cpp), and the wheel odometry model is planar, so those
+          # runs need sim_const_planar:=true and the nonholonomic_planar ground truth.
+          # Scoring them against holonomic compares two different trajectories and yields
+          # a meaningless ~134 deg orientation RMSE.
           - config: vio_stereo
+            gt: holonomic
             args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=false wheel_enabled:=false vicon_enabled:=false"
           - config: stereo_lidar
+            gt: holonomic
             args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=true gps_enabled:=false wheel_enabled:=false vicon_enabled:=false"
           - config: stereo_gps
+            gt: holonomic
             args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=true wheel_enabled:=false vicon_enabled:=false"
           - config: stereo_wheel
-            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=false"
+            gt: nonholonomic_planar
+            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=false sim_const_planar:=true"
           - config: full
-            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=true gps_enabled:=true wheel_enabled:=true vicon_enabled:=false"
+            gt: nonholonomic_planar
+            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=true gps_enabled:=true wheel_enabled:=true vicon_enabled:=false sim_const_planar:=true"
     steps:
       - name: Checkout (for report script)
         uses: actions/checkout@v4
@@ -116,7 +127,7 @@ jobs:
             source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
             roslaunch mins_eval comparison.launch viz_type:=0 align_mode:=se3 \
               path_alg:=/alg \
-              path_gts:=/catkin_ws/src/MINS/mins_data/GroundTruths/holonomic' \
+              path_gts:=/catkin_ws/src/MINS/mins_data/GroundTruths/${{ matrix.gt }}' \
             2>/dev/null | tee "comparison_${{ matrix.config }}.txt"
       - name: Parse to markdown
         run: |

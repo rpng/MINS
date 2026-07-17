@@ -91,7 +91,9 @@ else ()
 
     # ov_core was pulled in above (before LIBRARY_SOURCES); just link + find PCL here.
     # (In a ROS build PCL comes via catkin/pcl_ros; standalone we link it ourselves.)
-    find_package(PCL REQUIRED)
+    # Only the components we actually use: point types + transforms (common) and VoxelGrid
+    # (filters). Asking for all of PCL drags in pcl_visualization -> VTK, which we never use.
+    find_package(PCL REQUIRED COMPONENTS common filters)
     include_directories(${PCL_INCLUDE_DIRS})
     link_directories(${PCL_LIBRARY_DIRS})
     add_definitions(${PCL_DEFINITIONS})

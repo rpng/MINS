@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.5.1)
 
 # Find ROS build system
 find_package(catkin QUIET COMPONENTS roscpp rosbag sensor_msgs cv_bridge)
