@@ -22,7 +22,7 @@
 #define MINS_UPDATERLIDAR_H
 
 #include <Eigen/Eigen>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <queue>
 #include <unordered_map>
 #include <vector>

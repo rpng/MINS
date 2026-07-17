@@ -27,6 +27,7 @@
 #include "OptionsVicon.h"
 #include "OptionsWheel.h"
 #include "utils/Print_Logger.h"
+#include "utils/fs_compat.h"
 #include "utils/opencv_yaml_parse.h"
 
 mins::Options::Options() {
@@ -42,7 +43,7 @@ void mins::Options::load_print(const std::shared_ptr<ov_core::YamlParser> &parse
   sim->load_print(parser);
 
   // force nonholonomic constraint to simulated trajectory when using wheel measurements
-  if (est->wheel->enabled && sim->const_holonomic && boost::filesystem::exists(parser->get_config_folder() + "config_simulation.yaml")) {
+  if (est->wheel->enabled && sim->const_holonomic && fs::exists(parser->get_config_folder() + "config_simulation.yaml")) {
     PRINT3(YELLOW "Enable non-holonomic constraint for wheel simulation.\n" RESET);
     sim->const_holonomic = false;
   }

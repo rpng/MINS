@@ -28,8 +28,6 @@
 #ifndef MINS_LOGGER_H
 #define MINS_LOGGER_H
 
-#include "boost/filesystem/fstream.hpp"
-#include "boost/filesystem/operations.hpp"
 #include "options/Options.h"
 #include "options/OptionsCamera.h"
 #include "options/OptionsEstimator.h"
@@ -45,6 +43,8 @@
 #include "types/PoseJPL.h"
 #include "update/gps/UpdaterGPS.h"
 #include "utils/colors.h"
+#include "utils/fs_compat.h"
+#include <fstream>
 
 using namespace std;
 using namespace Eigen;
@@ -167,14 +167,14 @@ public:
       for (auto pair : filepath_est) {
         string sensor = pair.first;
         // If the files exist, then delete it
-        boost::filesystem::exists(filepath_est.at(sensor)) && boost::filesystem::remove(filepath_est.at(sensor));
-        boost::filesystem::exists(filepath_std.at(sensor)) && boost::filesystem::remove(filepath_std.at(sensor));
-        boost::filesystem::exists(filepath_gth.at(sensor)) && boost::filesystem::remove(filepath_gth.at(sensor));
+        fs::exists(filepath_est.at(sensor)) && fs::remove(filepath_est.at(sensor));
+        fs::exists(filepath_std.at(sensor)) && fs::remove(filepath_std.at(sensor));
+        fs::exists(filepath_gth.at(sensor)) && fs::remove(filepath_gth.at(sensor));
 
         // Create folder path to this location if not exists
-        boost::filesystem::create_directories(boost::filesystem::path(filepath_est.at(sensor).c_str()).parent_path());
-        boost::filesystem::create_directories(boost::filesystem::path(filepath_std.at(sensor).c_str()).parent_path());
-        boost::filesystem::create_directories(boost::filesystem::path(filepath_gth.at(sensor).c_str()).parent_path());
+        fs::create_directories(fs::path(filepath_est.at(sensor).c_str()).parent_path());
+        fs::create_directories(fs::path(filepath_std.at(sensor).c_str()).parent_path());
+        fs::create_directories(fs::path(filepath_gth.at(sensor).c_str()).parent_path());
 
         // Open the files
         shared_ptr<ofstream> of_est_tmp = make_shared<ofstream>();
@@ -212,8 +212,8 @@ public:
     // trajectory
     if (op->sys->save_trajectory) {
       // Create folder path to this location if not exists
-      boost::filesystem::exists(op->sys->path_trajectory.c_str()) && boost::filesystem::remove(op->sys->path_trajectory.c_str());
-      boost::filesystem::create_directories(boost::filesystem::path(op->sys->path_trajectory.c_str()).parent_path());
+      fs::exists(op->sys->path_trajectory.c_str()) && fs::remove(op->sys->path_trajectory.c_str());
+      fs::create_directories(fs::path(op->sys->path_trajectory.c_str()).parent_path());
       of_traj.open(op->sys->path_trajectory.c_str());
       if (!of_traj.is_open()) {
         PRINT4(RED "Cannot open trajectory recording file: %s\n" RESET, op->sys->path_trajectory.c_str());
@@ -226,8 +226,8 @@ public:
     // Time
     if (op->sys->save_timing) {
       // Create folder path to this location if not exists
-      boost::filesystem::exists(op->sys->path_timing.c_str()) && boost::filesystem::remove(op->sys->path_timing.c_str());
-      boost::filesystem::create_directories(boost::filesystem::path(op->sys->path_timing.c_str()).parent_path());
+      fs::exists(op->sys->path_timing.c_str()) && fs::remove(op->sys->path_timing.c_str());
+      fs::create_directories(fs::path(op->sys->path_timing.c_str()).parent_path());
       of_time.open(op->sys->path_timing.c_str());
       if (!of_time.is_open()) {
         PRINT4(RED "Cannot open timing recording file: %s\n" RESET, op->sys->path_timing.c_str());
@@ -353,20 +353,20 @@ public:
       for (auto pair : filepath_est) {
         string sensor = pair.first;
         // If the files exist, then delete it
-        boost::filesystem::exists(filepath_est.at(sensor)) && boost::filesystem::remove(filepath_est.at(sensor));
-        boost::filesystem::exists(filepath_std.at(sensor)) && boost::filesystem::remove(filepath_std.at(sensor));
-        boost::filesystem::exists(filepath_gth.at(sensor)) && boost::filesystem::remove(filepath_gth.at(sensor));
+        fs::exists(filepath_est.at(sensor)) && fs::remove(filepath_est.at(sensor));
+        fs::exists(filepath_std.at(sensor)) && fs::remove(filepath_std.at(sensor));
+        fs::exists(filepath_gth.at(sensor)) && fs::remove(filepath_gth.at(sensor));
       }
     }
 
     // Trajectory
     if (op->sys->save_trajectory && (total_t < 0 || cnt_traj == 0)) {
-      boost::filesystem::exists(op->sys->path_trajectory.c_str()) && boost::filesystem::remove(op->sys->path_trajectory.c_str());
+      fs::exists(op->sys->path_trajectory.c_str()) && fs::remove(op->sys->path_trajectory.c_str());
     }
 
     // Time
     if (op->sys->save_timing && (total_t < 0 || cnt_time == 0 || (cnt_state == 0 && cnt_traj == 0))) {
-      boost::filesystem::exists(op->sys->path_timing.c_str()) && boost::filesystem::remove(op->sys->path_timing.c_str());
+      fs::exists(op->sys->path_timing.c_str()) && fs::remove(op->sys->path_timing.c_str());
     }
   }
 

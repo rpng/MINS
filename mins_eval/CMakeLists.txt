@@ -5,7 +5,6 @@ project(mins_eval)
 
 # Include libraries
 find_package(Eigen3 REQUIRED)
-find_package(Boost REQUIRED COMPONENTS system filesystem thread date_time)
 
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
 
@@ -24,9 +23,9 @@ if (Python_FOUND AND NOT DISABLE_MATPLOTLIB)
     list(APPEND thirdparty_libraries ${Python_LIBRARIES})
 endif ()
 
-# We need c++14 for ROS2, thus just require it for everybody
+# We need c++17 for std::filesystem
 # NOTE: To future self, hope this isn't an issue...
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -38,6 +37,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Wall -Wuninitialized -Wmaybe-uninit
 
 find_package(PCL REQUIRED QUIET)
 # Find ROS build system
+
+# GCC older than 9.1 needs an explicit lib for std::filesystem (ROS Melodic ships GCC 7.5)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.1)
+    list(APPEND thirdparty_libraries stdc++fs)
+endif ()
 
 find_package(catkin QUIET COMPONENTS roscpp)
 find_package(ament_cmake QUIET)

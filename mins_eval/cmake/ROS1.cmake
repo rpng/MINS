@@ -12,7 +12,6 @@ catkin_package(
 include_directories(
         src
         ${EIGEN3_INCLUDE_DIR}
-        ${Boost_INCLUDE_DIRS}
         ${PCL_INCLUDE_DIRS}
         ${PYTHON_INCLUDE_DIRS}
         ${catkin_INCLUDE_DIRS}
@@ -20,7 +19,6 @@ include_directories(
 
 # Set link libraries used by all binaries
 list(APPEND thirdparty_libraries
-        ${Boost_LIBRARIES}
         ${catkin_LIBRARIES}
         )
 

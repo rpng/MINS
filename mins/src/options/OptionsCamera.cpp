@@ -28,12 +28,13 @@
 #include "OptionsCamera.h"
 #include "feat/FeatureInitializerOptions.h"
 #include "utils/Print_Logger.h"
+#include "utils/fs_compat.h"
 #include "utils/opencv_yaml_parse.h"
 
 void mins::OptionsCamera::load(const std::shared_ptr<ov_core::YamlParser> &parser) {
   if (parser != nullptr) {
     std::string f = "config_camera";
-    if (!boost::filesystem::exists(parser->get_config_folder() + f + ".yaml")) {
+    if (!fs::exists(parser->get_config_folder() + f + ".yaml")) {
       enabled = false;
       return;
     }
@@ -190,7 +191,7 @@ void mins::OptionsCamera::load_i(const std::shared_ptr<ov_core::YamlParser> &par
     std::string mask_node = "mask" + std::to_string(i);
     parser->parse_external(f, "cam" + std::to_string(i), "mask", mask_path);
     std::string total_mask_path = parser->get_config_folder() + mask_path;
-    if (!boost::filesystem::exists(total_mask_path)) {
+    if (!fs::exists(total_mask_path)) {
       PRINT4(RED "VioManager(): invalid mask path:\n" RESET);
       PRINT4(RED "\t- mask%d - %s\n" RESET, i, total_mask_path.c_str());
       std::exit(EXIT_FAILURE);

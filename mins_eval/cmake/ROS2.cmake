@@ -32,13 +32,11 @@ list(APPEND ament_libraries
 # Include our header files
 include_directories(
         ${EIGEN3_INCLUDE_DIR}
-        ${Boost_INCLUDE_DIRS}
         ${PYTHON_INCLUDE_DIRS}
 )
 
 # Set link libraries used by all binaries
 list(APPEND thirdparty_libraries
-        ${Boost_LIBRARIES}
         )
 
 ##################################################

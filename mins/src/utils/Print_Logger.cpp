@@ -26,7 +26,7 @@
  */
 
 #include "Print_Logger.h"
-#include <boost/filesystem.hpp>
+#include "utils/fs_compat.h"
 #include <cstdarg>
 #include <cstring>
 #include <iostream>
@@ -42,16 +42,16 @@ void Print_Logger::open_file(const std::string &path, bool remove_exist) {
   std::string output_path;
   for (int i = 0; i < 10000; i++) {
     output_path = path + "/mins_log" + std::to_string(i) + ".txt";
-    if (boost::filesystem::exists(output_path)) {
+    if (fs::exists(output_path)) {
       if (remove_exist) {
-        boost::filesystem::remove(output_path);
+        fs::remove(output_path);
         break;
       }
       continue;
     } else
       break;
   }
-  boost::filesystem::create_directories(boost::filesystem::path(output_path.c_str()).parent_path());
+  fs::create_directories(fs::path(output_path.c_str()).parent_path());
   pFile = fopen(output_path.c_str(), "w");
 }
 

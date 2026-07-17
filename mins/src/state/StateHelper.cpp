@@ -35,8 +35,8 @@
 #include "types/PoseJPL.h"
 #include "types/Type.h"
 #include "utils/Print_Logger.h"
+#include "utils/chi_square.h"
 #include "utils/colors.h"
-#include <boost/math/distributions/chi_squared.hpp>
 
 using namespace ov_core;
 using namespace ov_type;
@@ -436,8 +436,7 @@ bool StateHelper::initialize(shared_ptr<State> state, shared_ptr<Type> new_varia
     double chi2 = resup.transpose() * S.inverse().selfadjointView<Upper>() * resup;
 
     // Get what our threshold should be
-    boost::math::chi_squared chi_squared_dist(res.rows());
-    double chi2_check = boost::math::quantile(chi_squared_dist, 0.95);
+    double chi2_check = chi_square_quantile(0.95, res.rows());
     if (chi2 > chi_2_mult * chi2_check) {
       return false;
     }

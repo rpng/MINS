@@ -26,6 +26,7 @@
  */
 
 #include "functions/ErrorPlot.h"
+#include "utils/fs_compat.h"
 
 #if ROS_AVAILABLE == 2
 #include "rclcpp/rclcpp.hpp"
@@ -78,7 +79,7 @@ int main(int argc, char **argv) {
   if (argc > 2)
     save_path = argv[2];
   save_path += save_path.back() != '/' ? "/" : "";
-  boost::filesystem::create_directories(save_path.c_str());
+  fs::create_directories(save_path.c_str());
 
   // Create our trajectory object
   mins_eval::ErrorPlot traj(load_path, save_path);

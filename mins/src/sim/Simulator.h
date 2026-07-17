@@ -29,7 +29,6 @@
 #define MINS_SIMULATOR_H
 
 #include <Eigen/Eigen>
-#include <boost/shared_ptr.hpp>
 #include <memory>
 #include <random>
 #include <unordered_map>

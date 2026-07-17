@@ -29,7 +29,6 @@
 #define MINS_SYSTEMMANAGER_H
 
 #include <Eigen/Eigen>
-#include <boost/shared_ptr.hpp>
 #include <memory>
 
 namespace pcl {
