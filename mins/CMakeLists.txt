@@ -17,7 +17,9 @@ if (MSVC)
     # Export all symbols so the SHARED libs behave like they do on linux/mac (MSVC hides them otherwise);
     # set before add_subdirectory(ov_core) so ov_core_lib inherits it too.
     add_compile_definitions(NOMINMAX _USE_MATH_DEFINES)
-    add_compile_options(/O2 /EHsc /bigobj)
+    # /FIcassert force-includes <cassert> everywhere: ov_core uses assert() but relies on it
+    # being pulled in transitively, which gcc/clang do and msvc does not.
+    add_compile_options(/O2 /EHsc /bigobj /FIcassert)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 else ()
     # Enable compile optimizations

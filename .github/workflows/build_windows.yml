@@ -20,6 +20,14 @@ jobs:
         with:
           submodules: recursive
 
+      # vcpkg builds PCL (+boost/flann) from source -- ~40 min. Cache its built package
+      # archives so only the first run pays that cost; later runs restore in seconds.
+      - name: Cache vcpkg archives
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/vcpkg/archives
+          key: vcpkg-x64-windows-v1
+
       - name: Install dependencies (vcpkg)
         shell: bash
         run: |
