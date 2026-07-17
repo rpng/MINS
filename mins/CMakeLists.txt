@@ -3,9 +3,9 @@ cmake_minimum_required(VERSION 3.5.1)
 # Project name
 project(mins)
 
-# We need c++14 for ROS2, thus just require it for everybody
+# We need c++17 for std::filesystem
 # NOTE: To future self, hope this isn't an issue...
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -25,8 +25,7 @@ find_package(OpenCV 4 QUIET)
 if (NOT OpenCV_FOUND)
     find_package(OpenCV 3 REQUIRED QUIET)
 endif ()
-find_package(Boost REQUIRED QUIET COMPONENTS system filesystem thread date_time program_options chrono)
-message(STATUS "OPENCV: " ${OpenCV_VERSION} " | BOOST: " ${Boost_VERSION})
+message(STATUS "OPENCV: " ${OpenCV_VERSION})
 message(STATUS "Eigen3: " ${Eigen3_VERSION} " | PCL: " ${PCL_VERSION})
 
 # Enable compile optimizations
@@ -34,6 +33,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -fno-sign
 
 # Enable debug flags (use if you want to debug in gdb)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Wall -Wuninitialized -Wmaybe-uninitialized -fno-omit-frame-pointer")
+
+# GCC older than 9.1 needs an explicit lib for std::filesystem (ROS Melodic ships GCC 7.5)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.1)
+    list(APPEND thirdparty_libraries stdc++fs)
+endif ()
 
 find_package(catkin QUIET COMPONENTS roscpp)
 find_package(ament_cmake QUIET)

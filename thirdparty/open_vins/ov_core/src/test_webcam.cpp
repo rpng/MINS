@@ -19,6 +19,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <chrono>
 #include <cmath>
 #include <csignal>
 #include <deque>
@@ -30,9 +31,6 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/filesystem.hpp>
 
 #include "cam/CamRadtan.h"
 #include "feat/Feature.h"

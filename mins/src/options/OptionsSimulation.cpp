@@ -29,6 +29,7 @@
 #include "OptionsEstimator.h"
 #include "utils/PackagePath.h"
 #include "utils/Print_Logger.h"
+#include "utils/fs_compat.h"
 #include "utils/opencv_yaml_parse.h"
 
 mins::OptionsSimulation::OptionsSimulation() { est_true = std::make_shared<OptionsEstimator>(); }
@@ -36,7 +37,7 @@ mins::OptionsSimulation::OptionsSimulation() { est_true = std::make_shared<Optio
 void mins::OptionsSimulation::load_print(const std::shared_ptr<ov_core::YamlParser> &parser) {
   if (parser != nullptr) {
     std::string f = "config_simulation";
-    if (!boost::filesystem::exists(parser->get_config_folder() + f + ".yaml")) {
+    if (!fs::exists(parser->get_config_folder() + f + ".yaml")) {
       return;
     }
     parser->parse_external(f, "sim", "seed", seed);

@@ -23,14 +23,13 @@
 #include "state/StateHelper.h"
 #include "utils/Jabdongsani.h"
 #include "utils/Print_Logger.h"
-#include <boost/math/distributions/chi_squared.hpp>
+#include "utils/chi_square.h"
 
-using namespace boost::math;
 using namespace mins;
 
 UpdaterStatistics::UpdaterStatistics(double chi2_mult, string type, int id) : type(type), id(id), chi2_mult(chi2_mult) {
   for (int i = 1; i < max_chi_size; i++)
-    chi_squared_table[i] = quantile(chi_squared(i), 0.95);
+    chi_squared_table[i] = chi_square_quantile(0.95, i);
   chi_stat = make_shared<STAT>();
   res_stat = make_shared<STAT>();
   std_stat = make_shared<STAT>();
@@ -111,8 +110,7 @@ bool UpdaterStatistics::get_chi2(double &chi, double &thr, const MatrixXd &P, co
   if (res.rows() < max_chi_size) {
     thr = chi2_mult * chi_squared_table[res.rows()];
   } else {
-    chi_squared chi_squared_dist(res.rows());
-    thr = chi2_mult * quantile(chi_squared_dist, 0.95);
+    thr = chi2_mult * chi_square_quantile(0.95, res.rows());
   }
   if (isnan(chi)) {
     string sensor = type + (id < 0 ? "" : to_string(id));

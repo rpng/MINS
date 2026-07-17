@@ -26,6 +26,7 @@
 #include <cmath>
 #include <complex>
 #include <numeric>
+#include <random>
 
 using namespace std;
 using namespace Eigen;
@@ -187,10 +188,10 @@ private:
   // Get random subsets of given sets
   static void get_random_subset(vector<Vector3d> &p_A, vector<Vector3d> &p_B, vector<Vector3d> &suBp_A, vector<Vector3d> &suBp_B, size_t sizeSubset) {
 
-    srand(1337);
+    mt19937 rng(1337);
     vector<unsigned int> indices(p_A.size());
     iota(indices.begin(), indices.end(), 0);
-    random_shuffle(indices.begin(), indices.end());
+    shuffle(indices.begin(), indices.end(), rng);
     for (size_t i = 0; i < sizeSubset; i++) {
       suBp_A.push_back(p_A[indices[i]]);
       suBp_B.push_back(p_B[indices[i]]);

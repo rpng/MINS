@@ -23,7 +23,7 @@
 #define OPENCV_YAML_PARSER_H
 
 #include <Eigen/Eigen>
-#include <boost/filesystem.hpp>
+#include <fstream>
 #include <memory>
 #include <opencv2/opencv.hpp>
 
@@ -55,6 +55,13 @@ namespace ov_core {
  * NOTE: The camera and imu have nested, but those are handled externally.
  * They first read the "imu0" or "cam1" level, after-which all values are at the same level.
  */
+/// Check a file is readable. This is the only filesystem operation ov_core needs, so we
+/// avoid pulling in <filesystem> and the c++17 requirement that would come with it.
+inline bool file_exists(const std::string &path) {
+  std::ifstream f(path);
+  return f.good();
+}
+
 class YamlParser {
 public:
   /**
@@ -65,11 +72,11 @@ public:
   explicit YamlParser(const std::string &config_path, bool fail_if_not_found = true) : config_path_(config_path) {
 
     // Check if file exists
-    if (!fail_if_not_found && !boost::filesystem::exists(config_path)) {
+    if (!fail_if_not_found && !file_exists(config_path)) {
       config = nullptr;
       return;
     }
-    if (!boost::filesystem::exists(config_path)) {
+    if (!file_exists(config_path)) {
       PRINT_ERROR(RED "unable to open the configuration file!\n%s\n" RESET, config_path.c_str());
       std::exit(EXIT_FAILURE);
     }

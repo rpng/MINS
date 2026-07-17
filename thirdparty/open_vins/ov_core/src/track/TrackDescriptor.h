@@ -143,7 +143,7 @@ protected:
                             std::vector<cv::DMatch> &good_matches);
 
   // Timing variables
-  boost::posix_time::ptime rT1, rT2, rT3, rT4, rT5, rT6, rT7;
+  std::chrono::steady_clock::time_point rT1, rT2, rT3, rT4, rT5, rT6, rT7;
 
   // Our orb extractor
   cv::Ptr<cv::ORB> orb0 = cv::ORB::create();

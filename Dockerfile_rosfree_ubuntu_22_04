@@ -5,7 +5,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install --no-install-recommends -y \
     build-essential cmake git ca-certificates \
-    libeigen3-dev libboost-all-dev libopencv-dev libpcl-dev libyaml-cpp-dev \
+    libeigen3-dev libopencv-dev libpcl-dev libyaml-cpp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work

@@ -22,7 +22,7 @@
 #define MINS_LIDARTYPES_H
 
 #include <Eigen/Eigen>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 using namespace Eigen;
 namespace pcl {

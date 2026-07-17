@@ -20,12 +20,13 @@
 
 #include "OptionsGPS.h"
 #include "utils/Print_Logger.h"
+#include "utils/fs_compat.h"
 #include "utils/opencv_yaml_parse.h"
 
 void mins::OptionsGPS::load(const std::shared_ptr<ov_core::YamlParser> &parser) {
   if (parser != nullptr) {
     std::string f = "config_gps";
-    if (!boost::filesystem::exists(parser->get_config_folder() + f + ".yaml")) {
+    if (!fs::exists(parser->get_config_folder() + f + ".yaml")) {
       enabled = false;
       return;
     }
