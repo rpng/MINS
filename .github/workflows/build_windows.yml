@@ -1,8 +1,9 @@
 name: Windows Workflow
 
 # Builds the MINS core library + headless CLI natively on Windows (MSVC, x64) with deps from
-# vcpkg. No ROS, no Docker -- this is the only job proving MINS builds on the MSVC toolchain.
-# It uploads mins_cli.exe, so every build produces a downloadable Windows binary.
+# vcpkg (eigen3 only) and a prebuilt OpenCV package. No ROS, no Docker -- this is the only job
+# proving MINS builds on the MSVC toolchain. It uploads mins_cli.exe, so every build produces
+# a downloadable Windows binary.
 
 on:
   push:
@@ -20,23 +21,22 @@ jobs:
         with:
           submodules: recursive
 
-      # vcpkg builds opencv from source (the heavy one now that PCL is gone). Cache the
-      # installed tree so only the first run pays that cost; later runs see it present.
-      - name: Cache vcpkg installed packages
-        uses: actions/cache@v4
-        with:
-          path: C:\vcpkg\installed
-          key: vcpkg-installed-x64-windows-rel-v2
-
-      - name: Install dependencies (vcpkg)
+      # eigen3 is header-only via vcpkg -- fast even uncached, no need to compile or cache it.
+      - name: Install eigen3 (vcpkg)
         shell: bash
         run: |
-          # MINS dropped PCL, so we only need eigen3, opencv4 and yaml-cpp here.
-          # vcpkg is pre-installed on the runner at $VCPKG_INSTALLATION_ROOT.
-          # x64-windows-rel is our release-only overlay triplet (skips the debug builds).
-          vcpkg install eigen3 opencv4 yaml-cpp \
+          vcpkg install eigen3 \
             --triplet x64-windows-rel --overlay-triplets=.github/vcpkg-triplets
-          cmake --version | head -1
+
+      # vcpkg's opencv4 port compiles OpenCV from source (~30+ min, even with PCL gone).
+      # Use the official prebuilt Windows package instead -- a self-extracting archive with
+      # no compile step, done in well under a minute.
+      - name: Install OpenCV (prebuilt)
+        shell: bash
+        run: |
+          curl -sSL -o opencv.exe https://github.com/opencv/opencv/releases/download/4.10.0/opencv-4.10.0-windows.exe
+          ./opencv.exe -oC:/ -y
+          echo "OPENCV_DIR=C:/opencv/build" >> "$GITHUB_ENV"
 
       - name: Configure
         shell: bash
@@ -47,7 +47,9 @@ jobs:
             -DENABLE_ARUCO_TAGS=OFF \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-windows-rel \
-            -DVCPKG_OVERLAY_TRIPLETS=.github/vcpkg-triplets
+            -DVCPKG_OVERLAY_TRIPLETS=.github/vcpkg-triplets \
+            -DOpenCV_DIR="$OPENCV_DIR" \
+            -DCMAKE_PREFIX_PATH="$OPENCV_DIR"
 
       - name: Build
         shell: bash
@@ -64,8 +66,10 @@ jobs:
         run: |
           set -eo pipefail
           export MINS_ROOT="$PWD"
-          # the vcpkg DLLs (opencv, ...) must be findable at run time
-          export PATH="$VCPKG_INSTALLATION_ROOT/installed/x64-windows-rel/bin:$PATH"
+          # ov_core_lib.dll lives in its own subproject build dir (add_subdirectory target),
+          # and opencv's DLL is in the prebuilt package's bin dir -- both must be on PATH for
+          # mins_cli.exe to load at run time.
+          export PATH="$PWD/build/mins/ov_core/Release:C:/opencv/build/x64/vc16/bin:$PATH"
           # config_system.yaml writes results four levels above $MINS_ROOT/mins
           mkdir -p "$PWD/../../../outputs/tmp/0"
           ./build/mins/Release/mins_cli.exe mins/config/simulation/config.yaml 2>&1 | tee /tmp/cli.log
