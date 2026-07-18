@@ -85,6 +85,7 @@ if (catkin_FOUND AND ENABLE_ROS)
 
 endif ()
 
+if (NOT WIN32)  # test_webcam/test_profile use unistd.h (POSIX); not needed for MINS
 add_executable(test_webcam src/test_webcam.cpp)
 target_link_libraries(test_webcam ov_core_lib ${thirdparty_libraries})
 install(TARGETS test_webcam
@@ -100,6 +101,8 @@ install(TARGETS test_profile
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
+
+endif ()
 
 
 
