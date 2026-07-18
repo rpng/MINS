@@ -34,7 +34,6 @@
     <depend>image_transport</depend>
     <depend>cv_bridge</depend>
     <depend>ov_core</depend>
-    <depend>pcl_ros</depend>
 
     <!-- Note the export is required to expose the executables -->
     <export>

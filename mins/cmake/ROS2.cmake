@@ -16,14 +16,12 @@ find_package(image_geometry REQUIRED)  # Might require additional setup
 find_package(visualization_msgs REQUIRED)
 find_package(image_transport REQUIRED)  # Might require additional setup
 find_package(cv_bridge REQUIRED)        # Might require additional setup
-find_package(pcl_conversions REQUIRED)
 
 # Other dependencies (if available through ROS 2 packages)
-# find_package(pcl_ros2 REQUIRED)  # Might require building ROS 2 wrapper for PCL
 find_package(ov_core REQUIRED)   # Might not be available as a ROS 2 package
 
 add_definitions(-DROS_AVAILABLE=2)
-ament_export_dependencies(rclcpp rosbag2 tf2_ros std_msgs geometry_msgs sensor_msgs nav_msgs std_srvs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_conversions)
+ament_export_dependencies(rclcpp rosbag2 tf2_ros std_msgs geometry_msgs sensor_msgs nav_msgs std_srvs image_geometry visualization_msgs image_transport cv_bridge ov_core)
 # ament_export_include_directories(src/)
 ament_export_libraries(mins_lib)
 
@@ -40,7 +38,6 @@ list(APPEND ament_libraries
         cv_bridge
         image_transport
         ov_core
-        pcl_conversions
         image_geometry
 )
 
@@ -54,7 +51,6 @@ include_directories(
 # Set link libraries used by all binaries
 list(APPEND thirdparty_libraries
         ${OpenCV_LIBRARIES}
-        ${PCL_LIBRARIES}
         )
 
 ##################################################

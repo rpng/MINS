@@ -51,9 +51,7 @@
 #include "update/wheel/WheelTypes.h"
 #include "utils/Jabdongsani.h"
 #include "utils/TimeChecker.h"
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-
+#include "update/lidar/PointCloud.h"
 using namespace std;
 using namespace mins;
 
@@ -179,7 +177,7 @@ void SystemManager::feed_measurement_wheel(const WheelData &wheel) {
 }
 
 
-void SystemManager::feed_measurement_lidar(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {
+void SystemManager::feed_measurement_lidar(std::shared_ptr<mins::PointCloud<mins::PointXYZ>> lidar) {
   if (!state->op->lidar->enabled)
     return;
   state->initialized ? tc_sensors->ding("LDR") : void();

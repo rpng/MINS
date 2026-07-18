@@ -26,8 +26,9 @@
  */
 
 #include "ROS2Helper.h"
+#include "update/lidar/PointCloud2Convert.h"
 #include "options/OptionsCamera.h"
-#include "pcl_conversions/pcl_conversions.h"
+#include "update/lidar/PointCloud.h"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
@@ -133,9 +134,8 @@ ov_core::ImuData ROS2Helper::Imu2Data(const sensor_msgs::msg::Imu::SharedPtr msg
   return message;
 }
 
-std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> ROS2Helper::rosPC2pclPC(const sensor_msgs::msg::PointCloud2::SharedPtr msg, int id) {
-  std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pcl_pc2(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(*msg, *pcl_pc2);
+std::shared_ptr<mins::PointCloud<mins::PointXYZ>> ROS2Helper::rosPC2pclPC(const sensor_msgs::msg::PointCloud2::SharedPtr msg, int id) {
+  auto pcl_pc2 = mins::fromPC2(*msg);
   pcl_pc2->header.frame_id = to_string(id);                                 // overwrite the id match with system number
   pcl_pc2->header.stamp = rclcpp::Time(msg->header.stamp).seconds() * 1000; // deliver this in msec
   return pcl_pc2;

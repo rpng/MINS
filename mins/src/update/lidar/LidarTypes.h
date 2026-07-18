@@ -25,17 +25,13 @@
 #include <memory>
 
 using namespace Eigen;
-namespace pcl {
-class PointXYZ;
-class PointXYZI;
-template <class pointT> class PointCloud;
-} // namespace pcl
-typedef std::shared_ptr<pcl::PointCloud<pcl::PointXYZI>> POINTCLOUD_XYZI_PTR;
+#include "update/lidar/PointCloud.h"
+typedef std::shared_ptr<mins::PointCloud<mins::PointXYZI>> POINTCLOUD_XYZI_PTR;
 template <class pointT> class KD_TREE;
 
 namespace mins {
 struct LiDARData {
-  LiDARData(double time, double ref_time, int id, std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pointcloud, double max_range, double min_range);
+  LiDARData(double time, double ref_time, int id, std::shared_ptr<mins::PointCloud<mins::PointXYZ>> pointcloud, double max_range, double min_range);
 
   LiDARData();
 
@@ -71,7 +67,7 @@ struct LiDARData {
 struct iKDDATA {
   iKDDATA(int id);
   // ikd tree
-  std::shared_ptr<KD_TREE<pcl::PointXYZI>> tree;
+  std::shared_ptr<KD_TREE<mins::PointXYZI>> tree;
   // time this tree (map) is anchored at
   double time;
   // ID of corresponding LiDAR

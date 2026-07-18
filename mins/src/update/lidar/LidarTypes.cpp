@@ -20,17 +20,16 @@
 
 #include "LidarTypes.h"
 #include "ikd_Tree.h"
-#include "pcl/point_cloud.h"
-
+#include "update/lidar/PointCloud.h"
 using namespace mins;
-LiDARData::LiDARData(double time, double ref_time, int id, std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> pointcloud, double max_range, double min_range) : time(time), id(id) {
+LiDARData::LiDARData(double time, double ref_time, int id, std::shared_ptr<mins::PointCloud<mins::PointXYZ>> pointcloud, double max_range, double min_range) : time(time), id(id) {
   // copy over the point cloud
   // copy measurement time of the point so that it can be filtered with time.
   // Note: we only store relative time to "reference time" because intensity (float) has only 4 bytes
   // Note: this "reference time" should be the same for all other pointclouds.
-  this->pointcloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  this->pointcloud_original = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  this->pointcloud_in_map = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  this->pointcloud = std::make_shared<mins::PointCloud<mins::PointXYZI>>();
+  this->pointcloud_original = std::make_shared<mins::PointCloud<mins::PointXYZI>>();
+  this->pointcloud_in_map = std::make_shared<mins::PointCloud<mins::PointXYZI>>();
   this->pointcloud->points.reserve(pointcloud->points.size());
   this->pointcloud_original->points.reserve(pointcloud->points.size());
   for (int i = 0; i < (int)pointcloud->size(); i++) {
@@ -40,14 +39,14 @@ LiDARData::LiDARData(double time, double ref_time, int id, std::shared_ptr<pcl::
       continue;
 
     // Copy
-    this->pointcloud->push_back(pcl::PointXYZI());
+    this->pointcloud->push_back(mins::PointXYZI());
     this->pointcloud->back().x = pointcloud->points[i].x;
     this->pointcloud->back().y = pointcloud->points[i].y;
     this->pointcloud->back().z = pointcloud->points[i].z;
     this->pointcloud->back().intensity = time - ref_time;
 
     // Copy
-    this->pointcloud_original->push_back(pcl::PointXYZI());
+    this->pointcloud_original->push_back(mins::PointXYZI());
     this->pointcloud_original->back().x = pointcloud->points[i].x;
     this->pointcloud_original->back().y = pointcloud->points[i].y;
     this->pointcloud_original->back().z = pointcloud->points[i].z;
@@ -58,9 +57,9 @@ LiDARData::LiDARData(double time, double ref_time, int id, std::shared_ptr<pcl::
 LiDARData::LiDARData() {
   time = -1;
   id = -1;
-  pointcloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  pointcloud_original = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  pointcloud_in_map = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  pointcloud = std::make_shared<mins::PointCloud<mins::PointXYZI>>();
+  pointcloud_original = std::make_shared<mins::PointCloud<mins::PointXYZI>>();
+  pointcloud_in_map = std::make_shared<mins::PointCloud<mins::PointXYZI>>();
 }
 
 Eigen::Vector3d LiDARData::p(int p_id) {
@@ -77,6 +76,6 @@ Eigen::Vector3d LiDARData::pfinM(int p_id) {
 int LiDARData::size() { return pointcloud->size(); }
 
 iKDDATA::iKDDATA(int id) {
-  tree = std::make_shared<KD_TREE<pcl::PointXYZI>>();
+  tree = std::make_shared<KD_TREE<mins::PointXYZI>>();
   this->id = id;
 }

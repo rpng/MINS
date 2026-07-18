@@ -29,6 +29,12 @@
 #define MINS_ROSVISUALIZER_HELPER_H
 
 #include "rclcpp/rclcpp.hpp"
+// forward decls - full PointCloud.h only needed in .cpp files that build/read clouds
+namespace mins {
+struct PointXYZ;
+struct PointXYZI;
+template <class PointT> struct PointCloud;
+} // namespace mins
 #include <Eigen/Eigen>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
@@ -55,7 +61,6 @@ struct Vec;
 } // namespace ov_type
 namespace pcl {
 class PointXYZ;
-template <class pointT> class PointCloud;
 } // namespace pcl
 
 namespace mins {
@@ -96,7 +101,7 @@ public:
 
   static GPSData PoseStamped2Data(const geometry_msgs::msg::PoseStamped::SharedPtr msg, int id, double noise);
 
-  static std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> rosPC2pclPC(const sensor_msgs::msg::PointCloud2::SharedPtr msg, int id);
+  static std::shared_ptr<mins::PointCloud<mins::PointXYZ>> rosPC2pclPC(const sensor_msgs::msg::PointCloud2::SharedPtr msg, int id);
 
   static GPSData NavSatFix2Data(const sensor_msgs::msg::NavSatFix::SharedPtr msg, int id);
 

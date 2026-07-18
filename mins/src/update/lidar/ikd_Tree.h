@@ -11,7 +11,7 @@
 #include <chrono>
 #include <math.h>
 #include <memory>
-#include <pcl/point_types.h>
+#include "update/lidar/PointCloud.h"
 #include <pthread.h>
 #include <queue>
 #include <stdio.h>
