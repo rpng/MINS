@@ -28,7 +28,7 @@ jobs:
         run: |
           curl -sSL -o eigen.zip https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip
           cmake -E tar xf eigen.zip
-          cmake -S eigen-3.4.0 -B eigen-build -G "Visual Studio 17 2022" -A x64 \
+          cmake -S eigen-3.4.0 -B eigen-build \
             -DCMAKE_INSTALL_PREFIX=C:/eigen
           cmake --build eigen-build --target install --config Release
 
@@ -46,7 +46,6 @@ jobs:
         shell: bash
         run: |
           cmake -S mins -B build/mins \
-            -G "Visual Studio 17 2022" -A x64 \
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_ROS=OFF \
             -DENABLE_ARUCO_TAGS=OFF \
