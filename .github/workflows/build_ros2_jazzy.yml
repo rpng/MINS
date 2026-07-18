@@ -1,0 +1,26 @@
+name: ROS2 Jazzy (Ubuntu 24.04)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build_jazzy:
+    name: "ROS2 Ubuntu 24.04"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Docker image (Jazzy 24.04)
+        run: docker build . --file Dockerfile_jazzy_24_04 --tag mins:jazzy
+      - name: Smoke test - simulation runs end to end
+        run: |
+          docker run --rm --entrypoint /bin/bash mins:jazzy -c '
+            set -eo pipefail
+            source /opt/ros/jazzy/setup.bash && source /work/install/setup.bash
+            cfg=/work/install/mins/share/mins/config/simulation/config.yaml
+            timeout 600 ros2 run mins simulation "$cfg" 2>&1 | tee /tmp/sim.log
+            grep -q "RMSE average" /tmp/sim.log
+          '

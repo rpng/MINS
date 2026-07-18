@@ -1,0 +1,27 @@
+name: ROS-free (Ubuntu 24.04)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build_rosfree_linux_2404:
+    name: "No ROS - Ubuntu 24.04"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build core + headless CLI with no ROS
+        run: docker build . --file Dockerfile_rosfree_ubuntu_24_04 --tag mins:rosfree-2404
+      - name: Run headless CLI (no ROS) end to end
+        run: |
+          docker run --rm -e MINS_ROOT=/work/src/MINS mins:rosfree-2404 bash -c '
+            set -eo pipefail
+            mkdir -p /outputs/tmp/0
+            timeout 600 /work/build/mins/mins_cli /work/src/MINS/mins/config/simulation/config.yaml 2>&1 | tee /tmp/cli.log
+            grep -q "RMSE average" /tmp/cli.log
+          '
