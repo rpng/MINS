@@ -1,4 +1,4 @@
-name: macOS Workflow
+name: macOS (arm64)
 
 # Builds the MINS core library + headless CLI natively on macOS (Apple Silicon, Apple Clang,
 # libc++). No ROS, and no Docker -- macOS runners cannot run the Linux images, so this is the

@@ -1,9 +1,10 @@
 # MINS
-[![ROS 1 Workflow](https://github.com/rpng/MINS/actions/workflows/build_ros1.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros1.yml)
-[![ROS 2 Workflow](https://github.com/rpng/MINS/actions/workflows/build_ros2.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros2.yml)
-[![ROS-free Workflow](https://github.com/rpng/MINS/actions/workflows/build_rosfree.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_rosfree.yml)
-[![macOS Workflow](https://github.com/rpng/MINS/actions/workflows/build_macos.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_macos.yml)
-[![Windows Workflow](https://github.com/rpng/MINS/actions/workflows/build_windows.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_windows.yml)
+[![ROS1 Melodic (Ubuntu 18.04)](https://github.com/rpng/MINS/actions/workflows/build_ros1_melodic.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros1_melodic.yml)
+[![ROS1 Noetic (Ubuntu 20.04)](https://github.com/rpng/MINS/actions/workflows/build_ros1_noetic.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros1_noetic.yml)
+[![ROS2 Humble (Ubuntu 22.04)](https://github.com/rpng/MINS/actions/workflows/build_ros2.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros2.yml)
+[![ROS-free (Ubuntu 22.04)](https://github.com/rpng/MINS/actions/workflows/build_rosfree.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_rosfree.yml)
+[![macOS (arm64)](https://github.com/rpng/MINS/actions/workflows/build_macos.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_macos.yml)
+[![Windows (x64)](https://github.com/rpng/MINS/actions/workflows/build_windows.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_windows.yml)
 
 An efficient, robust, and tightly-coupled **Multisensor-aided Inertial Navigation System (MINS)** which is capable of 
 flexibly fusing all five sensing modalities (**IMU**, **wheel** **encoders**, **camera**, **GNSS**, and **LiDAR**) in a filtering 

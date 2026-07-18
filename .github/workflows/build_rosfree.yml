@@ -1,4 +1,4 @@
-name: ROS-free Workflow
+name: ROS-free (Ubuntu 22.04)
 
 on:
   push:

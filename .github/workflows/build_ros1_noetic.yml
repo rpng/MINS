@@ -1,0 +1,19 @@
+name: ROS1 Noetic (Ubuntu 20.04)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build_2004:
+    name: "ROS1 Ubuntu 20.04"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Docker image (Noetic 20.04)
+        run: docker build . --file Dockerfile_noetic_20_04 --tag mins:noetic
+      - name: Run MINS simulation (smoke test)
+        run: docker run --rm --entrypoint /bin/bash mins:noetic -c "source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash && export OMP_NUM_THREADS=1 && roslaunch mins simulation.launch sys_verbosity:=3"

@@ -1,4 +1,4 @@
-name: Windows Workflow
+name: Windows (x64)
 
 # Builds the MINS core library + headless CLI natively on Windows (MSVC, x64) with deps from
 # vcpkg. No ROS, no Docker -- this is the only job proving MINS builds on the MSVC toolchain.
