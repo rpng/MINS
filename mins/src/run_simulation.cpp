@@ -56,8 +56,7 @@
 #include "utils/colors.h"
 #include "utils/opencv_yaml_parse.h"
 #include "utils/sensor_data.h"
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+#include "update/lidar/PointCloud.h"
 
 using namespace mins;
 using namespace std;
@@ -122,7 +121,7 @@ int main(int argc, char **argv) {
     }
 
     // LIDAR: get the next simulated lidar range measurements
-    std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar(new pcl::PointCloud<pcl::PointXYZ>);
+    std::shared_ptr<mins::PointCloud<mins::PointXYZ>> lidar(new mins::PointCloud<mins::PointXYZ>);
     if (sim->get_next_lidar(lidar)) {
       sys->feed_measurement_lidar(lidar);
       pub->publish_lidar_cloud(lidar);

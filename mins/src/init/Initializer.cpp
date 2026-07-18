@@ -55,9 +55,7 @@
 #include "utils/Print_Logger.h"
 #include "utils/TimeChecker.h"
 #include "utils/dataset_reader.h"
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-
+#include "update/lidar/PointCloud.h"
 using namespace std;
 using namespace Eigen;
 using namespace mins;
@@ -321,7 +319,7 @@ void Initializer::init_lidar_sim() {
     }
 
     // Get the lidar point cloud
-    std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar(new pcl::PointCloud<pcl::PointXYZ>);
+    std::shared_ptr<mins::PointCloud<mins::PointXYZ>> lidar(new mins::PointCloud<mins::PointXYZ>);
     bool success = sim->get_lidar_pointcloud(lidar, sim->timestamp - op->dt.at(i), i, op);
     assert(success);
 

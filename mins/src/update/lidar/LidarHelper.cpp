@@ -23,16 +23,12 @@
 #include "ikd_Tree.h"
 #include "options/OptionsEstimator.h"
 #include "options/OptionsLidar.h"
-#include "pcl/point_cloud.h"
-#include "pcl/point_types.h"
+#include "update/lidar/PointCloud.h"
 #include "state/State.h"
 #include "types/PoseJPL.h"
 #include "utils/Jabdongsani.h"
 #include "utils/Print_Logger.h"
 #include "utils/colors.h"
-#include <pcl/common/transforms.h>
-#include <pcl/filters/voxel_grid.h>
-
 using namespace mins;
 using namespace ov_type;
 
@@ -87,17 +83,11 @@ bool LidarHelper::remove_motion_blur(shared_ptr<State> state, shared_ptr<LiDARDa
 }
 
 void LidarHelper::downsample(shared_ptr<LiDARData> lidar, double downsample_size) {
-  pcl::VoxelGrid<pcl::PointXYZI> downSizeFilter;
-  downSizeFilter.setLeafSize((float)downsample_size, (float)downsample_size, (float)downsample_size);
-  downSizeFilter.setInputCloud((*lidar->pointcloud).makeShared());
-  downSizeFilter.filter(*lidar->pointcloud);
+  mins::voxel_downsample(*lidar->pointcloud, *lidar->pointcloud, (float)downsample_size);
 }
 
 void LidarHelper::downsample(POINTCLOUD_XYZI_PTR lidar, double downsample_size) {
-  pcl::VoxelGrid<pcl::PointXYZI> downSizeFilter;
-  downSizeFilter.setLeafSize((float)downsample_size, (float)downsample_size, (float)downsample_size);
-  downSizeFilter.setInputCloud((*lidar).makeShared());
-  downSizeFilter.filter(*lidar);
+  mins::voxel_downsample(*lidar, *lidar, (float)downsample_size);
 }
 
 void LidarHelper::init_map_local(const shared_ptr<LiDARData> &lidar_inL, shared_ptr<iKDDATA> ikd, shared_ptr<OptionsLidar> op, bool prop) {
@@ -161,7 +151,7 @@ bool LidarHelper::transform_to_map(shared_ptr<State> state, shared_ptr<LiDARData
   //===================================================================
   // Register new scan
   //===================================================================
-  pcl::transformPointCloud(*(lidar->pointcloud), *(lidar->pointcloud_in_map), lidar->T_LtoM);
+  mins::transformPointCloud(*(lidar->pointcloud), *(lidar->pointcloud_in_map), lidar->T_LtoM);
   return true;
 }
 
@@ -171,8 +161,8 @@ void LidarHelper::register_scan(shared_ptr<State> state, shared_ptr<LiDARData> l
 
   // If we have successful ICP, use the info to register the scan in the map
   if (lidar->icp_success) {
-    pcl::PointCloud<pcl::PointXYZI> tr_points;
-    pcl::transformPointCloud(*(lidar->pointcloud_original), tr_points, lidar->T_LtoM);
+    mins::PointCloud<mins::PointXYZI> tr_points;
+    mins::transformPointCloud(*(lidar->pointcloud_original), tr_points, lidar->T_LtoM);
     ikd->tree->Add_Points(tr_points.points, state->op->lidar->map_do_downsample);
     ikd->last_up_time = lidar->time;
   }
@@ -181,7 +171,7 @@ void LidarHelper::register_scan(shared_ptr<State> state, shared_ptr<LiDARData> l
 void LidarHelper::propagate_map_to_newest_clone(shared_ptr<State> state, shared_ptr<iKDDATA> ikd, shared_ptr<OptionsLidar> op, double FT) {
 
   // Load map info
-  POINTCLOUD_XYZI_PTR map_points = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  POINTCLOUD_XYZI_PTR map_points = std::make_shared<mins::PointCloud<mins::PointXYZI>>();
   ikd->tree->flatten(ikd->tree->Root_Node, map_points->points, NOT_RECORD);
   op->map_do_downsample ? downsample(map_points, state->op->lidar->map_downsample_size) : void();
 
@@ -230,17 +220,17 @@ void LidarHelper::propagate_map_to_newest_clone(shared_ptr<State> state, shared_
   tr.block(0, 3, 3, 1) = pLoldinLnew;
 
   // transform the pointcloud
-  pcl::transformPointCloud(*lidar_inM->pointcloud, *lidar_inM->pointcloud, tr);
+  mins::transformPointCloud(*lidar_inM->pointcloud, *lidar_inM->pointcloud, tr);
   lidar_inM->id = ikd->id;
   lidar_inM->time = state->newest_clone_time() - dt;
 
   init_map_local(lidar_inM, ikd, state->op->lidar, true);
 }
 
-bool LidarHelper::get_neighbors(Vector3d pfinM, POINTCLOUD_XYZI_PTR neighbors, shared_ptr<KD_TREE<pcl::PointXYZI>> tree, shared_ptr<OptionsLidar> op) {
+bool LidarHelper::get_neighbors(Vector3d pfinM, POINTCLOUD_XYZI_PTR neighbors, shared_ptr<KD_TREE<mins::PointXYZI>> tree, shared_ptr<OptionsLidar> op) {
   // Transform the point to map to find neighbors from the map.
   // Note "_" mean pcl variable
-  pcl::PointXYZI pfinM_;
+  mins::PointXYZI pfinM_;
   pfinM_.x = pfinM(0);
   pfinM_.y = pfinM(1);
   pfinM_.z = pfinM(2);
@@ -290,7 +280,7 @@ bool LidarHelper::compute_plane(Vector4d &plane_abcd, POINTCLOUD_XYZI_PTR pointc
   // sanity check
   Vector4d pl = plane_abcd / plane_abcd.head(3).norm();
   for (int j = 0; j < (int)pointcloud->size(); j++) {
-    pcl::PointXYZI pt = pointcloud->points[j];
+    mins::PointXYZI pt = pointcloud->points[j];
     if (fabs(pl(0) * pt.x + pl(1) * pt.y + pl(2) * pt.z + pl(3)) > op->plane_max_p2pd) {
       return false;
     }

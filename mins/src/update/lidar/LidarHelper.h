@@ -26,12 +26,8 @@
 using namespace std;
 using namespace Eigen;
 
-namespace pcl {
-class PointXYZ;
-class PointXYZI;
-template <class pointT> class PointCloud;
-} // namespace pcl
-typedef std::shared_ptr<pcl::PointCloud<pcl::PointXYZI>> POINTCLOUD_XYZI_PTR;
+#include "update/lidar/PointCloud.h"
+typedef std::shared_ptr<mins::PointCloud<mins::PointXYZI>> POINTCLOUD_XYZI_PTR;
 template <class pointT> class KD_TREE;
 namespace mins {
 class State;
@@ -61,7 +57,7 @@ public:
   static void propagate_map_to_newest_clone(shared_ptr<State> state, shared_ptr<iKDDATA> ikd, shared_ptr<OptionsLidar> op, double FT);
 
   /// Get neighbors with checks
-  static bool get_neighbors(Vector3d pfinM, POINTCLOUD_XYZI_PTR neighbors, shared_ptr<KD_TREE<pcl::PointXYZI>> tree, shared_ptr<OptionsLidar> op);
+  static bool get_neighbors(Vector3d pfinM, POINTCLOUD_XYZI_PTR neighbors, shared_ptr<KD_TREE<mins::PointXYZI>> tree, shared_ptr<OptionsLidar> op);
 
   /// compute the plane information with given pointcloud
   static bool compute_plane(Vector4d &plane_abcd, POINTCLOUD_XYZI_PTR pointcloud, shared_ptr<OptionsLidar> op);

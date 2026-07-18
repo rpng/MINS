@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5.1)
 
 # Find ROS1 (catkin). QUIET (not REQUIRED) so this same file can also configure a
 # ROS-free build of the core library when catkin is not present.
-find_package(catkin QUIET COMPONENTS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_ros)
+find_package(catkin QUIET COMPONENTS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core)
 option(ENABLE_ROS "Build the ROS integration and nodes when ROS is found" ON)
 
 # When ROS is absent, ov_core (normally a catkin package) is pulled in as a subproject.
@@ -67,11 +67,11 @@ if (catkin_FOUND AND ENABLE_ROS)
 
     # Add catkin packages
     catkin_package(
-            CATKIN_DEPENDS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core pcl_ros
+            CATKIN_DEPENDS roscpp rosbag tf std_msgs geometry_msgs sensor_msgs nav_msgs image_geometry visualization_msgs image_transport cv_bridge ov_core
             INCLUDE_DIRS src/
             LIBRARIES mins_lib
     )
-    include_directories(${catkin_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
+    include_directories(${catkin_INCLUDE_DIRS})
     list(APPEND thirdparty_libraries ${catkin_LIBRARIES})
 
     # ROS integration lives at the boundary - compiled in only when we have ROS
@@ -89,15 +89,9 @@ else ()
     set(CATKIN_PACKAGE_BIN_DESTINATION "${CMAKE_INSTALL_BINDIR}")
     set(CATKIN_GLOBAL_INCLUDE_DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/mins/")
 
-    # ov_core was pulled in above (before LIBRARY_SOURCES); just link + find PCL here.
-    # (In a ROS build PCL comes via catkin/pcl_ros; standalone we link it ourselves.)
-    # Only the components we actually use: point types + transforms (common) and VoxelGrid
-    # (filters). Asking for all of PCL drags in pcl_visualization -> VTK, which we never use.
-    find_package(PCL REQUIRED COMPONENTS common filters)
-    include_directories(${PCL_INCLUDE_DIRS})
-    link_directories(${PCL_LIBRARY_DIRS})
-    add_definitions(${PCL_DEFINITIONS})
-    list(APPEND thirdparty_libraries ov_core_lib ${PCL_LIBRARIES})
+    # ov_core was pulled in above (before LIBRARY_SOURCES); just link it here.
+    # No PCL: MINS uses its own point cloud types now (update/lidar/PointCloud.h).
+    list(APPEND thirdparty_libraries ov_core_lib)
 endif ()
 
 ##################################################
