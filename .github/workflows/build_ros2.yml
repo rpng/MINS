@@ -1,4 +1,4 @@
-name: ROS 2 Workflow
+name: ROS2 Humble (Ubuntu 22.04)
 
 on:
   push:

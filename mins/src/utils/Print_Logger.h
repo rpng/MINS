@@ -95,10 +95,10 @@ private:
  * The different Types of print levels
  */
 // Get the file name directly https://stackoverflow.com/questions/8487986/file-macro-shows-full-path
-#define PRINT0(x...) mins::Print_Logger::debugPrint(0, __FILE__, TOSTRING(__LINE__), x)
-#define PRINT1(x...) mins::Print_Logger::debugPrint(1, __FILE__, TOSTRING(__LINE__), x)
-#define PRINT2(x...) mins::Print_Logger::debugPrint(2, __FILE__, TOSTRING(__LINE__), x)
-#define PRINT3(x...) mins::Print_Logger::debugPrint(3, __FILE__, TOSTRING(__LINE__), x)
-#define PRINT4(x...) mins::Print_Logger::debugPrint(4, __FILE__, TOSTRING(__LINE__), x)
+#define PRINT0(...) mins::Print_Logger::debugPrint(0, __FILE__, TOSTRING(__LINE__), __VA_ARGS__)
+#define PRINT1(...) mins::Print_Logger::debugPrint(1, __FILE__, TOSTRING(__LINE__), __VA_ARGS__)
+#define PRINT2(...) mins::Print_Logger::debugPrint(2, __FILE__, TOSTRING(__LINE__), __VA_ARGS__)
+#define PRINT3(...) mins::Print_Logger::debugPrint(3, __FILE__, TOSTRING(__LINE__), __VA_ARGS__)
+#define PRINT4(...) mins::Print_Logger::debugPrint(4, __FILE__, TOSTRING(__LINE__), __VA_ARGS__)
 #define PRINTLINE printf("%s:%d\n", strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__, __LINE__);
 #endif /* mins_PRINT_H */

@@ -39,8 +39,8 @@ template <class PointT> struct PointCloud;
 } // namespace mins
 
 namespace ov_core {
-class ImuData;
-class CameraData;
+struct ImuData;
+struct CameraData;
 } // namespace ov_core
 
 namespace mins {
