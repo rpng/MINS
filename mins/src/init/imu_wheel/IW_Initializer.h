@@ -29,7 +29,7 @@ using namespace Eigen;
 using namespace std;
 
 namespace ov_core {
-class ImuData;
+struct ImuData;
 }
 
 namespace ov_type {
