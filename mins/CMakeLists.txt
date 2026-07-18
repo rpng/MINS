@@ -36,7 +36,7 @@ if (NOT OpenCV_FOUND)
     find_package(OpenCV 3 REQUIRED QUIET)
 endif ()
 message(STATUS "OPENCV: " ${OpenCV_VERSION})
-message(STATUS "Eigen3: " ${Eigen3_VERSION} " | PCL: " ${PCL_VERSION})
+message(STATUS "Eigen3: " ${Eigen3_VERSION})
 
 # GCC older than 9.1 needs an explicit lib for std::filesystem (ROS Melodic ships GCC 7.5)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.1)

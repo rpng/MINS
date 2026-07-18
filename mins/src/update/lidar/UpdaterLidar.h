@@ -27,11 +27,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace pcl {
-class PointXYZ;
-class PointXYZI;
-template <class pointT> class PointCloud;
-} // namespace pcl
+#include "update/lidar/PointCloud.h"
 
 using namespace std;
 using namespace Eigen;
@@ -48,7 +44,7 @@ public:
   UpdaterLidar(shared_ptr<State> state);
 
   /// Get lidar measurement
-  void feed_measurement(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
+  void feed_measurement(std::shared_ptr<mins::PointCloud<mins::PointXYZ>> lidar);
 
   /// Try update with available measurements
   void try_update();

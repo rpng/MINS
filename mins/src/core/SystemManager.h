@@ -31,10 +31,12 @@
 #include <Eigen/Eigen>
 #include <memory>
 
-namespace pcl {
-class PointXYZ;
-template <class pointT> class PointCloud;
-} // namespace pcl
+// forward decls - full PointCloud.h only needed in .cpp files that build/read clouds
+namespace mins {
+struct PointXYZ;
+struct PointXYZI;
+template <class PointT> struct PointCloud;
+} // namespace mins
 
 namespace ov_core {
 class ImuData;
@@ -96,7 +98,7 @@ public:
   void feed_measurement_tlio(const TLIOData &tlio);
 
   /// LiDAR measurement feeder
-  void feed_measurement_lidar(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
+  void feed_measurement_lidar(std::shared_ptr<mins::PointCloud<mins::PointXYZ>> lidar);
   /**
    * @brief After the run has ended, print results
    */

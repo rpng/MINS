@@ -1478,6 +1478,5 @@ template <typename T> bool MANUAL_Q<T>::empty() { return is_empty; }
 template <typename T> int MANUAL_Q<T>::size() { return counter; }
 
 template class KD_TREE<ikdTree_PointType>;
-template class KD_TREE<pcl::PointXYZ>;
-template class KD_TREE<pcl::PointXYZI>;
-template class KD_TREE<pcl::PointXYZINormal>;
+template class KD_TREE<mins::PointXYZ>;
+template class KD_TREE<mins::PointXYZI>;

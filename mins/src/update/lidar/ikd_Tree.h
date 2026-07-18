@@ -13,7 +13,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <pcl/point_types.h>
+#include "update/lidar/PointCloud.h"
 #include <queue>
 #include <stdio.h>
 #include <time.h>

@@ -48,8 +48,7 @@
 #include "utils/opencv_yaml_parse.h"
 #include <geometry_msgs/PoseStamped.h>
 #include <memory>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+#include "update/lidar/PointCloud.h"
 #include <ros/ros.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -169,7 +168,7 @@ int main(int argc, char **argv) {
     if (op->est->lidar->enabled) {
       for (int lidar_id = 0; lidar_id < op->est->lidar->max_n; lidar_id++) {
         if (msgs.at(i).getTopic() == op->est->lidar->topic.at(lidar_id)) {
-          std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> data = ROSHelper::rosPC2pclPC(msgs.at(i).instantiate<sensor_msgs::PointCloud2>(), lidar_id);
+          std::shared_ptr<mins::PointCloud<mins::PointXYZ>> data = ROSHelper::rosPC2pclPC(msgs.at(i).instantiate<sensor_msgs::PointCloud2>(), lidar_id);
           PRINT1("[BAG] LDR measurement: %.3f|%d|%d\n", (double)data->header.stamp / 1000, lidar_id, data->points.size());
           sys->feed_measurement_lidar(data);
           pub->publish_lidar_cloud(data);

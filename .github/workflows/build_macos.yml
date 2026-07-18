@@ -26,9 +26,7 @@ jobs:
           # Pinned on purpose. Homebrew's default eigen/opencv are now 5.x, and MINS supports
           # neither (CMakeLists asks for OpenCV 4 or 3, and the code is Eigen 3 API), so we use
           # the versioned formulae. Both are keg-only, hence the explicit *_DIR below.
-          # Boost is not requested: MINS does not use it. PCL depends on it, so brew installs
-          # it anyway -- mins_cli itself links none of it (see the otool output).
-          brew install eigen@3 opencv@4 pcl yaml-cpp
+          brew install eigen@3 opencv@4 yaml-cpp
           echo "--- toolchain ---"
           clang++ --version | head -2
           cmake --version | head -1
@@ -37,8 +35,8 @@ jobs:
 
       - name: Configure
         run: |
-          # PCL pulls in the unversioned eigen (5.x) as its own dependency, so point Eigen3_DIR
-          # and the prefix path at eigen@3 explicitly rather than rely on include ordering.
+          # eigen@3 is keg-only (not symlinked into the default prefix), so point Eigen3_DIR
+          # and the prefix path at it explicitly rather than rely on include ordering.
           cmake -S mins -B build/mins \
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_ROS=OFF \

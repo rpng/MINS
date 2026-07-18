@@ -29,6 +29,12 @@
 #define MINS_ROSPUBLISHER_H
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+// forward decls - full PointCloud.h only needed in .cpp files that build/read clouds
+namespace mins {
+struct PointXYZ;
+struct PointXYZI;
+template <class PointT> struct PointCloud;
+} // namespace mins
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
@@ -41,7 +47,6 @@
 
 namespace pcl {
 class PointXYZ;
-template <class pointT> class PointCloud;
 } // namespace pcl
 
 namespace mins {
@@ -76,7 +81,7 @@ public:
   void publish_cam_images(int cam_id);
 
   /// Publish lidar point cloud
-  void publish_lidar_cloud(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar);
+  void publish_lidar_cloud(std::shared_ptr<mins::PointCloud<mins::PointXYZ>> lidar);
 
   void reset_paths();
 

@@ -26,6 +26,7 @@
  */
 
 #include "ROS2Publisher.h"
+#include "update/lidar/PointCloud2Convert.h"
 #include "ROS2Helper.h"
 #include "SystemManager.h"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
@@ -39,7 +40,7 @@
 #include "options/OptionsLidar.h"
 #include "options/OptionsVicon.h"
 #include "options/OptionsWheel.h"
-#include "pcl_conversions/pcl_conversions.h"
+#include "update/lidar/PointCloud.h"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "state/Propagator.h"
 #include "state/State.h"
@@ -57,7 +58,6 @@
 #include "utils/Print_Logger.h"
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.hpp>
-#include <pcl/common/transforms.h>
 #include <tf2_ros/transform_broadcaster.h>
 
 using namespace std;
@@ -419,9 +419,9 @@ void ROS2Publisher::publish_vicon(ViconData data) {
   seq_vicon[data.id]++;
 }
 
-void ROS2Publisher::publish_lidar_cloud(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {
+void ROS2Publisher::publish_lidar_cloud(std::shared_ptr<mins::PointCloud<mins::PointXYZ>> lidar) {
   sensor_msgs::msg::PointCloud2 output;
-  pcl::toROSMsg(*lidar, output);
+  mins::toPC2(*lidar, output);
   output.header.frame_id = "lidar" + lidar->header.frame_id;
   output.header.stamp = rclcpp::Clock().now();
   pub_lidar_cloud.at(stoi(lidar->header.frame_id))->publish(output);
@@ -485,18 +485,18 @@ void ROS2Publisher::publish_lidar_map() {
 
     // Publish pointcloud in the global frame
     // This is slower because it requires pointcloud transform
-    POINTCLOUD_XYZI_PTR map_inL(new pcl::PointCloud<pcl::PointXYZI>);
+    POINTCLOUD_XYZI_PTR map_inL(new mins::PointCloud<mins::PointXYZI>);
     ikd->tree->flatten(ikd->tree->Root_Node, map_inL->points, NOT_RECORD);
     pair<Matrix3d, Vector3d> pose_LinG = sys->up_ldr->get_pose_LinG(ikd->id, ikd->time);
     Matrix4d tr = Matrix4d::Identity();
     tr.block(0, 0, 3, 3) = pose_LinG.first.transpose();
     tr.block(0, 3, 3, 1) = pose_LinG.second;
-    POINTCLOUD_XYZI_PTR map_inG(new pcl::PointCloud<pcl::PointXYZI>);
+    POINTCLOUD_XYZI_PTR map_inG(new mins::PointCloud<mins::PointXYZI>);
     map_inL->height = map_inL->points.size();
     map_inL->width = 1;
-    pcl::transformPointCloud(*map_inL, *map_inG, tr);
+    mins::transformPointCloud(*map_inL, *map_inG, tr);
     sensor_msgs::msg::PointCloud2 map_pointcloud;
-    pcl::toROSMsg(*map_inG, map_pointcloud);
+    mins::toPC2(*map_inG, map_pointcloud);
     map_pointcloud.header.frame_id = "global";
     map_pointcloud.header.stamp = rclcpp::Clock().now();
     pub_lidar_map.at(ikd->id)->publish(map_pointcloud);

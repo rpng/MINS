@@ -24,7 +24,8 @@
 #include "ikd_Tree.h"
 #include "options/OptionsEstimator.h"
 #include "options/OptionsLidar.h"
-#include "pcl/point_cloud.h"
+#include <iostream>
+#include "update/lidar/PointCloud.h"
 #include "state/State.h"
 #include "state/StateHelper.h"
 #include "types/PoseJPL.h"
@@ -47,7 +48,7 @@ UpdaterLidar::UpdaterLidar(shared_ptr<State> state) : state(state) {
   }
 }
 
-void UpdaterLidar::feed_measurement(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> lidar) {
+void UpdaterLidar::feed_measurement(std::shared_ptr<mins::PointCloud<mins::PointXYZ>> lidar) {
   // Record first ever measurement time to set up reference time (ref. LidarTypes.h)
   FT < 0 ? FT = (double)lidar->header.stamp / 1000 : double();
 
@@ -283,7 +284,7 @@ bool UpdaterLidar::update(std::shared_ptr<LiDARData> lidar, shared_ptr<iKDDATA> 
         Vector3d pfinM_fej = pLinM_fej + RLtoM_fej * pfinL;
 
         // Get neighbors of this point in the map.
-        POINTCLOUD_XYZI_PTR neighbors_inM(new pcl::PointCloud<pcl::PointXYZI>);
+        POINTCLOUD_XYZI_PTR neighbors_inM(new mins::PointCloud<mins::PointXYZI>);
         if (!LidarHelper::get_neighbors(lidar->pfinM(i), neighbors_inM, ikd->tree, state->op->lidar))
           continue;
 

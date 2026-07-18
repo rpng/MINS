@@ -20,22 +20,21 @@ jobs:
         with:
           submodules: recursive
 
-      # vcpkg builds PCL (+boost/flann) from source -- ~40 min. Cache the installed tree so
-      # only the first run pays that cost; later runs see the packages already present.
+      # vcpkg builds opencv from source (the heavy one now that PCL is gone). Cache the
+      # installed tree so only the first run pays that cost; later runs see it present.
       - name: Cache vcpkg installed packages
         uses: actions/cache@v4
         with:
           path: C:\vcpkg\installed
-          key: vcpkg-installed-x64-windows-rel-v1
+          key: vcpkg-installed-x64-windows-rel-v2
 
       - name: Install dependencies (vcpkg)
         shell: bash
         run: |
-          # PCL is the heavy one (pulls boost + flann). vcpkg's pcl port does NOT enable the
-          # visualization feature by default, so no VTK -- same reason we avoid it on macOS.
+          # MINS dropped PCL, so we only need eigen3, opencv4 and yaml-cpp here.
           # vcpkg is pre-installed on the runner at $VCPKG_INSTALLATION_ROOT.
           # x64-windows-rel is our release-only overlay triplet (skips the debug builds).
-          vcpkg install eigen3 opencv4 pcl yaml-cpp \
+          vcpkg install eigen3 opencv4 yaml-cpp \
             --triplet x64-windows-rel --overlay-triplets=.github/vcpkg-triplets
           cmake --version | head -1
 
@@ -65,7 +64,7 @@ jobs:
         run: |
           set -eo pipefail
           export MINS_ROOT="$PWD"
-          # the vcpkg DLLs (opencv, pcl, ...) must be findable at run time
+          # the vcpkg DLLs (opencv, ...) must be findable at run time
           export PATH="$VCPKG_INSTALLATION_ROOT/installed/x64-windows-rel/bin:$PATH"
           # config_system.yaml writes results four levels above $MINS_ROOT/mins
           mkdir -p "$PWD/../../../outputs/tmp/0"
