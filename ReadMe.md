@@ -2,7 +2,11 @@
 [![ROS1 Melodic (Ubuntu 18.04)](https://github.com/rpng/MINS/actions/workflows/build_ros1_melodic.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros1_melodic.yml)
 [![ROS1 Noetic (Ubuntu 20.04)](https://github.com/rpng/MINS/actions/workflows/build_ros1_noetic.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros1_noetic.yml)
 [![ROS2 Humble (Ubuntu 22.04)](https://github.com/rpng/MINS/actions/workflows/build_ros2.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros2.yml)
+[![ROS2 Jazzy (Ubuntu 24.04)](https://github.com/rpng/MINS/actions/workflows/build_ros2_jazzy.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros2_jazzy.yml)
+[![ROS2 Lyrical (Ubuntu 26.04)](https://github.com/rpng/MINS/actions/workflows/build_ros2_lyrical.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_ros2_lyrical.yml)
 [![ROS-free (Ubuntu 22.04)](https://github.com/rpng/MINS/actions/workflows/build_rosfree.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_rosfree.yml)
+[![ROS-free (Ubuntu 24.04)](https://github.com/rpng/MINS/actions/workflows/build_rosfree_24_04.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_rosfree_24_04.yml)
+[![ROS-free (Ubuntu 26.04)](https://github.com/rpng/MINS/actions/workflows/build_rosfree_26_04.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_rosfree_26_04.yml)
 [![macOS (arm64)](https://github.com/rpng/MINS/actions/workflows/build_macos.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_macos.yml)
 [![Windows (x64)](https://github.com/rpng/MINS/actions/workflows/build_windows.yml/badge.svg)](https://github.com/rpng/MINS/actions/workflows/build_windows.yml)
 

@@ -56,7 +56,11 @@
 #include "update/lidar/ikd_Tree.h"
 #include "update/vicon/ViconTypes.h"
 #include "utils/Print_Logger.h"
+#if __has_include(<cv_bridge/cv_bridge.h>)
 #include <cv_bridge/cv_bridge.h>
+#else
+#include <cv_bridge/cv_bridge.hpp>
+#endif
 #include <image_transport/image_transport.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 

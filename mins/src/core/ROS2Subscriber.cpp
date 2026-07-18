@@ -66,8 +66,8 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
           int cam_id1 = op->cam->stereo_pairs.at(i);
           // Create sync filter (they have unique pointers internally, so we have to use move logic here...)
           if (op->cam->compressed.at(cam_id0)) {
-            auto image_sub0 = std::make_shared<message_filters::Subscriber<CompressedImage>>(node, op->cam->topic.at(cam_id0));
-            auto image_sub1 = std::make_shared<message_filters::Subscriber<CompressedImage>>(node, op->cam->topic.at(cam_id1));
+            auto image_sub0 = make_mf_subscriber<CompressedImage>(node, op->cam->topic.at(cam_id0));
+            auto image_sub1 = make_mf_subscriber<CompressedImage>(node, op->cam->topic.at(cam_id1));
             auto sync = std::make_shared<message_filters::Synchronizer<csync_pol>>(csync_pol(10), *image_sub0, *image_sub1);
             sync->registerCallback(std::bind(&ROS2Subscriber::callback_stereo_C, this, std::placeholders::_1, std::placeholders::_2, cam_id0, cam_id1));
             // Append to our vector of subscribers
@@ -78,8 +78,8 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
             PRINT2("subscribing to cam (stereo, compressed): %s\n", op->cam->topic.at(cam_id1).c_str());
 
           } else {
-            auto image_sub0 = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(cam_id0));
-            auto image_sub1 = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(cam_id1));
+            auto image_sub0 = make_mf_subscriber<Image>(node, op->cam->topic.at(cam_id0));
+            auto image_sub1 = make_mf_subscriber<Image>(node, op->cam->topic.at(cam_id1));
             auto sync = std::make_shared<message_filters::Synchronizer<sync_pol>>(sync_pol(10), *image_sub0, *image_sub1);
             sync->registerCallback(std::bind(&ROS2Subscriber::callback_stereo_I, this, std::placeholders::_1, std::placeholders::_2, cam_id0, cam_id1));
             // Append to our vector of subscribers
@@ -93,12 +93,12 @@ ROS2Subscriber::ROS2Subscriber(std::shared_ptr<rclcpp::Node> node, std::shared_p
       } else {
         // create MONO subscriber
         if (op->cam->compressed.at(i)) {
-          auto image_sub = std::make_shared<message_filters::Subscriber<CompressedImage>>(node, op->cam->topic.at(i));
+          auto image_sub = make_mf_subscriber<CompressedImage>(node, op->cam->topic.at(i));
           image_sub->registerCallback(std::bind(&ROS2Subscriber::callback_monocular_C, this, std::placeholders::_1, i));
           cimage_subs.push_back(image_sub);
           PRINT2("subscribing to cam (mono, compressed): %s\n", op->cam->topic.at(i).c_str());
         } else {
-          auto image_sub = std::make_shared<message_filters::Subscriber<Image>>(node, op->cam->topic.at(i));
+          auto image_sub = make_mf_subscriber<Image>(node, op->cam->topic.at(i));
           image_sub->registerCallback(std::bind(&ROS2Subscriber::callback_monocular_I, this, std::placeholders::_1, i));
           image_subs.push_back(image_sub);
           PRINT2("subscribing to cam (mono): %s\n", op->cam->topic.at(i).c_str());

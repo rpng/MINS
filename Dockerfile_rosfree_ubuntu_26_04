@@ -1,6 +1,6 @@
 # Builds the MINS core library + headless CLI with NO ROS at all, to prove the
 # core stays ROS-free. Plain cmake, only apt + bundled thirdparty deps.
-FROM ubuntu:22.04
+FROM ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install --no-install-recommends -y \
