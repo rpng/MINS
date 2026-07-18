@@ -1,9 +1,9 @@
 name: Windows Workflow
 
-# Builds the MINS core library + headless CLI natively on Windows (MSVC, x64) with deps from
-# vcpkg (eigen3 only) and a prebuilt OpenCV package. No ROS, no Docker -- this is the only job
-# proving MINS builds on the MSVC toolchain. It uploads mins_cli.exe, so every build produces
-# a downloadable Windows binary.
+# Builds the MINS core library + headless CLI natively on Windows (MSVC, x64). No ROS, no
+# Docker, no vcpkg -- PCL is gone and the remaining deps (Eigen, OpenCV) are grabbed directly
+# (header-only install / prebuilt package), so a from-source vcpkg build is no longer needed
+# for this job. Uploads mins_cli.exe, so every build produces a downloadable Windows binary.
 
 on:
   push:
@@ -21,35 +21,38 @@ jobs:
         with:
           submodules: recursive
 
-      # eigen3 is header-only via vcpkg -- fast even uncached, no need to compile or cache it.
-      - name: Install eigen3 (vcpkg)
+      # Eigen is header-only -- install the headers and generate Eigen3Config.cmake so
+      # find_package(Eigen3) succeeds. No compiler build needed.
+      - name: Install Eigen3
         shell: bash
         run: |
-          vcpkg install eigen3 \
-            --triplet x64-windows-rel --overlay-triplets=.github/vcpkg-triplets
+          curl -sSL -o eigen.zip https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip
+          cmake -E tar xf eigen.zip
+          cmake -S eigen-3.4.0 -B eigen-build -G "Visual Studio 17 2022" -A x64 \
+            -DCMAKE_INSTALL_PREFIX=C:/eigen
+          cmake --build eigen-build --target install --config Release
 
-      # vcpkg's opencv4 port compiles OpenCV from source (~30+ min, even with PCL gone).
-      # Use the official prebuilt Windows package instead -- a self-extracting archive with
-      # no compile step, done in well under a minute.
+      # vcpkg's opencv4 port compiles OpenCV from source (~30+ min, even with PCL gone -- and
+      # its toolchain file also wraps find_package globally, which fights a manually supplied
+      # OpenCVConfig.cmake). Skip vcpkg for OpenCV entirely: use the official prebuilt Windows
+      # package, a self-extracting archive with no compile step.
       - name: Install OpenCV (prebuilt)
         shell: bash
         run: |
           curl -sSL -o opencv.exe https://github.com/opencv/opencv/releases/download/4.10.0/opencv-4.10.0-windows.exe
           ./opencv.exe -oC:/ -y
-          echo "OPENCV_DIR=C:/opencv/build" >> "$GITHUB_ENV"
 
       - name: Configure
         shell: bash
         run: |
           cmake -S mins -B build/mins \
+            -G "Visual Studio 17 2022" -A x64 \
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_ROS=OFF \
             -DENABLE_ARUCO_TAGS=OFF \
-            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_TARGET_TRIPLET=x64-windows-rel \
-            -DVCPKG_OVERLAY_TRIPLETS=.github/vcpkg-triplets \
-            -DOpenCV_DIR="$OPENCV_DIR" \
-            -DCMAKE_PREFIX_PATH="$OPENCV_DIR"
+            -DEigen3_DIR="C:/eigen/share/eigen3/cmake" \
+            -DOpenCV_DIR="C:/opencv/build" \
+            -DCMAKE_PREFIX_PATH="C:/opencv/build"
 
       - name: Build
         shell: bash
