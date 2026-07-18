@@ -28,6 +28,7 @@
 #ifndef MINS_CORE_PRINT_H
 #define MINS_CORE_PRINT_H
 
+#include <cstdint>
 #include <string>
 
 namespace mins {

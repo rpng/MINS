@@ -1,4 +1,4 @@
-name: Windows Workflow
+name: Windows (x64)
 
 # Builds the MINS core library + headless CLI natively on Windows (MSVC, x64). No ROS, no
 # Docker. PCL is gone, and Eigen is header-only so it installs directly (no vcpkg, no

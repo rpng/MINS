@@ -39,7 +39,11 @@
 #include "update/vicon/ViconTypes.h"
 #include "update/wheel/WheelTypes.h"
 #include "utils/Print_Logger.h"
+#if __has_include(<cv_bridge/cv_bridge.h>)
 #include <cv_bridge/cv_bridge.h>
+#else
+#include <cv_bridge/cv_bridge.hpp>
+#endif
 #include <vector>
 
 using namespace sensor_msgs::msg;
@@ -249,7 +253,9 @@ bool ROS2Helper::Image2Data(const sensor_msgs::msg::CompressedImage::ConstShared
   // Create the measurement
   cam.timestamp = rclcpp::Time(msg->header.stamp).seconds();
   cam.sensor_ids.push_back(cam_id);
-  cam.images.push_back(cv::imdecode(cv::Mat(msg->data), 0));
+  // Build via pointer+size instead of the std::vector<> ctor: rosidl's rebound allocator
+  // type doesn't always match cv::Mat's std::vector<_Tp> template deduction on newer distros.
+  cam.images.push_back(cv::imdecode(cv::Mat(1, (int)msg->data.size(), CV_8UC1, (void *)msg->data.data()), 0));
 
   // Load the mask if we are using it, else it is empty
   // TODO: in the future we should get this from external pixel segmentation

@@ -55,10 +55,17 @@ public:
                       bool downsize)
       : TrackBase(cameras, 0, numaruco, stereo, histmethod), max_tag_id(numaruco), do_downsizing(downsize) {
 #if ENABLE_ARUCO_TAGS
+#if (CV_VERSION_MAJOR * 100 + CV_VERSION_MINOR) >= 407
+    // OpenCV >= 4.7 dropped the Ptr-based factory API in favor of value types + ArucoDetector
+    aruco_dict = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_1000);
+    aruco_params = cv::aruco::DetectorParameters();
+    aruco_detector = cv::aruco::ArucoDetector(aruco_dict, aruco_params);
+#else
     aruco_dict = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_1000);
     aruco_params = cv::aruco::DetectorParameters::create();
     // NOTE: people with newer opencv might fail here
     // aruco_params->cornerRefinementMethod = cv::aruco::CornerRefineMethod::CORNER_REFINE_SUBPIX;
+#endif
 #else
     PRINT_ERROR(RED "[ERROR]: you have not compiled with aruco tag support!!!\n" RESET);
     std::exit(EXIT_FAILURE);
@@ -101,11 +108,18 @@ protected:
   bool do_downsizing;
 
 #if ENABLE_ARUCO_TAGS
+#if (CV_VERSION_MAJOR * 100 + CV_VERSION_MINOR) >= 407
+  // Our dictionary and parameters that we will extract aruco tags with
+  cv::aruco::Dictionary aruco_dict;
+  cv::aruco::DetectorParameters aruco_params;
+  cv::aruco::ArucoDetector aruco_detector;
+#else
   // Our dictionary that we will extract aruco tags with
   cv::Ptr<cv::aruco::Dictionary> aruco_dict;
 
   // Parameters the opencv extractor uses
   cv::Ptr<cv::aruco::DetectorParameters> aruco_params;
+#endif
 
   // Our tag IDs and corner we will get from the extractor
   std::unordered_map<size_t, std::vector<int>> ids_aruco;

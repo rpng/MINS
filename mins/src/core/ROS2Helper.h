@@ -46,7 +46,6 @@ template <class PointT> struct PointCloud;
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <tf2/transform_datatypes.h>
 
 using namespace std;
 using namespace sensor_msgs;

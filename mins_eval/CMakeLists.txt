@@ -35,7 +35,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -fno-sign
 # Enable debug flags (use if you want to debug in gdb)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Wall -Wuninitialized -Wmaybe-uninitialized")
 
-find_package(PCL REQUIRED QUIET)
 # Find ROS build system
 
 # GCC older than 9.1 needs an explicit lib for std::filesystem (ROS Melodic ships GCC 7.5)

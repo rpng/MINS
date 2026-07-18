@@ -5,7 +5,7 @@ set -e
 MINS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${MINS_DIR}/../.."
 
-source /opt/ros/humble/setup.bash
+source "/opt/ros/${ROS_DISTRO}/setup.bash"
 colcon build --paths "${MINS_DIR}"/thirdparty/*
 source install/setup.bash
 colcon build --paths "${MINS_DIR}"/thirdparty/open_vins/*

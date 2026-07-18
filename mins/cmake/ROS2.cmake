@@ -1,6 +1,30 @@
 cmake_minimum_required(VERSION 3.5.1)
 
 find_package(ament_cmake REQUIRED)
+
+# ament_target_dependencies() was dropped from ament_cmake_target_dependencies on newer
+# distros (e.g. ROS2 Lyrical) in favor of modern CMake imported targets. Shim it back in
+# when missing, falling back to classic ${dep}_INCLUDE_DIRS/_LIBRARIES if no modern target.
+if(NOT COMMAND ament_target_dependencies)
+  macro(ament_target_dependencies target)
+    foreach(_dep ${ARGN})
+      if(TARGET ${_dep}::${_dep})
+        target_link_libraries(${target} ${_dep}::${_dep})
+      else()
+        if(${_dep}_INCLUDE_DIRS)
+          target_include_directories(${target} PUBLIC ${${_dep}_INCLUDE_DIRS})
+        endif()
+        if(${_dep}_LIBRARIES)
+          target_link_libraries(${target} ${${_dep}_LIBRARIES})
+        endif()
+        if(${_dep}_DEFINITIONS)
+          target_compile_definitions(${target} PUBLIC ${${_dep}_DEFINITIONS})
+        endif()
+      endif()
+    endforeach()
+  endmacro()
+endif()
+
 find_package(rclcpp REQUIRED)
 find_package(rosbag2 REQUIRED COMPONENTS rmw_adapters message_filters rosbag2_storage_builtin)
 find_package(tf2_ros REQUIRED COMPONENTS tf2_cpp)  # Replaces tf
@@ -16,12 +40,13 @@ find_package(image_geometry REQUIRED)  # Might require additional setup
 find_package(visualization_msgs REQUIRED)
 find_package(image_transport REQUIRED)  # Might require additional setup
 find_package(cv_bridge REQUIRED)        # Might require additional setup
+find_package(ament_index_cpp REQUIRED)  # get_package_share_directory()
 
 # Other dependencies (if available through ROS 2 packages)
 find_package(ov_core REQUIRED)   # Might not be available as a ROS 2 package
 
 add_definitions(-DROS_AVAILABLE=2)
-ament_export_dependencies(rclcpp rosbag2 tf2_ros std_msgs geometry_msgs sensor_msgs nav_msgs std_srvs image_geometry visualization_msgs image_transport cv_bridge ov_core)
+ament_export_dependencies(rclcpp rosbag2 tf2_ros std_msgs geometry_msgs sensor_msgs nav_msgs std_srvs image_geometry visualization_msgs image_transport cv_bridge ament_index_cpp ov_core)
 # ament_export_include_directories(src/)
 ament_export_libraries(mins_lib)
 
@@ -37,6 +62,7 @@ list(APPEND ament_libraries
         nav_msgs
         cv_bridge
         image_transport
+        ament_index_cpp
         ov_core
         image_geometry
 )

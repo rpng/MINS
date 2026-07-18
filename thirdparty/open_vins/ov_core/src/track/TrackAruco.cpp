@@ -96,7 +96,11 @@ void TrackAruco::perform_tracking(double timestamp, const cv::Mat &imgin, size_t
   //===================================================================================
 
   // Perform extraction
+#if (CV_VERSION_MAJOR * 100 + CV_VERSION_MINOR) >= 407
+  aruco_detector.detectMarkers(img0, corners[cam_id], ids_aruco[cam_id], rejects[cam_id]);
+#else
   cv::aruco::detectMarkers(img0, aruco_dict, corners[cam_id], ids_aruco[cam_id], aruco_params, rejects[cam_id]);
+#endif
   rT2 = std::chrono::steady_clock::now();
 
   //===================================================================================

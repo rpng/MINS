@@ -39,14 +39,31 @@
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "std_srvs/srv/empty.hpp"
+#if __has_include(<message_filters/subscriber.h>)
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/time_synchronizer.h>
+#else
+#include <message_filters/subscriber.hpp>
+#include <message_filters/sync_policies/approximate_time.hpp>
+#include <message_filters/time_synchronizer.hpp>
+#endif
 
 using namespace std;
 using namespace sensor_msgs::msg;
 using namespace nav_msgs::msg;
 namespace mins {
+
+// message_filters::Subscriber dropped its default-QoS 2-arg constructor on newer distros
+// (e.g. ROS2 Lyrical) in favor of a required rclcpp::QoS third argument; older distros take
+// a rmw_qos_profile_t there instead, so this can't be a single unconditional call.
+template <typename M> std::shared_ptr<message_filters::Subscriber<M>> make_mf_subscriber(std::shared_ptr<rclcpp::Node> node, const std::string &topic) {
+#if __has_include(<message_filters/subscriber.h>)
+  return std::make_shared<message_filters::Subscriber<M>>(node, topic);
+#else
+  return std::make_shared<message_filters::Subscriber<M>>(node, topic, rclcpp::QoS(10));
+#endif
+}
 
 class SystemManager;
 struct OptionsEstimator;
