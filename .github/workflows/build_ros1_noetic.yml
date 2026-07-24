@@ -19,12 +19,19 @@ jobs:
         run: docker run --rm --entrypoint /bin/bash mins:noetic -c "source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash && export OMP_NUM_THREADS=1 && roslaunch mins simulation.launch sys_verbosity:=3"
       - name: Run unit tests
         run: |
-          docker run --rm --entrypoint /bin/bash mins:noetic -c "
+          mkdir -p /tmp/mins_tests
+          docker run --rm -v /tmp/mins_tests:/results --entrypoint /bin/bash mins:noetic -c '
             set -eo pipefail
             apt-get update -q && apt-get install -qy --no-install-recommends libgtest-dev
             source /opt/ros/noetic/setup.bash
             cd /catkin_ws
             catkin config --cmake-args -DBUILD_TESTS=ON
             catkin build mins
-            cd /catkin_ws/build/mins && ctest --output-on-failure
-          "
+            cd /catkin_ws/build/mins
+            set +e
+            ctest --output-on-failure > /results/ctest.txt 2>&1
+            echo $? > /results/exit.txt
+            cat /results/ctest.txt
+          '
+          python3 .github/scripts/gen_unit_test_summary.py /tmp/mins_tests/ctest.txt || true
+          exit $(cat /tmp/mins_tests/exit.txt 2>/dev/null || echo 1)
