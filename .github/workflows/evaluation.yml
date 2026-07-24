@@ -77,6 +77,9 @@ jobs:
           - config: stereo_gps
             gt: holonomic
             args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=true wheel_enabled:=false vicon_enabled:=false"
+          - config: stereo_vicon
+            gt: holonomic
+            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=false wheel_enabled:=false vicon_enabled:=true"
           - config: stereo_wheel
             gt: nonholonomic_planar
             args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=false sim_const_planar:=true"
