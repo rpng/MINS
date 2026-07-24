@@ -17,3 +17,14 @@ jobs:
         run: docker build . --file Dockerfile_noetic_20_04 --tag mins:noetic
       - name: Run MINS simulation (smoke test)
         run: docker run --rm --entrypoint /bin/bash mins:noetic -c "source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash && export OMP_NUM_THREADS=1 && roslaunch mins simulation.launch sys_verbosity:=3"
+      - name: Run unit tests
+        run: |
+          docker run --rm --entrypoint /bin/bash mins:noetic -c "
+            set -eo pipefail
+            apt-get update -q && apt-get install -qy --no-install-recommends libgtest-dev
+            source /opt/ros/noetic/setup.bash
+            cd /catkin_ws
+            catkin config --cmake-args -DBUILD_TESTS=ON
+            catkin build mins
+            cd /catkin_ws/build/mins && ctest --output-on-failure
+          "

@@ -154,3 +154,19 @@ else ()
             )
 
 endif ()
+
+##################################################
+# Unit tests (opt-in: cmake -DBUILD_TESTS=ON)
+##################################################
+option(BUILD_TESTS "Build unit tests (requires GTest; or use tests/CMakeLists.txt standalone)" OFF)
+if (BUILD_TESTS)
+    find_package(GTest REQUIRED)
+    enable_testing()
+    file(GLOB MINS_TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_*.cpp)
+    foreach(TEST_SOURCE ${MINS_TEST_SOURCES})
+        get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+        add_executable(${TEST_NAME} ${TEST_SOURCE})
+        target_link_libraries(${TEST_NAME} mins_lib GTest::gtest_main)
+        add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+    endforeach()
+endif ()
