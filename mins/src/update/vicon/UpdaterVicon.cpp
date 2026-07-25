@@ -140,11 +140,13 @@ bool UpdaterVicon::update(ViconData m) {
   // Jacobian
   //=========================================================================
   vector<MatrixXd> dTdx;
-  bool success = state->get_interpolated_jacobian(m.time + timeoffset->value()(0), R_GtoI, p_IinG, "VICON", m.id, dTdx, order);
+  Matrix3d R_GtoI_fej;
+  Vector3d p_IinG_fej;
+  bool success = state->get_interpolated_jacobian(m.time + timeoffset->value()(0), R_GtoI_fej, p_IinG_fej, "VICON", m.id, dTdx, order);
   assert(success);
 
   MatrixXd H = MatrixXd::Zero(6, total_hx);
-  const auto [dz_dI, dz_dcalib] = ComputeJacobians(R_GtoI, R_ItoX, p_IinX);
+  const auto [dz_dI, dz_dcalib] = ComputeJacobians(R_GtoI_fej, R_ItoX, p_IinX);
 
   // CHAINRULE: get state clone Jacobian. This also adds timeoffset jacobian
   for (int i = 0; i < (int)dTdx.size(); i++) {
