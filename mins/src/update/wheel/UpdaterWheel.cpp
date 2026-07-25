@@ -326,101 +326,84 @@ void UpdaterWheel::compute_linear_system_2D(MatrixXd &H, VectorXd &res, double t
   }
 }
 
-/**
- * Given a measurement, this will compute the linear system of the new measurements in respect to the state
- * This will return a "small" H, res, and R which are only of a single measurement and sub-set of the state
- */
-void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double time0, double time1) {
+Matrix<double, 6, 1> UpdaterWheel::ComputeResidual3D(const Matrix3d &R_GtoI0, const Vector3d &p_I0inG,
+                                                       const Matrix3d &R_GtoI1, const Vector3d &p_I1inG,
+                                                       const Matrix3d &R_ItoO, const Vector3d &p_IinO,
+                                                       const Matrix3d &R_3D, const Vector3d &p_3D) {
+  Vector3d pOinI = -R_ItoO.transpose() * p_IinO;
+  Matrix3d RO0toO1 = R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose();
+  Matrix<double, 6, 1> res = Matrix<double, 6, 1>::Zero();
+  res.head(3) = -log_so3(R_3D * RO0toO1.transpose());
+  res.tail(3) = p_3D - R_ItoO * R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG - R_GtoI0.transpose() * pOinI);
+  return res;
+}
 
-  // Load state values
-  shared_ptr<PoseJPL> pose0 = state->clones.at(time0);
-  shared_ptr<PoseJPL> pose1 = state->clones.at(time1);
-  Vector3d pI0inG = pose0->pos();
-  Vector3d pI1inG = pose1->pos();
-  Matrix3d RGtoI0 = pose0->Rot();
-  Matrix3d RGtoI1 = pose1->Rot();
-  Vector3d pIinO = state->wheel_extrinsic->pos();
-  Matrix3d RItoO = state->wheel_extrinsic->Rot();
-  Vector3d pOinI = -RItoO.transpose() * pIinO;
-  Matrix3d RO0toO1 = RItoO * RGtoI1 * RGtoI0.transpose() * RItoO.transpose();
+pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians3D(const Matrix3d &R_GtoI0, const Vector3d &p_I0inG,
+                                                            const Matrix3d &R_GtoI1, const Vector3d &p_I1inG,
+                                                            const Matrix3d &R_ItoO, const Vector3d &p_IinO) {
+  Vector3d pOinI = -R_ItoO.transpose() * p_IinO;
+  Matrix3d RO0toO1 = R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose();
   Matrix3d RO1toO0 = RO0toO1.transpose();
 
-  // Compute Orientation and position measurement residual
-  res = Matrix<double, 6, 1>::Zero();
-  // orientation
-  Matrix3d R_est = RO0toO1;
-  res.block(0, 0, 3, 1) = -log_so3(R_3D * R_est.transpose());
-  // position
-  Vector3d p_est = RItoO * RGtoI0 * (pI1inG + RGtoI1.transpose() * pOinI - pI0inG - RGtoI0.transpose() * pOinI);
-  res.block(3, 0, 3, 1) = p_3D - p_est;
+  Matrix3d dzr_dth0 = -R_ItoO * R_GtoI1 * R_GtoI0.transpose();
+  Matrix3d dzr_dth1 = R_ItoO;
+  Matrix3d dzp_dth0 = R_ItoO * skew_x(R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG));
+  Matrix3d dzp_dp0 = -R_ItoO * R_GtoI0;
+  Matrix3d dzp_dth1 = -R_ItoO * R_GtoI0 * R_GtoI1.transpose() * skew_x(pOinI);
+  Matrix3d dzp_dp1 = R_ItoO * R_GtoI0;
 
-  // Now compute Jacobians!
+  MatrixXd H_poses = MatrixXd::Zero(6, 12);
+  H_poses.block(0, 0, 3, 3) = dzr_dth0;
+  H_poses.block(0, 6, 3, 3) = dzr_dth1;
+  H_poses.block(3, 0, 3, 3) = dzp_dth0;
+  H_poses.block(3, 3, 3, 3) = dzp_dp0;
+  H_poses.block(3, 6, 3, 3) = dzp_dth1;
+  H_poses.block(3, 9, 3, 3) = dzp_dp1;
 
-  // compute the size of the Jacobian
-  int H_size = 12; // Default size for pose of clone 1 and 2
+  Matrix3d dzr_dthcalib = Matrix3d::Identity() - RO0toO1;
+  Matrix3d dzp_dthcalib = skew_x(R_ItoO * R_GtoI0 * (p_I1inG - p_I0inG) - RO1toO0 * p_IinO) + RO1toO0 * skew_x(p_IinO);
+  Matrix3d dzp_dpcalib = -RO1toO0 + Matrix3d::Identity();
+
+  MatrixXd H_ext = MatrixXd::Zero(6, 6);
+  H_ext.block(0, 0, 3, 3) = dzr_dthcalib;
+  H_ext.block(3, 0, 3, 3) = dzp_dthcalib;
+  H_ext.block(3, 3, 3, 3) = dzp_dpcalib;
+
+  return {H_poses, H_ext};
+}
+
+void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double time0, double time1) {
+  shared_ptr<PoseJPL> pose0 = state->clones.at(time0);
+  shared_ptr<PoseJPL> pose1 = state->clones.at(time1);
+  Matrix3d RItoO = state->wheel_extrinsic->Rot();
+  Vector3d pIinO = state->wheel_extrinsic->pos();
+  // Residual at current state values
+  res = ComputeResidual3D(pose0->Rot(), pose0->pos(), pose1->Rot(), pose1->pos(), RItoO, pIinO, R_3D, p_3D);
+  // Jacobians at FEJ state values
+  int H_size = 12;
   int H_count = 12;
   H_size += (state->op->wheel->do_calib_ext) ? 6 : 0;
   H_size += (state->op->wheel->do_calib_dt) ? 1 : 0;
   H_size += (state->op->wheel->do_calib_int) ? 3 : 0;
   H = MatrixXd::Zero(6, H_size);
-
-  // Overwrite FEJ
-  pI0inG = pose0->pos_fej();
-  pI1inG = pose1->pos_fej();
-  RGtoI0 = pose0->Rot_fej();
-  RGtoI1 = pose1->Rot_fej();
-  RO0toO1 = RItoO * RGtoI1 * RGtoI0.transpose() * RItoO.transpose();
-  RO1toO0 = RO0toO1.transpose();
-
-  // Jacobians in respect to current state
-  // orientation
-  Matrix3d dzr_dth0 = -RItoO * RGtoI1 * RGtoI0.transpose();
-  Matrix3d dzr_dth1 = RItoO;
-  // position
-  Matrix3d dzp_dth0 = RItoO * skew_x(RGtoI0 * pI1inG + RGtoI0 * RGtoI1.transpose() * pOinI - RGtoI0 * pI0inG);
-  Matrix3d dzp_dp0 = -RItoO * RGtoI0;
-  Matrix3d dzp_dth1 = -RItoO * RGtoI0 * RGtoI1.transpose() * skew_x(pOinI);
-  Matrix3d dzp_dp1 = RItoO * RGtoI0;
-
-  // Derivative theta change wrt oldest pose0 and pose1
-  H.block(0, 0, 3, 3) = dzr_dth0;
-  H.block(0, 6, 3, 3) = dzr_dth1;
-  // Derivative position change wrt oldest pose0 and pose1
-  H.block(3, 0, 3, 3) = dzp_dth0;
-  H.block(3, 3, 3, 3) = dzp_dp0;
-  H.block(3, 6, 3, 3) = dzp_dth1;
-  H.block(3, 9, 3, 3) = dzp_dp1;
-
-  // Jacobian wrt wheel to IMU extrinsics
+  const auto [H_poses, H_ext] = ComputeJacobians3D(pose0->Rot_fej(), pose0->pos_fej(), pose1->Rot_fej(), pose1->pos_fej(), RItoO, pIinO);
+  H.block(0, 0, 6, 12) = H_poses;
   if (state->op->wheel->do_calib_ext) {
-    Matrix3d dzr_dthcalib = (Matrix3d::Identity() - RO0toO1);
-    Matrix3d dzp_dpcalib = -RO1toO0 + Matrix3d::Identity();
-    Matrix3d dzp_dthcalib = skew_x(RItoO * RGtoI0 * (pI1inG - pI0inG) - RO1toO0 * pIinO) + RO1toO0 * skew_x(pIinO);
-    H.block(0, H_count, 3, 3) = dzr_dthcalib;
-    H.block(3, H_count, 3, 3) = dzp_dthcalib;
-    H.block(3, H_count + 3, 3, 3) = dzp_dpcalib;
+    H.block(0, H_count, 6, 6) = H_ext;
     H_count += 6;
   }
-
-  // Jacobian wrt wheel timeoffset.
   if (state->op->wheel->do_calib_dt) {
-    // should be able to find imu wv
     assert(state->cpis.find(time0) != state->cpis.end());
     assert(state->cpis.find(time1) != state->cpis.end());
     Vector3d w0 = state->cpis.at(time0).w;
     Vector3d v0 = state->cpis.at(time0).v;
     Vector3d w1 = state->cpis.at(time1).w;
     Vector3d v1 = state->cpis.at(time1).v;
-
-    // Put it in the Jacobian matrix
-    H.block(0, H_count, 3, 1) = dzr_dth0 * w0 + dzr_dth1 * w1;
-    H.block(3, H_count, 3, 1) = dzp_dth0 * w0 + dzp_dp0 * v0 + dzp_dth1 * w1 + dzp_dp1 * v1;
+    H.block(0, H_count, 3, 1) = H_poses.block(0, 0, 3, 3) * w0 + H_poses.block(0, 6, 3, 3) * w1;
+    H.block(3, H_count, 3, 1) = H_poses.block(3, 0, 3, 3) * w0 + H_poses.block(3, 3, 3, 3) * v0 + H_poses.block(3, 6, 3, 3) * w1 + H_poses.block(3, 9, 3, 3) * v1;
     H_count += 1;
   }
-
-  // Jacobian wrt wheel intrinsics.
   if (state->op->wheel->do_calib_int) {
-    // Note they are the opposite sign
     H.block(0, H_count, 3, 3) = -dR_di_3D;
     H.block(3, H_count, 3, 3) = -dp_di_3D;
   }
