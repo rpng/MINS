@@ -248,12 +248,15 @@ pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians2D(const Matrix3d &R_GtoI
   Vector3d pOinI = -R_ItoO.transpose() * p_IinO;
   Matrix3d RO0toO1 = R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose();
   Matrix3d RO1toO0 = RO0toO1.transpose();
+  Vector3d phi = log_so3(RO0toO1);
   Vector3d e3(0, 0, 1);
   Matrix<double, 2, 3> Lambda = Matrix<double, 2, 3>::Zero();
   Lambda.block(0, 0, 2, 2) = Matrix2d::Identity();
 
-  Matrix<double, 1, 3> dzr_dth0 = -e3.transpose() * R_ItoO * R_GtoI1 * R_GtoI0.transpose();
-  Matrix<double, 1, 3> dzr_dth1 = e3.transpose() * R_ItoO;
+  // d log_so3(R * exp(η)) / dη = Jr(φ)^{-1}, corrects for SO(3) curvature.
+  Matrix3d Jr_phi_inv = Jr_so3(phi).inverse();
+  Matrix<double, 1, 3> dzr_dth0 = -e3.transpose() * Jr_phi_inv * R_ItoO;
+  Matrix<double, 1, 3> dzr_dth1 = e3.transpose() * Jr_phi_inv * RO1toO0 * R_ItoO;
   Matrix<double, 2, 3> dzp_dth0 = Lambda * R_ItoO * skew_x(R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG));
   Matrix<double, 2, 3> dzp_dp0 = -Lambda * R_ItoO * R_GtoI0;
   Matrix<double, 2, 3> dzp_dth1 = -Lambda * R_ItoO * R_GtoI0 * R_GtoI1.transpose() * skew_x(pOinI);
@@ -267,7 +270,7 @@ pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians2D(const Matrix3d &R_GtoI
   H_poses.block(1, 6, 2, 3) = dzp_dth1;
   H_poses.block(1, 9, 2, 3) = dzp_dp1;
 
-  Matrix<double, 1, 3> dzr_dthcalib = e3.transpose() * (Matrix3d::Identity() - RO0toO1);
+  Matrix<double, 1, 3> dzr_dthcalib = e3.transpose() * Jr_phi_inv * (RO1toO0 - Matrix3d::Identity());
   Matrix<double, 2, 3> dzp_dthcalib = Lambda * (skew_x(R_ItoO * R_GtoI0 * (p_I1inG - p_I0inG) - RO1toO0 * p_IinO) + RO1toO0 * skew_x(p_IinO));
   Matrix<double, 2, 3> dzp_dpcalib = Lambda * (-RO1toO0 + Matrix3d::Identity());
 
