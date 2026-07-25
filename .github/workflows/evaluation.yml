@@ -105,16 +105,16 @@ jobs:
       - name: Run ${{ env.SEEDS }} simulations per algorithm
         run: |
           set -e
-          last=$((SEEDS-1))
+          last_seed=$((SEEDS-1))
           for ref in master pr; do
             mkdir -p out_$ref
             docker run --rm --entrypoint /bin/bash -v "$PWD/out_$ref:/outputs" "mins:$ref" -c '
               source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
               export OMP_NUM_THREADS=1
-              for s in $(seq 0 '"$last"'); do
-                rm -f /outputs/tmp/$s.txt /outputs/tmp/$s.time
-                sed -i "s/^  seed: .*/  seed: $s/" /catkin_ws/src/MINS/mins/config/simulation/config_simulation.yaml
-                roslaunch mins simulation.launch sim_seed:=$s sys_verbosity:=3 \
+              for seed in $(seq 0 '"$last_seed"'); do
+                rm -f /outputs/tmp/$seed.txt /outputs/tmp/$seed.time
+                sed -i "s/^  seed: .*/  seed: $seed/" /catkin_ws/src/MINS/mins/config/simulation/config_simulation.yaml
+                roslaunch mins simulation.launch sim_seed:=$seed sys_verbosity:=3 \
                   sys_save_state:=false '"${{ matrix.args }}"'
               done'
           done
