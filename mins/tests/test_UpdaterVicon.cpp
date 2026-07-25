@@ -61,6 +61,10 @@ TEST(ViconJacobian, AnalyticalMatchesNumerical) {
         for (int col = 0; col < 6; col++) {
             EXPECT_NEAR(dz_dI(row, col), dz_dI_numerical(row, col), tolerance)
                 << "dz_dI mismatch at row=" << row << " col=" << col;
+            if (std::abs(dz_dI_numerical(row, col)) > tolerance) {
+                EXPECT_GT(dz_dI(row, col) * dz_dI_numerical(row, col), 0.0)
+                    << "dz_dI sign mismatch at row=" << row << " col=" << col;
+            }
         }
     }
 
@@ -92,6 +96,10 @@ TEST(ViconJacobian, AnalyticalMatchesNumerical) {
         for (int col = 0; col < 6; col++) {
             EXPECT_NEAR(dz_dcalib(row, col), dz_dcalib_numerical(row, col), tolerance)
                 << "dz_dcalib mismatch at row=" << row << " col=" << col;
+            if (std::abs(dz_dcalib_numerical(row, col)) > tolerance) {
+                EXPECT_GT(dz_dcalib(row, col) * dz_dcalib_numerical(row, col), 0.0)
+                    << "dz_dcalib sign mismatch at row=" << row << " col=" << col;
+            }
         }
     }
 }
