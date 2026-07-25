@@ -40,15 +40,33 @@ public:
   /// Vicon updater
   UpdaterVicon(shared_ptr<State> state);
 
-  /// Compute the 6-DOF Vicon residual (orientation 3-vec, then position 3-vec).
+  /**
+   * \brief Compute the 6-DOF Vicon measurement residual.
+   *
+   * \param[in] rotation_global_to_imu Rotation matrix from global frame to IMU frame.
+   * \param[in] position_imu_in_global Position of the IMU expressed in the global frame.
+   * \param[in] rotation_imu_to_vicon Rotation matrix from IMU frame to Vicon sensor frame.
+   * \param[in] position_imu_in_vicon Position of the IMU expressed in the Vicon sensor frame.
+   * \param[in] measurement_pose Stacked 6-vector [orientation_3, position_3] from the Vicon measurement.
+   * \return Residual 6-vector [orientation_error_3, position_error_3].
+   */
   static Eigen::Matrix<double, 6, 1> ComputeResidual(const Eigen::Matrix3d &rotation_global_to_imu,
                                                       const Eigen::Vector3d &position_imu_in_global,
                                                       const Eigen::Matrix3d &rotation_imu_to_vicon,
                                                       const Eigen::Vector3d &position_imu_in_vicon,
                                                       const Eigen::Matrix<double, 6, 1> &measurement_pose);
 
-  /// Compute the analytical Jacobians of the Vicon residual w.r.t. IMU pose (dz_dI) and
-  /// extrinsic calibration (dz_dcalib). Both are 6x6; columns follow [delta_rotation, delta_position].
+  /**
+   * \brief Compute analytical Jacobians of the Vicon residual.
+   *
+   * Both output matrices are 6x6; columns follow [delta_rotation, delta_position].
+   *
+   * \param[in] rotation_global_to_imu Rotation matrix from global frame to IMU frame.
+   * \param[in] rotation_imu_to_vicon Rotation matrix from IMU frame to Vicon sensor frame.
+   * \param[in] position_imu_in_vicon Position of the IMU expressed in the Vicon sensor frame.
+   * \param[out] dz_dI Jacobian of the residual with respect to the IMU pose state.
+   * \param[out] dz_dcalib Jacobian of the residual with respect to the extrinsic calibration.
+   */
   static void ComputeJacobians(const Eigen::Matrix3d &rotation_global_to_imu,
                                 const Eigen::Matrix3d &rotation_imu_to_vicon,
                                 const Eigen::Vector3d &position_imu_in_vicon,

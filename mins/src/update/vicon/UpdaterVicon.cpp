@@ -145,8 +145,8 @@ bool UpdaterVicon::update(ViconData m) {
   assert(success);
 
   MatrixXd H = MatrixXd::Zero(6, total_hx);
-  MatrixXd dz_dI, dz_dcalib_computed;
-  ComputeJacobians(R_GtoI, R_ItoX, p_IinX, dz_dI, dz_dcalib_computed);
+  MatrixXd dz_dI, dz_dcalib;
+  ComputeJacobians(R_GtoI, R_ItoX, p_IinX, dz_dI, dz_dcalib);
 
   // CHAINRULE: get state clone Jacobian. This also adds timeoffset jacobian
   for (int i = 0; i < (int)dTdx.size(); i++) {
@@ -156,7 +156,7 @@ bool UpdaterVicon::update(ViconData m) {
 
   // Extrinsic calibration
   if (state->op->vicon->do_calib_ext) {
-    H.block(0, map_hx.at(calibration), 6, calibration->size()).noalias() += dz_dcalib_computed;
+    H.block(0, map_hx.at(calibration), 6, calibration->size()).noalias() += dz_dcalib;
   }
 
   //=========================================================================
