@@ -19,45 +19,39 @@ TEST(ViconJacobian, AnalyticalMatchesNumerical) {
     const double epsilon = 1e-6;
     const double tolerance = 1e-6;
 
-    Matrix3d rotation_global_to_imu = ov_core::exp_so3(Vector3d(0.1, -0.2, 0.15));
-    Vector3d position_imu_in_global(1.0, -0.5, 0.3);
-    Matrix3d rotation_imu_to_vicon = ov_core::exp_so3(Vector3d(-0.05, 0.1, 0.08));
-    Vector3d position_imu_in_vicon(0.1, 0.0, -0.2);
+    Matrix3d R_GtoI = ov_core::exp_so3(Vector3d(0.1, -0.2, 0.15));
+    Vector3d p_IinG(1.0, -0.5, 0.3);
+    Matrix3d R_ItoX = ov_core::exp_so3(Vector3d(-0.05, 0.1, 0.08));
+    Vector3d p_IinX(0.1, 0.0, -0.2);
 
     // Zero-residual nominal measurement.
-    Eigen::Matrix<double, 6, 1> measurement_pose = Eigen::Matrix<double, 6, 1>::Zero();
-    measurement_pose.head(3) = ov_core::log_so3(rotation_imu_to_vicon * rotation_global_to_imu);
-    measurement_pose.tail(3) = position_imu_in_global +
-                               rotation_global_to_imu.transpose() *
-                               (-rotation_imu_to_vicon.transpose() * position_imu_in_vicon);
+    Eigen::Matrix<double, 6, 1> z = Eigen::Matrix<double, 6, 1>::Zero();
+    z.head(3) = ov_core::log_so3(R_ItoX * R_GtoI);
+    z.tail(3) = p_IinG + R_GtoI.transpose() * (-R_ItoX.transpose() * p_IinX);
 
     // Analytical Jacobians from UpdaterVicon.
-    MatrixXd dz_dI, dz_dcalib;
-    UpdaterVicon::ComputeJacobians(rotation_global_to_imu, rotation_imu_to_vicon,
-                                   position_imu_in_vicon, dz_dI, dz_dcalib);
+    const auto [dz_dI, dz_dcalib] = UpdaterVicon::ComputeJacobians(R_GtoI, R_ItoX, p_IinX);
 
     // --- dz_dI: perturb IMU pose ---
     MatrixXd dz_dI_numerical = MatrixXd::Zero(6, 6);
     for (int i = 0; i < 6; i++) {
-        Matrix3d R_plus = rotation_global_to_imu;
-        Matrix3d R_minus = rotation_global_to_imu;
-        Vector3d p_plus = position_imu_in_global;
-        Vector3d p_minus = position_imu_in_global;
+        Matrix3d R_plus = R_GtoI;
+        Matrix3d R_minus = R_GtoI;
+        Vector3d p_plus = p_IinG;
+        Vector3d p_minus = p_IinG;
         if (i < 3) {
             Vector3d axis = Vector3d::Zero();
             axis(i) = 1.0;
-            R_plus = ov_core::exp_so3(epsilon * axis) * rotation_global_to_imu;
-            R_minus = ov_core::exp_so3(-epsilon * axis) * rotation_global_to_imu;
+            R_plus = ov_core::exp_so3(epsilon * axis) * R_GtoI;
+            R_minus = ov_core::exp_so3(-epsilon * axis) * R_GtoI;
         } else {
             p_plus(i - 3) += epsilon;
             p_minus(i - 3) -= epsilon;
         }
         Eigen::Matrix<double, 6, 1> res_plus =
-            UpdaterVicon::ComputeResidual(R_plus, p_plus, rotation_imu_to_vicon,
-                                          position_imu_in_vicon, measurement_pose);
+            UpdaterVicon::ComputeResidual(R_plus, p_plus, R_ItoX, p_IinX, z);
         Eigen::Matrix<double, 6, 1> res_minus =
-            UpdaterVicon::ComputeResidual(R_minus, p_minus, rotation_imu_to_vicon,
-                                          position_imu_in_vicon, measurement_pose);
+            UpdaterVicon::ComputeResidual(R_minus, p_minus, R_ItoX, p_IinX, z);
         // Rotation cols: H = d(r)/d(delta_theta); position cols: H = -d(r)/d(delta_p).
         double sign = (i < 3) ? 1.0 : -1.0;
         dz_dI_numerical.col(i) = sign * (res_plus - res_minus) / (2.0 * epsilon);
@@ -73,25 +67,23 @@ TEST(ViconJacobian, AnalyticalMatchesNumerical) {
     // --- dz_dcalib: perturb Vicon extrinsic calibration ---
     MatrixXd dz_dcalib_numerical = MatrixXd::Zero(6, 6);
     for (int i = 0; i < 6; i++) {
-        Matrix3d R_plus = rotation_imu_to_vicon;
-        Matrix3d R_minus = rotation_imu_to_vicon;
-        Vector3d p_plus = position_imu_in_vicon;
-        Vector3d p_minus = position_imu_in_vicon;
+        Matrix3d R_plus = R_ItoX;
+        Matrix3d R_minus = R_ItoX;
+        Vector3d p_plus = p_IinX;
+        Vector3d p_minus = p_IinX;
         if (i < 3) {
             Vector3d axis = Vector3d::Zero();
             axis(i) = 1.0;
-            R_plus = ov_core::exp_so3(epsilon * axis) * rotation_imu_to_vicon;
-            R_minus = ov_core::exp_so3(-epsilon * axis) * rotation_imu_to_vicon;
+            R_plus = ov_core::exp_so3(epsilon * axis) * R_ItoX;
+            R_minus = ov_core::exp_so3(-epsilon * axis) * R_ItoX;
         } else {
             p_plus(i - 3) += epsilon;
             p_minus(i - 3) -= epsilon;
         }
         Eigen::Matrix<double, 6, 1> res_plus =
-            UpdaterVicon::ComputeResidual(rotation_global_to_imu, position_imu_in_global,
-                                          R_plus, p_plus, measurement_pose);
+            UpdaterVicon::ComputeResidual(R_GtoI, p_IinG, R_plus, p_plus, z);
         Eigen::Matrix<double, 6, 1> res_minus =
-            UpdaterVicon::ComputeResidual(rotation_global_to_imu, position_imu_in_global,
-                                          R_minus, p_minus, measurement_pose);
+            UpdaterVicon::ComputeResidual(R_GtoI, p_IinG, R_minus, p_minus, z);
         double sign = (i < 3) ? 1.0 : -1.0;
         dz_dcalib_numerical.col(i) = sign * (res_plus - res_minus) / (2.0 * epsilon);
     }

@@ -56,34 +56,33 @@ void UpdaterVicon::try_update() {
   }
 }
 
-Matrix<double, 6, 1> UpdaterVicon::ComputeResidual(const Matrix3d &rotation_global_to_imu,
-                                                    const Vector3d &position_imu_in_global,
-                                                    const Matrix3d &rotation_imu_to_vicon,
-                                                    const Vector3d &position_imu_in_vicon,
-                                                    const Matrix<double, 6, 1> &measurement_pose) {
-  Vector3d position_vicon_in_imu = -rotation_imu_to_vicon.transpose() * position_imu_in_vicon;
-  Matrix3d rotation_imu_to_global = rotation_global_to_imu.transpose();
+Matrix<double, 6, 1> UpdaterVicon::ComputeResidual(const Matrix3d &R_GtoI,
+                                                    const Vector3d &p_IinG,
+                                                    const Matrix3d &R_ItoX,
+                                                    const Vector3d &p_IinX,
+                                                    const Matrix<double, 6, 1> &z) {
+  Vector3d p_XinI = -R_ItoX.transpose() * p_IinX;
+  Matrix3d R_ItoG = R_GtoI.transpose();
   Matrix<double, 6, 1> residual = Matrix<double, 6, 1>::Zero();
-  residual.head(3) = -log_so3(exp_so3(measurement_pose.head(3)) * (rotation_imu_to_vicon * rotation_global_to_imu).transpose());
-  residual.tail(3) = measurement_pose.tail(3) - (position_imu_in_global + rotation_imu_to_global * position_vicon_in_imu);
+  residual.head(3) = -log_so3(exp_so3(z.head(3)) * (R_ItoX * R_GtoI).transpose());
+  residual.tail(3) = z.tail(3) - (p_IinG + R_ItoG * p_XinI);
   return residual;
 }
 
-void UpdaterVicon::ComputeJacobians(const Matrix3d &rotation_global_to_imu,
-                                    const Matrix3d &rotation_imu_to_vicon,
-                                    const Vector3d &position_imu_in_vicon,
-                                    MatrixXd &dz_dI,
-                                    MatrixXd &dz_dcalib) {
-  Vector3d position_vicon_in_imu = -rotation_imu_to_vicon.transpose() * position_imu_in_vicon;
-  Matrix3d rotation_imu_to_global = rotation_global_to_imu.transpose();
-  dz_dI = MatrixXd::Zero(6, 6);
-  dz_dI.block(0, 0, 3, 3) = rotation_imu_to_vicon;
-  dz_dI.block(3, 0, 3, 3) = -rotation_imu_to_global * skew_x(position_vicon_in_imu);
+std::pair<MatrixXd, MatrixXd> UpdaterVicon::ComputeJacobians(const Matrix3d &R_GtoI,
+                                                              const Matrix3d &R_ItoX,
+                                                              const Vector3d &p_IinX) {
+  Vector3d p_XinI = -R_ItoX.transpose() * p_IinX;
+  Matrix3d R_ItoG = R_GtoI.transpose();
+  MatrixXd dz_dI = MatrixXd::Zero(6, 6);
+  dz_dI.block(0, 0, 3, 3) = R_ItoX;
+  dz_dI.block(3, 0, 3, 3) = -R_ItoG * skew_x(p_XinI);
   dz_dI.block(3, 3, 3, 3) = Matrix3d::Identity();
-  dz_dcalib = MatrixXd::Zero(6, 6);
+  MatrixXd dz_dcalib = MatrixXd::Zero(6, 6);
   dz_dcalib.block(0, 0, 3, 3) = Matrix3d::Identity();
-  dz_dcalib.block(3, 0, 3, 3) = rotation_imu_to_global * rotation_imu_to_vicon.transpose() * skew_x(position_imu_in_vicon);
-  dz_dcalib.block(3, 3, 3, 3) = -rotation_imu_to_global * rotation_imu_to_vicon.transpose();
+  dz_dcalib.block(3, 0, 3, 3) = R_ItoG * R_ItoX.transpose() * skew_x(p_IinX);
+  dz_dcalib.block(3, 3, 3, 3) = -R_ItoG * R_ItoX.transpose();
+  return {dz_dI, dz_dcalib};
 }
 
 bool UpdaterVicon::update(ViconData m) {
@@ -145,8 +144,7 @@ bool UpdaterVicon::update(ViconData m) {
   assert(success);
 
   MatrixXd H = MatrixXd::Zero(6, total_hx);
-  MatrixXd dz_dI, dz_dcalib;
-  ComputeJacobians(R_GtoI, R_ItoX, p_IinX, dz_dI, dz_dcalib);
+  const auto [dz_dI, dz_dcalib] = ComputeJacobians(R_GtoI, R_ItoX, p_IinX);
 
   // CHAINRULE: get state clone Jacobian. This also adds timeoffset jacobian
   for (int i = 0; i < (int)dTdx.size(); i++) {

@@ -25,6 +25,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <utility>
 #include <vector>
 
 using namespace std;
@@ -43,35 +44,32 @@ public:
   /**
    * \brief Compute the 6-DOF Vicon measurement residual.
    *
-   * \param[in] rotation_global_to_imu Rotation matrix from global frame to IMU frame.
-   * \param[in] position_imu_in_global Position of the IMU expressed in the global frame.
-   * \param[in] rotation_imu_to_vicon Rotation matrix from IMU frame to Vicon sensor frame.
-   * \param[in] position_imu_in_vicon Position of the IMU expressed in the Vicon sensor frame.
-   * \param[in] measurement_pose Stacked 6-vector [orientation_3, position_3] from the Vicon measurement.
+   * \param[in] R_GtoI Rotation matrix from global frame to IMU frame.
+   * \param[in] p_IinG Position of the IMU expressed in the global frame.
+   * \param[in] R_ItoX Rotation matrix from IMU frame to Vicon sensor frame.
+   * \param[in] p_IinX Position of the IMU expressed in the Vicon sensor frame.
+   * \param[in] z Stacked 6-vector [orientation_3, position_3] from the Vicon measurement.
    * \return Residual 6-vector [orientation_error_3, position_error_3].
    */
-  static Eigen::Matrix<double, 6, 1> ComputeResidual(const Eigen::Matrix3d &rotation_global_to_imu,
-                                                      const Eigen::Vector3d &position_imu_in_global,
-                                                      const Eigen::Matrix3d &rotation_imu_to_vicon,
-                                                      const Eigen::Vector3d &position_imu_in_vicon,
-                                                      const Eigen::Matrix<double, 6, 1> &measurement_pose);
+  static Eigen::Matrix<double, 6, 1> ComputeResidual(const Eigen::Matrix3d &R_GtoI,
+                                                      const Eigen::Vector3d &p_IinG,
+                                                      const Eigen::Matrix3d &R_ItoX,
+                                                      const Eigen::Vector3d &p_IinX,
+                                                      const Eigen::Matrix<double, 6, 1> &z);
 
   /**
    * \brief Compute analytical Jacobians of the Vicon residual.
    *
-   * Both output matrices are 6x6; columns follow [delta_rotation, delta_position].
+   * Both matrices are 6x6; columns follow [delta_rotation, delta_position].
    *
-   * \param[in] rotation_global_to_imu Rotation matrix from global frame to IMU frame.
-   * \param[in] rotation_imu_to_vicon Rotation matrix from IMU frame to Vicon sensor frame.
-   * \param[in] position_imu_in_vicon Position of the IMU expressed in the Vicon sensor frame.
-   * \param[out] dz_dI Jacobian of the residual with respect to the IMU pose state.
-   * \param[out] dz_dcalib Jacobian of the residual with respect to the extrinsic calibration.
+   * \param[in] R_GtoI Rotation matrix from global frame to IMU frame.
+   * \param[in] R_ItoX Rotation matrix from IMU frame to Vicon sensor frame.
+   * \param[in] p_IinX Position of the IMU expressed in the Vicon sensor frame.
+   * \return {dz_dI, dz_dcalib} — Jacobians w.r.t. IMU pose state and extrinsic calibration.
    */
-  static void ComputeJacobians(const Eigen::Matrix3d &rotation_global_to_imu,
-                                const Eigen::Matrix3d &rotation_imu_to_vicon,
-                                const Eigen::Vector3d &position_imu_in_vicon,
-                                Eigen::MatrixXd &dz_dI,
-                                Eigen::MatrixXd &dz_dcalib);
+  static std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ComputeJacobians(const Eigen::Matrix3d &R_GtoI,
+                                                                        const Eigen::Matrix3d &R_ItoX,
+                                                                        const Eigen::Vector3d &p_IinX);
 
   /// feed vicon measurement
   void feed_measurement(const ViconData &data);
