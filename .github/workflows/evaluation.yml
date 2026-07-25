@@ -113,6 +113,7 @@ jobs:
               export OMP_NUM_THREADS=1
               for s in $(seq 0 '"$last"'); do
                 rm -f /outputs/tmp/$s.txt /outputs/tmp/$s.time
+                sed -i "s/^  seed: .*/  seed: $s/" /catkin_ws/src/MINS/mins/config/simulation/config_simulation.yaml
                 roslaunch mins simulation.launch sim_seed:=$s sys_verbosity:=3 \
                   sys_save_state:=false '"${{ matrix.args }}"'
               done'
