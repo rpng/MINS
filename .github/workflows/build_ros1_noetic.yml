@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "master" ]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
 
   build_2004:
@@ -17,3 +21,47 @@ jobs:
         run: docker build . --file Dockerfile_noetic_20_04 --tag mins:noetic
       - name: Run MINS simulation (smoke test)
         run: docker run --rm --entrypoint /bin/bash mins:noetic -c "source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash && export OMP_NUM_THREADS=1 && roslaunch mins simulation.launch sys_verbosity:=3"
+      - name: Run unit tests
+        run: |
+          mkdir -p /tmp/mins_tests
+          docker run --rm -v /tmp/mins_tests:/results --entrypoint /bin/bash mins:noetic -c '
+            set -eo pipefail
+            apt-get update -q && apt-get install -qy --no-install-recommends libgtest-dev
+            source /opt/ros/noetic/setup.bash
+            cd /catkin_ws
+            catkin config --cmake-args -DBUILD_TESTS=ON
+            catkin build mins
+            cd /catkin_ws/build/mins
+            set +e
+            ctest --output-on-failure > /results/ctest.txt 2>&1
+            echo $? > /results/exit.txt
+            cat /results/ctest.txt
+          '
+          python3 .github/scripts/gen_unit_test_summary.py /tmp/mins_tests/ctest.txt unit_test_report.md || true
+          exit $(cat /tmp/mins_tests/exit.txt 2>/dev/null || echo 1)
+      - name: Post unit test report to PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.existsSync('unit_test_report.md')
+              ? fs.readFileSync('unit_test_report.md', 'utf8')
+              : '<!-- mins-unit-test-report -->\n## Unit Test Results\n\n*Report not generated — check the CI log.*';
+            const marker = '<!-- mins-unit-test-report -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body,
+              });
+            }

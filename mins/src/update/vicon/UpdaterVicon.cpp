@@ -56,6 +56,35 @@ void UpdaterVicon::try_update() {
   }
 }
 
+Matrix<double, 6, 1> UpdaterVicon::ComputeResidual(const Matrix3d &R_GtoI,
+                                                    const Vector3d &p_IinG,
+                                                    const Matrix3d &R_ItoX,
+                                                    const Vector3d &p_IinX,
+                                                    const Matrix<double, 6, 1> &z) {
+  Vector3d p_XinI = -R_ItoX.transpose() * p_IinX;
+  Matrix3d R_ItoG = R_GtoI.transpose();
+  Matrix<double, 6, 1> residual = Matrix<double, 6, 1>::Zero();
+  residual.head(3) = -log_so3(exp_so3(z.head(3)) * (R_ItoX * R_GtoI).transpose());
+  residual.tail(3) = z.tail(3) - (p_IinG + R_ItoG * p_XinI);
+  return residual;
+}
+
+std::pair<MatrixXd, MatrixXd> UpdaterVicon::ComputeJacobians(const Matrix3d &R_GtoI,
+                                                              const Matrix3d &R_ItoX,
+                                                              const Vector3d &p_IinX) {
+  Vector3d p_XinI = -R_ItoX.transpose() * p_IinX;
+  Matrix3d R_ItoG = R_GtoI.transpose();
+  MatrixXd dz_dI = MatrixXd::Zero(6, 6);
+  dz_dI.block(0, 0, 3, 3) = R_ItoX;
+  dz_dI.block(3, 0, 3, 3) = -R_ItoG * skew_x(p_XinI);
+  dz_dI.block(3, 3, 3, 3) = Matrix3d::Identity();
+  MatrixXd dz_dcalib = MatrixXd::Zero(6, 6);
+  dz_dcalib.block(0, 0, 3, 3) = Matrix3d::Identity();
+  dz_dcalib.block(3, 0, 3, 3) = R_ItoG * R_ItoX.transpose() * skew_x(p_IinX);
+  dz_dcalib.block(3, 3, 3, 3) = -R_ItoG * R_ItoX.transpose();
+  return {dz_dI, dz_dcalib};
+}
+
 bool UpdaterVicon::update(ViconData m) {
   //=========================================================================
   // Linear System
@@ -99,34 +128,23 @@ bool UpdaterVicon::update(ViconData m) {
   //=========================================================================
   // Residual
   //=========================================================================
-  // calib info
   Matrix3d R_ItoX = calibration->Rot();
   Vector3d p_IinX = calibration->pos();
-  Vector3d p_XinI = -R_ItoX.transpose() * p_IinX;
-  // State info
   Matrix3d R_GtoI;
   Vector3d p_IinG;
   if (!state->get_interpolated_pose(m.time + timeoffset->value()(0), R_GtoI, p_IinG))
     return false;
-  Matrix3d R_ItoG = R_GtoI.transpose();
-  // residual
-  VectorXd res = VectorXd::Zero(6);
-  res.head(3) = -log_so3(exp_so3(m.pose.head(3)) * (R_ItoX * R_GtoI).transpose());
-  res.tail(3) = m.pose.tail(3) - (p_IinG + R_ItoG * p_XinI);
+  VectorXd res = ComputeResidual(R_GtoI, p_IinG, R_ItoX, p_IinX, m.pose);
 
   //=========================================================================
   // Jacobian
   //=========================================================================
-  // Get Jacobian of interpolated pose in respect to the state
   vector<MatrixXd> dTdx;
   bool success = state->get_interpolated_jacobian(m.time + timeoffset->value()(0), R_GtoI, p_IinG, "VICON", m.id, dTdx, order);
   assert(success);
 
   MatrixXd H = MatrixXd::Zero(6, total_hx);
-  MatrixXd dz_dI = MatrixXd::Zero(6, 6);
-  dz_dI.block(0, 0, 3, 3) = R_ItoX;                   // dzR_dIR
-  dz_dI.block(3, 0, 3, 3) = -R_ItoG * skew_x(p_XinI); // dzp_dIR
-  dz_dI.block(3, 3, 3, 3) = Matrix3d::Identity();     // dzp_dIp
+  const auto [dz_dI, dz_dcalib] = ComputeJacobians(R_GtoI, R_ItoX, p_IinX);
 
   // CHAINRULE: get state clone Jacobian. This also adds timeoffset jacobian
   for (int i = 0; i < (int)dTdx.size(); i++) {
@@ -136,11 +154,6 @@ bool UpdaterVicon::update(ViconData m) {
 
   // Extrinsic calibration
   if (state->op->vicon->do_calib_ext) {
-    // Calculate the Jacobian
-    MatrixXd dz_dcalib = MatrixXd::Zero(6, 6);
-    dz_dcalib.block(0, 0, 3, 3) = Matrix3d::Identity();                                     // dzR_dCR
-    dz_dcalib.block(3, 0, 3, 3) = R_GtoI.transpose() * R_ItoX.transpose() * skew_x(p_IinX); // dzp_dCR
-    dz_dcalib.block(3, 3, 3, 3) = -R_GtoI.transpose() * R_ItoX.transpose();                 // dzp_dCp
     H.block(0, map_hx.at(calibration), 6, calibration->size()).noalias() += dz_dcalib;
   }
 
