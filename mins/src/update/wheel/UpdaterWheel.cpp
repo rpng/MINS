@@ -225,101 +225,98 @@ bool UpdaterWheel::select_wheel_data(double time0, double time1, vector<WheelDat
  * Given a measurement, this will compute the linear system of the new measurements in respect to the state
  * This will return a "small" H, res, and R which are only of a single measurement and sub-set of the state
  */
-void UpdaterWheel::compute_linear_system_2D(MatrixXd &H, VectorXd &res, double time0, double time1) {
-
-  // Load state values
-  shared_ptr<PoseJPL> pose0 = state->clones.at(time0);
-  shared_ptr<PoseJPL> pose1 = state->clones.at(time1);
-  Vector3d pI0inG = pose0->pos();
-  Vector3d pI1inG = pose1->pos();
-  Matrix3d RGtoI0 = pose0->Rot();
-  Matrix3d RGtoI1 = pose1->Rot();
-  Vector3d pIinO = state->wheel_extrinsic->pos();
-  Matrix3d RItoO = state->wheel_extrinsic->Rot();
-  Vector3d pOinI = -RItoO.transpose() * pIinO;
-  Matrix3d RO0toO1 = RItoO * RGtoI1 * RGtoI0.transpose() * RItoO.transpose();
-  Matrix3d RO1toO0 = RO0toO1.transpose();
-
-  // Create projection matrix
+Eigen::Vector3d UpdaterWheel::ComputeResidual2D(const Matrix3d &R_GtoI0, const Vector3d &p_I0inG,
+                                                 const Matrix3d &R_GtoI1, const Vector3d &p_I1inG,
+                                                 const Matrix3d &R_ItoO, const Vector3d &p_IinO,
+                                                 double th, double x, double y) {
+  Vector3d pOinI = -R_ItoO.transpose() * p_IinO;
   Vector3d e3(0, 0, 1);
   Matrix<double, 2, 3> Lambda = Matrix<double, 2, 3>::Zero();
   Lambda.block(0, 0, 2, 2) = Matrix2d::Identity();
 
-  // Compute Orientation and position measurement residual
-  res = Vector3d::Zero();
-  double theta_est = e3.transpose() * log_so3(RItoO * RGtoI1 * RGtoI0.transpose() * RItoO.transpose());
-  res(0, 0) = theta_est - th_2D;
-  Vector2d d_int(x_2D, y_2D);
-  Vector2d d_est = Lambda * RItoO * RGtoI0 * (pI1inG + RGtoI1.transpose() * pOinI - pI0inG - RGtoI0.transpose() * pOinI);
-  res.block(1, 0, 2, 1) = d_int - d_est;
+  Vector3d res = Vector3d::Zero();
+  double theta_est = e3.transpose() * log_so3(R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose());
+  res(0) = theta_est - th;
+  Vector2d d_est = Lambda * R_ItoO * R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG - R_GtoI0.transpose() * pOinI);
+  res.block(1, 0, 2, 1) = Vector2d(x, y) - d_est;
+  return res;
+}
 
-  // Now compute Jacobians!
+pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians2D(const Matrix3d &R_GtoI0, const Vector3d &p_I0inG,
+                                                            const Matrix3d &R_GtoI1, const Vector3d &p_I1inG,
+                                                            const Matrix3d &R_ItoO, const Vector3d &p_IinO) {
+  Vector3d pOinI = -R_ItoO.transpose() * p_IinO;
+  Matrix3d RO0toO1 = R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose();
+  Matrix3d RO1toO0 = RO0toO1.transpose();
+  Vector3d e3(0, 0, 1);
+  Matrix<double, 2, 3> Lambda = Matrix<double, 2, 3>::Zero();
+  Lambda.block(0, 0, 2, 2) = Matrix2d::Identity();
 
-  // compute the size of the Jacobian
-  int H_size = 12; // Default size for pose of clone 1 and 2
+  Matrix<double, 1, 3> dzr_dth0 = -e3.transpose() * R_ItoO * R_GtoI1 * R_GtoI0.transpose();
+  Matrix<double, 1, 3> dzr_dth1 = e3.transpose() * R_ItoO;
+  Matrix<double, 2, 3> dzp_dth0 = Lambda * R_ItoO * skew_x(R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG));
+  Matrix<double, 2, 3> dzp_dp0 = -Lambda * R_ItoO * R_GtoI0;
+  Matrix<double, 2, 3> dzp_dth1 = -Lambda * R_ItoO * R_GtoI0 * R_GtoI1.transpose() * skew_x(pOinI);
+  Matrix<double, 2, 3> dzp_dp1 = Lambda * R_ItoO * R_GtoI0;
+
+  MatrixXd H_poses = MatrixXd::Zero(3, 12);
+  H_poses.block(0, 0, 1, 3) = dzr_dth0;
+  H_poses.block(0, 6, 1, 3) = dzr_dth1;
+  H_poses.block(1, 0, 2, 3) = dzp_dth0;
+  H_poses.block(1, 3, 2, 3) = dzp_dp0;
+  H_poses.block(1, 6, 2, 3) = dzp_dth1;
+  H_poses.block(1, 9, 2, 3) = dzp_dp1;
+
+  Matrix<double, 1, 3> dzr_dthcalib = e3.transpose() * (Matrix3d::Identity() - RO0toO1);
+  Matrix<double, 2, 3> dzp_dthcalib = Lambda * (skew_x(R_ItoO * R_GtoI0 * (p_I1inG - p_I0inG) - RO1toO0 * p_IinO) + RO1toO0 * skew_x(p_IinO));
+  Matrix<double, 2, 3> dzp_dpcalib = Lambda * (-RO1toO0 + Matrix3d::Identity());
+
+  MatrixXd H_ext = MatrixXd::Zero(3, 6);
+  H_ext.block(0, 0, 1, 3) = dzr_dthcalib;
+  H_ext.block(1, 0, 2, 3) = dzp_dthcalib;
+  H_ext.block(1, 3, 2, 3) = dzp_dpcalib;
+
+  return {H_poses, H_ext};
+}
+
+void UpdaterWheel::compute_linear_system_2D(MatrixXd &H, VectorXd &res, double time0, double time1) {
+  shared_ptr<PoseJPL> pose0 = state->clones.at(time0);
+  shared_ptr<PoseJPL> pose1 = state->clones.at(time1);
+  Matrix3d RItoO = state->wheel_extrinsic->Rot();
+  Vector3d pIinO = state->wheel_extrinsic->pos();
+
+  // Residual at current state values
+  res = ComputeResidual2D(pose0->Rot(), pose0->pos(), pose1->Rot(), pose1->pos(), RItoO, pIinO, th_2D, x_2D, y_2D);
+
+  // Jacobians at FEJ state values
+  int H_size = 12;
   int H_count = 12;
   H_size += (state->op->wheel->do_calib_ext) ? 6 : 0;
   H_size += (state->op->wheel->do_calib_dt) ? 1 : 0;
   H_size += (state->op->wheel->do_calib_int) ? 3 : 0;
   H = MatrixXd::Zero(3, H_size);
 
-  // Overwrite FEJ
-  pI0inG = pose0->pos_fej();
-  pI1inG = pose1->pos_fej();
-  RGtoI0 = pose0->Rot_fej();
-  RGtoI1 = pose1->Rot_fej();
-  RO0toO1 = RItoO * RGtoI1 * RGtoI0.transpose() * RItoO.transpose();
-  RO1toO0 = RO0toO1.transpose();
+  const auto [H_poses, H_ext] = ComputeJacobians2D(pose0->Rot_fej(), pose0->pos_fej(), pose1->Rot_fej(), pose1->pos_fej(), RItoO, pIinO);
+  H.block(0, 0, 3, 12) = H_poses;
 
-  // Jacobians in respect to current state
-  // orientation
-  Matrix<double, 1, 3> dzr_dth0 = -e3.transpose() * RItoO * RGtoI1 * RGtoI0.transpose();
-  Matrix<double, 1, 3> dzr_dth1 = e3.transpose() * RItoO;
-  // position
-  Matrix<double, 2, 3> dzp_dth0 = Lambda * RItoO * skew_x(RGtoI0 * (pI1inG + RGtoI1.transpose() * pOinI - pI0inG));
-  Matrix<double, 2, 3> dzp_dp0 = -Lambda * RItoO * RGtoI0;
-  Matrix<double, 2, 3> dzp_dth1 = -Lambda * RItoO * RGtoI0 * RGtoI1.transpose() * skew_x(pOinI);
-  Matrix<double, 2, 3> dzp_dp1 = Lambda * RItoO * RGtoI0;
-
-  // Derivative orientation change wrt oldest pose0 and pose1
-  H.block(0, 0, 1, 3) = dzr_dth0;
-  H.block(0, 6, 1, 3) = dzr_dth1;
-  // Derivative position change wrt oldest pose0 and pose1
-  H.block(1, 0, 2, 3) = dzp_dth0;
-  H.block(1, 3, 2, 3) = dzp_dp0;
-  H.block(1, 6, 2, 3) = dzp_dth1;
-  H.block(1, 9, 2, 3) = dzp_dp1;
-
-  // Jacobian wrt wheel to IMU extrinsics
   if (state->op->wheel->do_calib_ext) {
-    Matrix<double, 1, 3> dzr_dthcalib = e3.transpose() * (Matrix3d::Identity() - RO0toO1);
-    Matrix<double, 2, 3> dzp_dthcalib = Lambda * (skew_x(RItoO * RGtoI0 * (pI1inG - pI0inG) - RO1toO0 * pIinO) + RO1toO0 * skew_x(pIinO));
-    Matrix<double, 2, 3> dzp_dpcalib = Lambda * (-RO1toO0 + Matrix3d::Identity());
-    H.block(0, H_count, 1, 3) = dzr_dthcalib;
-    H.block(1, H_count, 2, 3) = dzp_dthcalib;
-    H.block(1, H_count + 3, 2, 3) = dzp_dpcalib;
+    H.block(0, H_count, 3, 6) = H_ext;
     H_count += 6;
   }
 
-  // Jacobian wrt wheel timeoffset.
   if (state->op->wheel->do_calib_dt) {
-    // should be able to find imu wv
     assert(state->cpis.find(time0) != state->cpis.end());
     assert(state->cpis.find(time1) != state->cpis.end());
     Vector3d w0 = state->cpis.at(time0).w;
     Vector3d v0 = state->cpis.at(time0).v;
     Vector3d w1 = state->cpis.at(time1).w;
     Vector3d v1 = state->cpis.at(time1).v;
-
-    // Put it in the Jacobian matrix
-    H(0, H_count) = (dzr_dth0 * w0 + dzr_dth1 * w1)(0, 0);
-    H.block(1, H_count, 2, 1) = (dzp_dth0 * w0 + dzp_dp0 * v0 + dzp_dth1 * w1 + dzp_dp1 * v1);
+    H(0, H_count) = (H_poses.block(0, 0, 1, 3) * w0 + H_poses.block(0, 6, 1, 3) * w1)(0, 0);
+    H.block(1, H_count, 2, 1) = H_poses.block(1, 0, 2, 3) * w0 + H_poses.block(1, 3, 2, 3) * v0 + H_poses.block(1, 6, 2, 3) * w1 + H_poses.block(1, 9, 2, 3) * v1;
     H_count += 1;
   }
 
-  // Jacobian wrt wheel intrinsics.
   if (state->op->wheel->do_calib_int) {
-    // Note they are the opposite sign
     H.block(0, H_count, 1, 3) = -dth_di_2D;
     H.block(1, H_count, 1, 3) = -dx_di_2D;
     H.block(2, H_count, 1, 3) = -dy_di_2D;
