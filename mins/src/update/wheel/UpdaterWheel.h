@@ -154,6 +154,50 @@ public:
                                                                    const Eigen::Vector3d &w0, const Eigen::Vector3d &v0,
                                                                    const Eigen::Vector3d &w1, const Eigen::Vector3d &v1);
 
+  /**
+   * \brief Accumulate one step of intrinsic Jacobians for the 2D wheel odometry preintegration.
+   *
+   * Updates dth_di, dx_di, dy_di in-place to include the effect of this step's measurements.
+   * Call once per preintegration step, before advancing the accumulated angle th.
+   *
+   * \param[in] dt Time interval for this step.
+   * \param[in] w_l Left wheel speed measurement.
+   * \param[in] w_r Right wheel speed measurement.
+   * \param[in] th Current accumulated heading angle (before this step).
+   * \param[in] rl Left wheel radius.
+   * \param[in] rr Right wheel radius.
+   * \param[in] b Wheel baseline.
+   * \param[in,out] dth_di Accumulated d(theta)/d([rl,rr,b]) Jacobian (1x3).
+   * \param[in,out] dx_di Accumulated d(x)/d([rl,rr,b]) Jacobian (1x3).
+   * \param[in,out] dy_di Accumulated d(y)/d([rl,rr,b]) Jacobian (1x3).
+   */
+  static void AccumulateIntrinsicJacobians2D(double dt, double w_l, double w_r, double th,
+                                              double rl, double rr, double b,
+                                              Eigen::Matrix<double, 1, 3> &dth_di,
+                                              Eigen::Matrix<double, 1, 3> &dx_di,
+                                              Eigen::Matrix<double, 1, 3> &dy_di);
+
+  /**
+   * \brief Accumulate one step of intrinsic Jacobians for the 3D wheel odometry preintegration.
+   *
+   * Updates dR_di and dp_di in-place. Call once per preintegration step, before advancing R_3D.
+   *
+   * \param[in] dt Time interval for this step.
+   * \param[in] w_l Left wheel speed measurement.
+   * \param[in] w_r Right wheel speed measurement.
+   * \param[in] R_3D Current accumulated rotation (before this step).
+   * \param[in] rl Left wheel radius.
+   * \param[in] rr Right wheel radius.
+   * \param[in] b Wheel baseline.
+   * \param[in,out] dR_di Accumulated d(R_3D)/d([rl,rr,b]) Jacobian (3x3).
+   * \param[in,out] dp_di Accumulated d(p_3D)/d([rl,rr,b]) Jacobian (3x3).
+   */
+  static void AccumulateIntrinsicJacobians3D(double dt, double w_l, double w_r,
+                                              const Eigen::Matrix3d &R_3D,
+                                              double rl, double rr, double b,
+                                              Eigen::Matrix3d &dR_di,
+                                              Eigen::Matrix3d &dp_di);
+
 private:
   friend class Initializer;
   friend class IW_Initializer;
