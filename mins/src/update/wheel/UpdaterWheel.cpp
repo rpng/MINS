@@ -310,12 +310,8 @@ void UpdaterWheel::compute_linear_system_2D(MatrixXd &H, VectorXd &res, double t
   if (state->op->wheel->do_calib_dt) {
     assert(state->cpis.find(time0) != state->cpis.end());
     assert(state->cpis.find(time1) != state->cpis.end());
-    Vector3d w0 = state->cpis.at(time0).w;
-    Vector3d v0 = state->cpis.at(time0).v;
-    Vector3d w1 = state->cpis.at(time1).w;
-    Vector3d v1 = state->cpis.at(time1).v;
-    H(0, H_count) = (H_poses.block(0, 0, 1, 3) * w0 + H_poses.block(0, 6, 1, 3) * w1)(0, 0);
-    H.block(1, H_count, 2, 1) = H_poses.block(1, 0, 2, 3) * w0 + H_poses.block(1, 3, 2, 3) * v0 + H_poses.block(1, 6, 2, 3) * w1 + H_poses.block(1, 9, 2, 3) * v1;
+    H.col(H_count) = ComputeTimeOffsetJacobian2D(H_poses, state->cpis.at(time0).w, state->cpis.at(time0).v,
+                                                  state->cpis.at(time1).w, state->cpis.at(time1).v);
     H_count += 1;
   }
 
@@ -372,6 +368,22 @@ pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians3D(const Matrix3d &R_GtoI
   return {H_poses, H_ext};
 }
 
+Vector3d UpdaterWheel::ComputeTimeOffsetJacobian2D(const MatrixXd &H_poses,
+                                                    const Vector3d &w0, const Vector3d &v0,
+                                                    const Vector3d &w1, const Vector3d &v1) {
+  Matrix<double, 12, 1> vel;
+  vel << w0, v0, w1, v1;
+  return H_poses * vel;
+}
+
+Matrix<double, 6, 1> UpdaterWheel::ComputeTimeOffsetJacobian3D(const MatrixXd &H_poses,
+                                                                 const Vector3d &w0, const Vector3d &v0,
+                                                                 const Vector3d &w1, const Vector3d &v1) {
+  Matrix<double, 12, 1> vel;
+  vel << w0, v0, w1, v1;
+  return H_poses * vel;
+}
+
 void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double time0, double time1) {
   shared_ptr<PoseJPL> pose0 = state->clones.at(time0);
   shared_ptr<PoseJPL> pose1 = state->clones.at(time1);
@@ -395,12 +407,8 @@ void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double t
   if (state->op->wheel->do_calib_dt) {
     assert(state->cpis.find(time0) != state->cpis.end());
     assert(state->cpis.find(time1) != state->cpis.end());
-    Vector3d w0 = state->cpis.at(time0).w;
-    Vector3d v0 = state->cpis.at(time0).v;
-    Vector3d w1 = state->cpis.at(time1).w;
-    Vector3d v1 = state->cpis.at(time1).v;
-    H.block(0, H_count, 3, 1) = H_poses.block(0, 0, 3, 3) * w0 + H_poses.block(0, 6, 3, 3) * w1;
-    H.block(3, H_count, 3, 1) = H_poses.block(3, 0, 3, 3) * w0 + H_poses.block(3, 3, 3, 3) * v0 + H_poses.block(3, 6, 3, 3) * w1 + H_poses.block(3, 9, 3, 3) * v1;
+    H.col(H_count) = ComputeTimeOffsetJacobian3D(H_poses, state->cpis.at(time0).w, state->cpis.at(time0).v,
+                                                  state->cpis.at(time1).w, state->cpis.at(time1).v);
     H_count += 1;
   }
   if (state->op->wheel->do_calib_int) {
