@@ -118,6 +118,42 @@ public:
                                                                           const Eigen::Matrix3d &R_GtoI1, const Eigen::Vector3d &p_I1inG,
                                                                           const Eigen::Matrix3d &R_ItoO, const Eigen::Vector3d &p_IinO);
 
+  /**
+   * \brief Compute the time-offset Jacobian column for the 2D wheel odometry residual.
+   *
+   * Returns d(res)/d(dt) via the chain rule: H_poses * [w0; v0; w1; v1].
+   * w0/w1 are body-frame angular velocities; v0/v1 are global-frame linear velocities
+   * at each clone time, matching the cpis.w / cpis.v convention.
+   *
+   * \param[in] H_poses Pose Jacobian (3x12) from ComputeJacobians2D, evaluated at FEJ values.
+   * \param[in] w0 Angular velocity at time 0 (body frame).
+   * \param[in] v0 Linear velocity at time 0 (global frame).
+   * \param[in] w1 Angular velocity at time 1 (body frame).
+   * \param[in] v1 Linear velocity at time 1 (global frame).
+   * \return Time-offset Jacobian column (3x1).
+   */
+  static Eigen::Vector3d ComputeTimeOffsetJacobian2D(const Eigen::MatrixXd &H_poses,
+                                                      const Eigen::Vector3d &w0, const Eigen::Vector3d &v0,
+                                                      const Eigen::Vector3d &w1, const Eigen::Vector3d &v1);
+
+  /**
+   * \brief Compute the time-offset Jacobian column for the 3D wheel odometry residual.
+   *
+   * Returns d(res)/d(dt) via the chain rule: H_poses * [w0; v0; w1; v1].
+   * w0/w1 are body-frame angular velocities; v0/v1 are global-frame linear velocities
+   * at each clone time, matching the cpis.w / cpis.v convention.
+   *
+   * \param[in] H_poses Pose Jacobian (6x12) from ComputeJacobians3D, evaluated at FEJ values.
+   * \param[in] w0 Angular velocity at time 0 (body frame).
+   * \param[in] v0 Linear velocity at time 0 (global frame).
+   * \param[in] w1 Angular velocity at time 1 (body frame).
+   * \param[in] v1 Linear velocity at time 1 (global frame).
+   * \return Time-offset Jacobian column (6x1).
+   */
+  static Eigen::Matrix<double, 6, 1> ComputeTimeOffsetJacobian3D(const Eigen::MatrixXd &H_poses,
+                                                                   const Eigen::Vector3d &w0, const Eigen::Vector3d &v0,
+                                                                   const Eigen::Vector3d &w1, const Eigen::Vector3d &v1);
+
 private:
   friend class Initializer;
   friend class IW_Initializer;
