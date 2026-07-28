@@ -1,6 +1,8 @@
 FROM ros:melodic-perception-bionic
 COPY . /catkin_ws/src/MINS
-RUN apt update && apt install python3-catkin-tools -y
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
+    && sed -i 's|http://security.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
+    && apt-get update && apt-get install -y python3-catkin-tools
 RUN /bin/bash -c "chmod +x /opt/ros/melodic/setup.sh && source /opt/ros/melodic/setup.sh && catkin build --workspace /catkin_ws"
 
 WORKDIR /catkin_ws

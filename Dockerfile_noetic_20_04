@@ -1,6 +1,7 @@
 FROM ros:noetic-perception-focal
 COPY . /catkin_ws/src/MINS
-RUN apt update && apt install python3-catkin-tools -y
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://azure.archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
+    && apt-get update && apt-get install -y python3-catkin-tools
 RUN /bin/bash -c "chmod +x /opt/ros/noetic/setup.sh && source /opt/ros/noetic/setup.sh && catkin build --workspace /catkin_ws"
 
 WORKDIR /catkin_ws
