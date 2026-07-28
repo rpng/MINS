@@ -84,6 +84,40 @@ public:
                                                                           const Eigen::Matrix3d &R_GtoI1, const Eigen::Vector3d &p_I1inG,
                                                                           const Eigen::Matrix3d &R_ItoO, const Eigen::Vector3d &p_IinO);
 
+  /**
+   * \brief Compute the 6-DOF 3D wheel odometry residual.
+   * \param[in] R_GtoI0 Rotation from global to IMU frame at time 0.
+   * \param[in] p_I0inG Position of IMU at time 0 expressed in global frame.
+   * \param[in] R_GtoI1 Rotation from global to IMU frame at time 1.
+   * \param[in] p_I1inG Position of IMU at time 1 expressed in global frame.
+   * \param[in] R_ItoO Rotation from IMU frame to wheel odometry frame.
+   * \param[in] p_IinO Position of IMU expressed in wheel odometry frame.
+   * \param[in] R_3D Preintegrated 3D orientation from wheel odometry.
+   * \param[in] p_3D Preintegrated 3D position from wheel odometry.
+   * \return Residual 6-vector [orientation_error_3, position_error_3].
+   */
+  static Eigen::Matrix<double, 6, 1> ComputeResidual3D(const Eigen::Matrix3d &R_GtoI0, const Eigen::Vector3d &p_I0inG,
+                                                         const Eigen::Matrix3d &R_GtoI1, const Eigen::Vector3d &p_I1inG,
+                                                         const Eigen::Matrix3d &R_ItoO, const Eigen::Vector3d &p_IinO,
+                                                         const Eigen::Matrix3d &R_3D, const Eigen::Vector3d &p_3D);
+
+  /**
+   * \brief Compute analytical Jacobians of the 3D wheel odometry residual.
+   * Returns Jacobians w.r.t. the two IMU poses (6x12) and the wheel extrinsic (6x6).
+   * Pose columns are ordered [delta_th0(3), delta_p0(3), delta_th1(3), delta_p1(3)].
+   * Extrinsic columns are ordered [delta_thO(3), delta_pO(3)].
+   * \param[in] R_GtoI0 Rotation from global to IMU frame at time 0.
+   * \param[in] p_I0inG Position of IMU at time 0 expressed in global frame.
+   * \param[in] R_GtoI1 Rotation from global to IMU frame at time 1.
+   * \param[in] p_I1inG Position of IMU at time 1 expressed in global frame.
+   * \param[in] R_ItoO Rotation from IMU frame to wheel odometry frame.
+   * \param[in] p_IinO Position of IMU expressed in wheel odometry frame.
+   * \return {H_poses (6x12), H_ext (6x6)} Jacobians w.r.t. IMU poses and extrinsic calibration.
+   */
+  static std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ComputeJacobians3D(const Eigen::Matrix3d &R_GtoI0, const Eigen::Vector3d &p_I0inG,
+                                                                          const Eigen::Matrix3d &R_GtoI1, const Eigen::Vector3d &p_I1inG,
+                                                                          const Eigen::Matrix3d &R_ItoO, const Eigen::Vector3d &p_IinO);
+
 private:
   friend class Initializer;
   friend class IW_Initializer;
