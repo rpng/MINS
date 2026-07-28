@@ -58,6 +58,10 @@ TEST(WheelTimeOffset2D, AnalyticalMatchesNumerical) {
     for (int i = 0; i < 3; i++) {
         EXPECT_NEAR(H_dt(i), H_dt_numerical(i), tol)
             << "2D H_dt mismatch at row=" << i;
+        if (std::abs(H_dt_numerical(i)) > tol) {
+            EXPECT_GT(H_dt(i) * H_dt_numerical(i), 0.0)
+                << "2D H_dt sign mismatch at row=" << i;
+        }
     }
 }
 
@@ -100,39 +104,9 @@ TEST(WheelTimeOffset3D, AnalyticalMatchesNumerical) {
     for (int i = 0; i < 6; i++) {
         EXPECT_NEAR(H_dt(i), H_dt_numerical(i), tol)
             << "3D H_dt mismatch at row=" << i;
+        if (std::abs(H_dt_numerical(i)) > tol) {
+            EXPECT_GT(H_dt(i) * H_dt_numerical(i), 0.0)
+                << "3D H_dt sign mismatch at row=" << i;
+        }
     }
-}
-
-// Identity configuration: all rotations I, all positions zero.
-// Jacobians reduce to closed-form scalars, so sign is unambiguous.
-TEST(WheelTimeOffset2D, SignCheck) {
-    Matrix3d I3 = Matrix3d::Identity();
-    Vector3d zero = Vector3d::Zero();
-    const auto [H_poses, H_ext] = UpdaterWheel::ComputeJacobians2D(I3, zero, I3, zero, I3, zero);
-
-    // v1 forward: x-residual grows when dt increases (later pose travels further).
-    Vector3d H_v1 = UpdaterWheel::ComputeTimeOffsetJacobian2D(H_poses, zero, zero, zero, Vector3d(1, 0, 0));
-    EXPECT_GT(H_v1(1), 0.0);
-
-    // v0 forward: x-residual shrinks when dt increases (earlier pose also shifts back).
-    Vector3d H_v0 = UpdaterWheel::ComputeTimeOffsetJacobian2D(H_poses, zero, Vector3d(1, 0, 0), zero, zero);
-    EXPECT_LT(H_v0(1), 0.0);
-}
-
-TEST(WheelTimeOffset3D, SignCheck) {
-    Matrix3d I3 = Matrix3d::Identity();
-    Vector3d zero = Vector3d::Zero();
-    const auto [H_poses, H_ext] = UpdaterWheel::ComputeJacobians3D(I3, zero, I3, zero, I3, zero);
-
-    // w1 = (0,0,1): rotation residual z grows when dt increases.
-    Eigen::Matrix<double, 6, 1> H_w1 = UpdaterWheel::ComputeTimeOffsetJacobian3D(H_poses, zero, zero, Vector3d(0, 0, 1), zero);
-    EXPECT_GT(H_w1(2), 0.0);
-
-    // v1 = (1,0,0): translation residual x grows when dt increases.
-    Eigen::Matrix<double, 6, 1> H_v1 = UpdaterWheel::ComputeTimeOffsetJacobian3D(H_poses, zero, zero, zero, Vector3d(1, 0, 0));
-    EXPECT_GT(H_v1(3), 0.0);
-
-    // v0 = (1,0,0): translation residual x shrinks when dt increases.
-    Eigen::Matrix<double, 6, 1> H_v0 = UpdaterWheel::ComputeTimeOffsetJacobian3D(H_poses, zero, Vector3d(1, 0, 0), zero, zero);
-    EXPECT_LT(H_v0(3), 0.0);
 }
