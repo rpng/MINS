@@ -41,6 +41,8 @@ jobs:
           retention-days: 1
 
   # ── 2. Per-scenario calibration runs (parallel) ───────────────────────────
+  # Base for every scenario: IMU + Vicon (1 sensor, vicon calib OFF).
+  # Each job adds one target sensor and calibrates one parameter type.
   calibrate:
     name: "Calib ${{ matrix.name }}"
     needs: build
@@ -49,102 +51,139 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Wheel — needs planar trajectory; use stereo cam for observability
-          - name:       wheel_int
-            title:      "Wheel Intrinsics (rₗ, rᵣ, b)"
-            prefix:     wheel_int
-            calib_type: int_wheel
-            args: >-
-              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
-              wheel_enabled:=true wheel_do_calib_int:=true
-              sim_const_planar:=true
-              gps_enabled:=false lidar_enabled:=false vicon_enabled:=false
-
-          - name:       wheel_dt
-            title:      "Wheel Time Offset"
-            prefix:     wheel_dt
+          # ── Vicon (IMU + vicon only) ─────────────────────────────────────
+          - name:       vicon_dt
+            title:      "Vicon Time Offset"
+            prefix:     vicon0_dt
             calib_type: dt
             args: >-
-              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
-              wheel_enabled:=true wheel_do_calib_dt:=true
-              sim_const_planar:=true
-              gps_enabled:=false lidar_enabled:=false vicon_enabled:=false
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=true vicon_do_calib_ext:=false
+              cam_enabled:=false gps_enabled:=false
+              wheel_enabled:=false lidar_enabled:=false
 
-          - name:       wheel_ext
-            title:      "Wheel Extrinsic (IMU↔Wheel)"
-            prefix:     wheel_ext
+          - name:       vicon_ext
+            title:      "Vicon Extrinsic (IMU↔Vicon)"
+            prefix:     vicon0_ext
             calib_type: ext
             args: >-
-              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
-              wheel_enabled:=true wheel_do_calib_ext:=true
-              sim_const_planar:=true
-              gps_enabled:=false lidar_enabled:=false vicon_enabled:=false
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=true
+              cam_enabled:=false gps_enabled:=false
+              wheel_enabled:=false lidar_enabled:=false
 
-          # GPS
+          # ── GPS (IMU + gps only — vicon and GPS are mutually exclusive) ────
           - name:       gps_dt
             title:      "GPS Time Offset"
             prefix:     gps0_dt
             calib_type: dt
             args: >-
-              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
-              gps_enabled:=true gps_do_calib_dt:=true
-              wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+              vicon_enabled:=false
+              gps_enabled:=true gps_do_calib_dt:=true gps_do_calib_ext:=false
+              cam_enabled:=false wheel_enabled:=false lidar_enabled:=false
 
           - name:       gps_ext
             title:      "GPS Extrinsic (IMU↔GPS)"
             prefix:     gps0_ext
             calib_type: ext
             args: >-
-              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
-              gps_enabled:=true gps_do_calib_ext:=true
-              wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+              vicon_enabled:=false
+              gps_enabled:=true gps_do_calib_dt:=false gps_do_calib_ext:=true
+              cam_enabled:=false wheel_enabled:=false lidar_enabled:=false
 
-          # Camera
+          # ── Wheel (IMU + vicon fixed + wheel) ────────────────────────────
+          # Intrinsics: planar trajectory, extrinsic disabled
+          - name:       wheel_int
+            title:      "Wheel Intrinsics (rₗ, rᵣ, b)"
+            prefix:     wheel_int
+            calib_type: int_wheel
+            args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              wheel_enabled:=true
+              wheel_do_calib_int:=true wheel_do_calib_dt:=false wheel_do_calib_ext:=false
+              sim_const_planar:=true
+              cam_enabled:=false gps_enabled:=false lidar_enabled:=false
+
+          # Time offset + extrinsic: 3D trajectory (UD_Warehouse)
+          - name:       wheel_dt
+            title:      "Wheel Time Offset"
+            prefix:     wheel_dt
+            calib_type: dt
+            args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              wheel_enabled:=true
+              wheel_do_calib_int:=false wheel_do_calib_dt:=true wheel_do_calib_ext:=false
+              cam_enabled:=false gps_enabled:=false lidar_enabled:=false
+
+          - name:       wheel_ext
+            title:      "Wheel Extrinsic (IMU↔Wheel)"
+            prefix:     wheel_ext
+            calib_type: ext
+            args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              wheel_enabled:=true
+              wheel_do_calib_int:=false wheel_do_calib_dt:=false wheel_do_calib_ext:=true
+              cam_enabled:=false gps_enabled:=false lidar_enabled:=false
+
+          # ── Camera (IMU + vicon fixed + mono cam) ────────────────────────
           - name:       cam_dt
             title:      "Camera Time Offset"
             prefix:     cam0_dt
             calib_type: dt
             args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
               cam_enabled:=true cam_max_n:=1 cam_use_stereo:=false
-              cam_do_calib_dt:=true
-              gps_enabled:=false wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+              cam_do_calib_dt:=true cam_do_calib_ext:=false cam_do_calib_int:=false
+              gps_enabled:=false wheel_enabled:=false lidar_enabled:=false
 
           - name:       cam_ext
             title:      "Camera Extrinsic (IMU↔Cam)"
             prefix:     cam0_ext
             calib_type: ext
             args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
               cam_enabled:=true cam_max_n:=1 cam_use_stereo:=false
-              cam_do_calib_ext:=true
-              gps_enabled:=false wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+              cam_do_calib_dt:=false cam_do_calib_ext:=true cam_do_calib_int:=false
+              gps_enabled:=false wheel_enabled:=false lidar_enabled:=false
 
           - name:       cam_int
             title:      "Camera Intrinsics"
             prefix:     cam0_int
             calib_type: int_cam
             args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
               cam_enabled:=true cam_max_n:=1 cam_use_stereo:=false
-              cam_do_calib_int:=true
-              gps_enabled:=false wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+              cam_do_calib_dt:=false cam_do_calib_ext:=false cam_do_calib_int:=true
+              gps_enabled:=false wheel_enabled:=false lidar_enabled:=false
 
-          # LiDAR
+          # ── LiDAR (IMU + vicon fixed + lidar) ────────────────────────────
           - name:       lidar_dt
             title:      "LiDAR Time Offset"
             prefix:     lidar0_dt
             calib_type: dt
             args: >-
-              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
-              lidar_enabled:=true lidar_do_calib_dt:=true
-              gps_enabled:=false wheel_enabled:=false vicon_enabled:=false
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              lidar_enabled:=true
+              lidar_do_calib_dt:=true lidar_do_calib_ext:=false
+              cam_enabled:=false gps_enabled:=false wheel_enabled:=false
 
           - name:       lidar_ext
             title:      "LiDAR Extrinsic (IMU↔LiDAR)"
             prefix:     lidar0_ext
             calib_type: ext
             args: >-
-              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
-              lidar_enabled:=true lidar_do_calib_ext:=true
-              gps_enabled:=false wheel_enabled:=false vicon_enabled:=false
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              lidar_enabled:=true
+              lidar_do_calib_dt:=false lidar_do_calib_ext:=true
+              cam_enabled:=false gps_enabled:=false wheel_enabled:=false
 
     steps:
       - uses: actions/checkout@v4
@@ -204,15 +243,37 @@ jobs:
     needs: calibrate
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           pattern: calib-*
           path: reports
           merge-multiple: true
 
+      - name: Push plots to ci-plots branch
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git fetch origin ci-plots 2>/dev/null || true
+          if git show-ref --verify --quiet refs/remotes/origin/ci-plots; then
+            git checkout -b ci-plots origin/ci-plots
+          else
+            git checkout --orphan ci-plots
+            git rm -rf . --quiet 2>/dev/null || true
+          fi
+          mkdir -p "${{ github.run_id }}"
+          cp reports/plot_*.png "${{ github.run_id }}/" 2>/dev/null || true
+          git add "${{ github.run_id }}"
+          git diff --cached --quiet || git commit -m "ci: run ${{ github.run_id }}"
+          git push origin ci-plots
+
       - name: Assemble report
         run: |
+          BASE_URL="https://raw.githubusercontent.com/${{ github.repository }}/ci-plots/${{ github.run_id }}"
           {
             echo "<!-- mins-calib-report -->"
             echo "## Calibration Convergence Report"
@@ -232,8 +293,6 @@ jobs:
             done
 
             echo ""
-            echo "📊 **[View convergence plots →](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
-            echo ""
             echo "<details><summary>Per-parameter details</summary>"
             echo ""
             for f in $(ls reports/report_*.md 2>/dev/null | sort); do
@@ -243,6 +302,13 @@ jobs:
               echo ""
             done
             echo "</details>"
+            echo ""
+
+            for f in $(ls reports/plot_*.png 2>/dev/null | sort); do
+              name=$(basename "$f" .png | sed 's/^plot_//')
+              echo "![${name}](${BASE_URL}/plot_${name}.png)"
+              echo ""
+            done
           } > final_report.md
           cat final_report.md >> "$GITHUB_STEP_SUMMARY"
 

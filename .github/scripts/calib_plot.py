@@ -76,15 +76,21 @@ def process(calib_type, est, std_, gt):
         s   = std_[:, 1:]
 
     elif calib_type == 'ext':
-        err = np.zeros((n, 6))
-        s   = np.zeros((n, 6))
-        for i in range(n):
-            R_e = jpl_to_rotmat(est[i, 1:5])
-            R_g = jpl_to_rotmat(gt[i,  1:5])
-            err[i, :3] = rot_to_rotvec(R_e @ R_g.T)
-            err[i, 3:] = est[i, 5:8] - gt[i, 5:8]
-            s[i, :3]   = std_[i, 1:4]
-            s[i, 3:]   = std_[i, 4:7]
+        # Position-only extrinsic (e.g. GPS lever arm): cols = [t, p0, p1, p2]
+        if est.shape[1] == 4:
+            err = est[:, 1:] - gt[:, 1:]
+            s   = std_[:, 1:]
+        else:
+            # Full extrinsic: cols = [t, q0, q1, q2, q3, p0, p1, p2]
+            err = np.zeros((n, 6))
+            s   = np.zeros((n, 6))
+            for i in range(n):
+                R_e = jpl_to_rotmat(est[i, 1:5])
+                R_g = jpl_to_rotmat(gt[i,  1:5])
+                err[i, :3] = rot_to_rotvec(R_e @ R_g.T)
+                err[i, 3:] = est[i, 5:8] - gt[i, 5:8]
+                s[i, :3]   = std_[i, 1:4]
+                s[i, 3:]   = std_[i, 4:7]
     else:
         raise ValueError(f'Unknown calib_type: {calib_type}')
 
@@ -181,7 +187,11 @@ def main():
     if not all_t:
         sys.exit('No usable seed data')
 
-    labels = LABELS[args.calib_type]
+    # Position-only ext (e.g. GPS): err has 3 cols not 6
+    if args.calib_type == 'ext' and all_err[0].shape[1] == 3:
+        labels = ['p_x (m)', 'p_y (m)', 'p_z (m)']
+    else:
+        labels = LABELS[args.calib_type]
     make_figure(all_t, all_err, all_s, labels, args.title, args.output_png)
 
     # Per-param convergence table
