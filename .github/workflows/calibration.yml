@@ -270,7 +270,6 @@ jobs:
           git add "${{ github.run_id }}"
           git diff --cached --quiet || git commit -m "ci: run ${{ github.run_id }}"
           git push origin ci-plots
-          git checkout -
 
       - name: Assemble report
         run: |
