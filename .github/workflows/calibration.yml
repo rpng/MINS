@@ -72,14 +72,13 @@ jobs:
               cam_enabled:=false gps_enabled:=false
               wheel_enabled:=false lidar_enabled:=false
 
-          # ── GPS (IMU + vicon fixed + gps) ────────────────────────────────
+          # ── GPS (IMU + gps only — vicon and GPS are mutually exclusive) ────
           - name:       gps_dt
             title:      "GPS Time Offset"
             prefix:     gps0_dt
             calib_type: dt
             args: >-
-              vicon_enabled:=true vicon_max_n:=1
-              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              vicon_enabled:=false
               gps_enabled:=true gps_do_calib_dt:=true gps_do_calib_ext:=false
               cam_enabled:=false wheel_enabled:=false lidar_enabled:=false
 
@@ -88,8 +87,7 @@ jobs:
             prefix:     gps0_ext
             calib_type: ext
             args: >-
-              vicon_enabled:=true vicon_max_n:=1
-              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              vicon_enabled:=false
               gps_enabled:=true gps_do_calib_dt:=false gps_do_calib_ext:=true
               cam_enabled:=false wheel_enabled:=false lidar_enabled:=false
 
