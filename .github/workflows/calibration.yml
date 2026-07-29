@@ -243,15 +243,38 @@ jobs:
     needs: calibrate
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           pattern: calib-*
           path: reports
           merge-multiple: true
 
+      - name: Push plots to ci-plots branch
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git fetch origin ci-plots 2>/dev/null || true
+          if git show-ref --verify --quiet refs/remotes/origin/ci-plots; then
+            git checkout -b ci-plots origin/ci-plots
+          else
+            git checkout --orphan ci-plots
+            git rm -rf . --quiet 2>/dev/null || true
+          fi
+          mkdir -p "${{ github.run_id }}"
+          cp reports/plot_*.png "${{ github.run_id }}/" 2>/dev/null || true
+          git add "${{ github.run_id }}"
+          git diff --cached --quiet || git commit -m "ci: run ${{ github.run_id }}"
+          git push origin ci-plots
+          git checkout -
+
       - name: Assemble report
         run: |
+          BASE_URL="https://raw.githubusercontent.com/${{ github.repository }}/ci-plots/${{ github.run_id }}"
           {
             echo "<!-- mins-calib-report -->"
             echo "## Calibration Convergence Report"
@@ -271,8 +294,6 @@ jobs:
             done
 
             echo ""
-            echo "📊 **[View convergence plots →](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
-            echo ""
             echo "<details><summary>Per-parameter details</summary>"
             echo ""
             for f in $(ls reports/report_*.md 2>/dev/null | sort); do
@@ -282,18 +303,15 @@ jobs:
               echo ""
             done
             echo "</details>"
+            echo ""
+
+            for f in $(ls reports/plot_*.png 2>/dev/null | sort); do
+              name=$(basename "$f" .png | sed 's/^plot_//')
+              echo "![${name}](${BASE_URL}/plot_${name}.png)"
+              echo ""
+            done
           } > final_report.md
           cat final_report.md >> "$GITHUB_STEP_SUMMARY"
-
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "## Convergence Plots" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          for f in $(ls reports/plot_*.png 2>/dev/null | sort); do
-            name=$(basename "$f" .png | sed 's/^plot_//')
-            b64=$(base64 -w0 "$f")
-            echo "<img src=\"data:image/png;base64,${b64}\" alt=\"${name}\">" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-          done
 
       - name: Post / update PR comment
         if: github.event_name == 'pull_request'
