@@ -285,6 +285,16 @@ jobs:
           } > final_report.md
           cat final_report.md >> "$GITHUB_STEP_SUMMARY"
 
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Convergence Plots" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          for f in $(ls reports/plot_*.png 2>/dev/null | sort); do
+            name=$(basename "$f" .png | sed 's/^plot_//')
+            b64=$(base64 -w0 "$f")
+            echo "<img src=\"data:image/png;base64,${b64}\" alt=\"${name}\">" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          done
+
       - name: Post / update PR comment
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
