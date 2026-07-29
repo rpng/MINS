@@ -1,0 +1,272 @@
+name: Calibration Convergence
+
+# Runs calibration simulations per sensor/parameter type, generates
+# convergence plots (est-GT ±3σ), and posts a summary to the PR.
+# Informational only — does not block merge.
+
+on:
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  SEEDS: 3
+
+jobs:
+
+  # ── 1. Build the PR Docker image once ────────────────────────────────────
+  build:
+    name: Build image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost /opt/microsoft || true
+      - name: Build Docker image
+        run: docker build . --file Dockerfile_noetic_20_04 --tag mins:pr
+      - name: Export image
+        run: docker save mins:pr | gzip > image_pr.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-pr
+          path: image_pr.tar.gz
+          retention-days: 1
+
+  # ── 2. Per-scenario calibration runs (parallel) ───────────────────────────
+  calibrate:
+    name: "Calib ${{ matrix.name }}"
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Wheel — needs planar trajectory; use stereo cam for observability
+          - name:       wheel_int
+            title:      "Wheel Intrinsics (rₗ, rᵣ, b)"
+            prefix:     wheel_int
+            calib_type: int_wheel
+            args: >-
+              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
+              wheel_enabled:=true wheel_do_calib_int:=true
+              sim_const_planar:=true
+              gps_enabled:=false lidar_enabled:=false vicon_enabled:=false
+
+          - name:       wheel_dt
+            title:      "Wheel Time Offset"
+            prefix:     wheel_dt
+            calib_type: dt
+            args: >-
+              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
+              wheel_enabled:=true wheel_do_calib_dt:=true
+              sim_const_planar:=true
+              gps_enabled:=false lidar_enabled:=false vicon_enabled:=false
+
+          - name:       wheel_ext
+            title:      "Wheel Extrinsic (IMU↔Wheel)"
+            prefix:     wheel_ext
+            calib_type: ext
+            args: >-
+              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
+              wheel_enabled:=true wheel_do_calib_ext:=true
+              sim_const_planar:=true
+              gps_enabled:=false lidar_enabled:=false vicon_enabled:=false
+
+          # GPS
+          - name:       gps_dt
+            title:      "GPS Time Offset"
+            prefix:     gps0_dt
+            calib_type: dt
+            args: >-
+              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
+              gps_enabled:=true gps_do_calib_dt:=true
+              wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+
+          - name:       gps_ext
+            title:      "GPS Extrinsic (IMU↔GPS)"
+            prefix:     gps0_ext
+            calib_type: ext
+            args: >-
+              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
+              gps_enabled:=true gps_do_calib_ext:=true
+              wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+
+          # Camera
+          - name:       cam_dt
+            title:      "Camera Time Offset"
+            prefix:     cam0_dt
+            calib_type: dt
+            args: >-
+              cam_enabled:=true cam_max_n:=1 cam_use_stereo:=false
+              cam_do_calib_dt:=true
+              gps_enabled:=false wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+
+          - name:       cam_ext
+            title:      "Camera Extrinsic (IMU↔Cam)"
+            prefix:     cam0_ext
+            calib_type: ext
+            args: >-
+              cam_enabled:=true cam_max_n:=1 cam_use_stereo:=false
+              cam_do_calib_ext:=true
+              gps_enabled:=false wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+
+          - name:       cam_int
+            title:      "Camera Intrinsics"
+            prefix:     cam0_int
+            calib_type: int_cam
+            args: >-
+              cam_enabled:=true cam_max_n:=1 cam_use_stereo:=false
+              cam_do_calib_int:=true
+              gps_enabled:=false wheel_enabled:=false lidar_enabled:=false vicon_enabled:=false
+
+          # LiDAR
+          - name:       lidar_dt
+            title:      "LiDAR Time Offset"
+            prefix:     lidar0_dt
+            calib_type: dt
+            args: >-
+              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
+              lidar_enabled:=true lidar_do_calib_dt:=true
+              gps_enabled:=false wheel_enabled:=false vicon_enabled:=false
+
+          - name:       lidar_ext
+            title:      "LiDAR Extrinsic (IMU↔LiDAR)"
+            prefix:     lidar0_ext
+            calib_type: ext
+            args: >-
+              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
+              lidar_enabled:=true lidar_do_calib_ext:=true
+              gps_enabled:=false wheel_enabled:=false vicon_enabled:=false
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost /opt/microsoft || true
+      - uses: actions/download-artifact@v4
+        with:
+          name: image-pr
+      - name: Load image
+        run: docker load < image_pr.tar.gz
+
+      - name: Run ${{ env.SEEDS }} calibration simulations
+        run: |
+          mkdir -p calib_out
+          last=$((SEEDS-1))
+          docker run --rm --entrypoint /bin/bash \
+            -v "$PWD/calib_out:/outputs" mins:pr -c "
+              source /opt/ros/noetic/setup.bash
+              source /catkin_ws/devel/setup.bash
+              export OMP_NUM_THREADS=1
+              for seed in \$(seq 0 $last); do
+                mkdir -p /outputs/\$seed
+                sed -i \"s/^  seed: .*/  seed: \$seed/\" \
+                  /catkin_ws/src/MINS/mins/config/simulation/config_simulation.yaml
+                roslaunch mins simulation.launch \
+                  sim_seed:=\$seed sys_verbosity:=3 \
+                  sys_save_state:=true \
+                  sys_path_state:=/outputs/\$seed/ \
+                  ${{ matrix.args }} || true
+              done"
+
+      - name: Generate convergence plot
+        run: |
+          pip install matplotlib scipy --quiet
+          python3 .github/scripts/calib_plot.py \
+            --prefix     "${{ matrix.prefix }}" \
+            --calib-type "${{ matrix.calib_type }}" \
+            --seeds-dir  calib_out \
+            --output-png "plot_${{ matrix.name }}.png" \
+            --output-md  "report_${{ matrix.name }}.md" \
+            --title      "${{ matrix.title }}"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: calib-${{ matrix.name }}
+          path: |
+            plot_${{ matrix.name }}.png
+            report_${{ matrix.name }}.md
+          retention-days: 7
+
+  # ── 3. Assemble and post PR comment ───────────────────────────────────────
+  report:
+    name: Post report
+    needs: calibrate
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: calib-*
+          path: reports
+          merge-multiple: true
+
+      - name: Assemble report
+        run: |
+          {
+            echo "<!-- mins-calib-report -->"
+            echo "## Calibration Convergence Report"
+            echo ""
+            echo "_${SEEDS} seeds · sim \`UD_Warehouse\` · informational only (does not block merge)._"
+            echo ""
+            echo "| Scenario | Parameters | ±3σ |"
+            echo "|---|---|---|"
+
+            for f in $(ls reports/report_*.md 2>/dev/null | sort); do
+              title=$(grep '^###' "$f" | head -1 | sed 's/^### [^ ]* //')
+              pass=$(grep -c ' ✅ |$' "$f" || true)
+              fail=$(grep -c ' ❌ |$' "$f" || true)
+              total=$((pass + fail))
+              if [ "$fail" -eq 0 ] && [ "$total" -gt 0 ]; then icon="✅"; else icon="❌"; fi
+              echo "| ${title} | ${pass}/${total} params | ${icon} |"
+            done
+
+            echo ""
+            echo "📊 **[View convergence plots →](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
+            echo ""
+            echo "<details><summary>Per-parameter details</summary>"
+            echo ""
+            for f in $(ls reports/report_*.md 2>/dev/null | sort); do
+              cat "$f"
+              echo ""
+              echo "---"
+              echo ""
+            done
+            echo "</details>"
+          } > final_report.md
+          cat final_report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post / update PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('final_report.md', 'utf8');
+            const marker = '<!-- mins-calib-report -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body,
+              });
+            }
