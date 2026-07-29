@@ -14,7 +14,7 @@ permissions:
   pull-requests: write
 
 env:
-  SEEDS: 3
+  SEEDS: 10
 
 jobs:
 
