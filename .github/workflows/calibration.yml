@@ -91,12 +91,14 @@ jobs:
               gps_enabled:=true gps_do_calib_dt:=false gps_do_calib_ext:=true
               cam_enabled:=false wheel_enabled:=false lidar_enabled:=false
 
-          # ── Wheel (IMU + vicon fixed + wheel) ────────────────────────────
-          # Intrinsics: planar trajectory, extrinsic disabled
-          - name:       wheel_int
-            title:      "Wheel Intrinsics (rₗ, rᵣ, b)"
+          # ── Wheel intrinsics — one job per model type ─────────────────────
+          # 2D models use planar sim trajectory; 3D models use full 3D.
+          # wheel_type is applied via sed on config_wheel.yaml inside docker.
+          - name:       wheel_int_2d_ang
+            title:      "Wheel Intrinsics (Wheel2DAng)"
             prefix:     wheel_int
             calib_type: int_wheel
+            wheel_type: Wheel2DAng
             args: >-
               vicon_enabled:=true vicon_max_n:=1
               vicon_do_calib_dt:=false vicon_do_calib_ext:=false
@@ -105,7 +107,69 @@ jobs:
               sim_const_planar:=true
               cam_enabled:=false gps_enabled:=false lidar_enabled:=false
 
-          # Time offset + extrinsic: 3D trajectory (UD_Warehouse)
+          - name:       wheel_int_2d_lin
+            title:      "Wheel Intrinsics (Wheel2DLin)"
+            prefix:     wheel_int
+            calib_type: int_wheel
+            wheel_type: Wheel2DLin
+            args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              wheel_enabled:=true
+              wheel_do_calib_int:=true wheel_do_calib_dt:=false wheel_do_calib_ext:=false
+              sim_const_planar:=true
+              cam_enabled:=false gps_enabled:=false lidar_enabled:=false
+
+          - name:       wheel_int_2d_cen
+            title:      "Wheel Intrinsics (Wheel2DCen)"
+            prefix:     wheel_int
+            calib_type: int_wheel
+            wheel_type: Wheel2DCen
+            args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              wheel_enabled:=true
+              wheel_do_calib_int:=true wheel_do_calib_dt:=false wheel_do_calib_ext:=false
+              sim_const_planar:=true
+              cam_enabled:=false gps_enabled:=false lidar_enabled:=false
+
+          - name:       wheel_int_3d_ang
+            title:      "Wheel Intrinsics (Wheel3DAng)"
+            prefix:     wheel_int
+            calib_type: int_wheel
+            wheel_type: Wheel3DAng
+            args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              wheel_enabled:=true
+              wheel_do_calib_int:=true wheel_do_calib_dt:=false wheel_do_calib_ext:=false
+              cam_enabled:=false gps_enabled:=false lidar_enabled:=false
+
+          - name:       wheel_int_3d_lin
+            title:      "Wheel Intrinsics (Wheel3DLin)"
+            prefix:     wheel_int
+            calib_type: int_wheel
+            wheel_type: Wheel3DLin
+            args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              wheel_enabled:=true
+              wheel_do_calib_int:=true wheel_do_calib_dt:=false wheel_do_calib_ext:=false
+              cam_enabled:=false gps_enabled:=false lidar_enabled:=false
+
+          - name:       wheel_int_3d_cen
+            title:      "Wheel Intrinsics (Wheel3DCen)"
+            prefix:     wheel_int
+            calib_type: int_wheel
+            wheel_type: Wheel3DCen
+            args: >-
+              vicon_enabled:=true vicon_max_n:=1
+              vicon_do_calib_dt:=false vicon_do_calib_ext:=false
+              wheel_enabled:=true
+              wheel_do_calib_int:=true wheel_do_calib_dt:=false wheel_do_calib_ext:=false
+              cam_enabled:=false gps_enabled:=false lidar_enabled:=false
+
+          # ── Wheel time offset + extrinsic (3D trajectory) ─────────────────
           - name:       wheel_dt
             title:      "Wheel Time Offset"
             prefix:     wheel_dt
@@ -206,6 +270,8 @@ jobs:
               source /opt/ros/noetic/setup.bash
               source /catkin_ws/devel/setup.bash
               export OMP_NUM_THREADS=1
+              [ -n '${{ matrix.wheel_type }}' ] && sed -i 's/^  type:.*/  type: \"${{ matrix.wheel_type }}\"/' \
+                /catkin_ws/src/MINS/mins/config/simulation/config_wheel.yaml || true
               for seed in \$(seq 0 $last); do
                 mkdir -p /outputs/\$seed
                 sed -i \"s/^  seed: .*/  seed: \$seed/\" \
