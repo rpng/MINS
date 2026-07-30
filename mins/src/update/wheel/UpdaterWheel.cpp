@@ -253,7 +253,7 @@ pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians2D(const Matrix3d &R_GtoI
   Matrix<double, 2, 3> Lambda = Matrix<double, 2, 3>::Zero();
   Lambda.block(0, 0, 2, 2) = Matrix2d::Identity();
 
-  // d log_so3(R * exp(η)) / dη = Jr(φ)^{-1}, corrects for SO(3) curvature.
+  // d log_so3(R * exp(��)) / d�� = Jr(��)^{-1}, corrects for SO(3) curvature.
   Matrix3d Jr_phi_inv = Jr_so3(phi).inverse();
   Matrix<double, 1, 3> dzr_dth0 = -e3.transpose() * Jr_phi_inv * R_ItoO;
   Matrix<double, 1, 3> dzr_dth1 = e3.transpose() * Jr_phi_inv * RO1toO0 * R_ItoO;
@@ -472,8 +472,8 @@ void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double t
     H_count += 1;
   }
   if (state->op->wheel->do_calib_int) {
-    H.block(0, H_count, 3, 3) = dR_di_3D;
-    H.block(3, H_count, 3, 3) = dp_di_3D;
+    H.block(0, H_count, 3, 3) = -dR_di_3D;
+    H.block(3, H_count, 3, 3) = -dp_di_3D;
   }
 }
 
@@ -804,3 +804,4 @@ WheelData UpdaterWheel::interpolate_data(const WheelData data1, const WheelData 
   data.m2 = (1 - lambda) * data1.m2 + lambda * data2.m2;
   return data;
 }
+
