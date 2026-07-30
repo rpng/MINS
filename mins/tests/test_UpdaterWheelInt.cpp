@@ -198,3 +198,42 @@ TEST(WheelIntrinsic3D, LargeTurn) {
     double wr[] = {3.0, 2.8, 3.2};
     run3DResidualTest(wl, wr, 3, "3D LargeTurn");
 }
+
+// Verifies ComputePhiTr3D: the 6x6 covariance transition matrix for 3D preintegration.
+// State layout: [delta_R (3), delta_p (3)]. JPL convention: R_true = exp(-delta_phi) * R_hat.
+//
+// block(0,0): d(delta_R_new)/d(delta_R) = R_new * R_3D^T
+// block(3,0): d(delta_p_new)/d(delta_R) = -R_3D^T * skew(R_3D * (new_p - p_3D))
+// block(3,3): identity
+TEST(WheelCovPropagation3D, PhiTrMatchesFD) {
+    const double eps = 1e-6;
+    const double tol = 1e-5;
+
+    Matrix3d R_3D = ov_core::exp_so3(Vector3d(0.1, 0.2, 0.3));
+    Vector3d v(1.0, 0.0, 0.0);
+    double dt = 0.01;
+    Vector3d p_3D = Vector3d::Zero();
+    Vector3d new_p = p_3D + R_3D.transpose() * v * dt;
+    Matrix3d R_new = ov_core::exp_so3(Vector3d(0, 0, -0.05)) * R_3D;
+
+    Eigen::Matrix<double, 6, 6> Phi = UpdaterWheel::ComputePhiTr3D(R_3D, R_new, p_3D, new_p);
+
+    // block(3,0): d(new_p)/d(delta_phi) — perturb R_3D via JPL: R_true = exp(-eps*ej)*R_3D
+    for (int j = 0; j < 3; j++) {
+        Vector3d ej = Vector3d::Zero();
+        ej(j) = eps;
+        Vector3d np_p = p_3D + (ov_core::exp_so3(-ej) * R_3D).transpose() * v * dt;
+        Vector3d np_m = p_3D + (ov_core::exp_so3(ej) * R_3D).transpose() * v * dt;
+        Vector3d fd = (np_p - np_m) / (2.0 * eps);
+        for (int i = 0; i < 3; i++) {
+            EXPECT_NEAR(Phi(3 + i, j), fd(i), tol) << "Phi_tr[" << (3 + i) << "," << j << "]";
+        }
+    }
+
+    // block(3,3): identity
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            EXPECT_NEAR(Phi(3 + i, 3 + j), (i == j) ? 1.0 : 0.0, tol) << "Phi_tr[" << (3 + i) << "," << (3 + j) << "]";
+        }
+    }
+}
