@@ -635,6 +635,15 @@ void UpdaterWheel::preintegration_2D(double dt, WheelData data1, WheelData data2
   y_2D = y_next;
 }
 
+Matrix<double, 6, 6> UpdaterWheel::ComputePhiTr3D(const Matrix3d &R_3D, const Matrix3d &R_new,
+                                                    const Vector3d &p_3D, const Vector3d &new_p) {
+  Matrix<double, 6, 6> Phi_tr = Matrix<double, 6, 6>::Zero();
+  Phi_tr.block(0, 0, 3, 3) = R_new * R_3D.transpose();
+  Phi_tr.block(3, 0, 3, 3) = -R_3D.transpose() * skew_x(R_3D * (new_p - p_3D));
+  Phi_tr.block(3, 3, 3, 3) = Matrix3d::Identity();
+  return Phi_tr;
+}
+
 void UpdaterWheel::preintegration_3D(double dt, WheelData data1, WheelData data2) {
 
   // load intrinsic values
@@ -744,10 +753,7 @@ void UpdaterWheel::preintegration_3D(double dt, WheelData data1, WheelData data2
   }
 
   // Compute the Jacobians with respect to the current preintegrated measurements
-  Matrix<double, 6, 6> Phi_tr = Matrix<double, 6, 6>::Zero();
-  Phi_tr.block(0, 0, 3, 3) = R_new * R_3D.transpose();
-  Phi_tr.block(3, 0, 3, 3) = -R_3D.transpose() * skew_x(R_3D.transpose() * (new_p - p_3D));
-  Phi_tr.block(3, 3, 3, 3) = Matrix3d::Identity();
+  Matrix<double, 6, 6> Phi_tr = ComputePhiTr3D(R_3D, R_new, p_3D, new_p);
 
   // Compute the Jacobians with respect to the current preintegrated noises
   Matrix<double, 6, 6> Phi_ns = Matrix<double, 6, 6>::Zero();

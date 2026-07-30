@@ -198,6 +198,21 @@ public:
                                               Eigen::Matrix3d &dR_di,
                                               Eigen::Matrix3d &dp_di);
 
+  /**
+   * rief Computes the 6x6 covariance transition matrix for 3D wheel preintegration.
+   *
+   * Propagates the preintegrated covariance from one step to the next after
+   * one wheel measurement. State layout: [delta_R (3), delta_p (3)].
+   *
+   * \param[in] R_3D Previous preintegrated rotation.
+   * \param[in] R_new New preintegrated rotation.
+   * \param[in] p_3D Previous preintegrated position.
+   * \param[in] new_p New preintegrated position.
+   * eturn 6x6 transition matrix Phi_tr.
+   */
+  static Eigen::Matrix<double, 6, 6> ComputePhiTr3D(const Eigen::Matrix3d &R_3D, const Eigen::Matrix3d &R_new,
+                                                      const Eigen::Vector3d &p_3D, const Eigen::Vector3d &new_p);
+
 private:
   friend class Initializer;
   friend class IW_Initializer;
