@@ -71,12 +71,12 @@ jobs:
           - config: vio_stereo
             gt: holonomic
             args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=false wheel_enabled:=false vicon_enabled:=false"
-          - config: stereo_lidar
+          - config: vicon_lidar
             gt: holonomic
-            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=true gps_enabled:=false wheel_enabled:=false vicon_enabled:=false"
-          - config: stereo_gps
+            args: "cam_enabled:=false lidar_enabled:=true gps_enabled:=false wheel_enabled:=false vicon_enabled:=true"
+          - config: vicon_gps
             gt: holonomic
-            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=true wheel_enabled:=false vicon_enabled:=false"
+            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=true wheel_enabled:=false vicon_enabled:=true"
           - config: vicon
             gt: holonomic
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=false vicon_enabled:=true"
