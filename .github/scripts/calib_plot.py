@@ -17,7 +17,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 BLUE      = '#29B6F6'
-BLUE_FILL = 0.12
+BLUE_FILL = 0.18
+ERR_COLOR = '#E53935'
 GT_COLOR  = '#212121'
 GRID_CLR  = '#E0E0E0'
 
@@ -128,7 +129,7 @@ def make_figure(all_t, all_err, all_s, labels, title, output_png):
         for k, (t, err, s) in enumerate(zip(all_t, all_err, all_s)):
             e  = err[:, j]
             sv = s[:, j]
-            h1, = ax.plot(t, e, color=BLUE, alpha=0.5, linewidth=1.0,
+            h1, = ax.plot(t, e, color=ERR_COLOR, alpha=0.8, linewidth=1.2,
                           label='error (seed)')
             h2  = ax.fill_between(t, -3*sv, 3*sv,
                                   color=BLUE, alpha=BLUE_FILL, label='±3σ bound')
