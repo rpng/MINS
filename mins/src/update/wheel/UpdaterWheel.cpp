@@ -253,7 +253,7 @@ pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians2D(const Matrix3d &R_GtoI
   Matrix<double, 2, 3> Lambda = Matrix<double, 2, 3>::Zero();
   Lambda.block(0, 0, 2, 2) = Matrix2d::Identity();
 
-  // d log_so3(R * exp(η)) / dη = Jr(φ)^{-1}, corrects for SO(3) curvature.
+  // d log_so3(R * exp(��)) / d�� = Jr(��)^{-1}, corrects for SO(3) curvature.
   Matrix3d Jr_phi_inv = Jr_so3(phi).inverse();
   Matrix<double, 1, 3> dzr_dth0 = -e3.transpose() * Jr_phi_inv * R_ItoO;
   Matrix<double, 1, 3> dzr_dth1 = e3.transpose() * Jr_phi_inv * RO1toO0 * R_ItoO;
@@ -384,6 +384,66 @@ Matrix<double, 6, 1> UpdaterWheel::ComputeTimeOffsetJacobian3D(const MatrixXd &H
   return H_poses * vel;
 }
 
+void UpdaterWheel::AccumulateIntrinsicJacobians2D(double dt, double w_l, double w_r, double th,
+                                                   double rl, double rr, double b,
+                                                   Matrix<double, 1, 3> &dth_di,
+                                                   Matrix<double, 1, 3> &dx_di,
+                                                   Matrix<double, 1, 3> &dy_di) {
+  double w = (w_r * rr - w_l * rl) / b;
+  double v = (w_r * rr + w_l * rl) / 2;
+
+  Matrix<double, 1, 3> Hwx = Matrix<double, 1, 3>::Zero();
+  Hwx(0, 0) = -w_l / b;
+  Hwx(0, 1) = w_r / b;
+  Hwx(0, 2) = -(w_r * rr - w_l * rl) / (b * b);
+  Matrix<double, 1, 3> Hvx = Matrix<double, 1, 3>::Zero();
+  Hvx(0, 0) = w_l / 2;
+  Hvx(0, 1) = w_r / 2;
+
+  double h_thw = dt;
+  double h_xth = (v * (cos(th - w * dt) - cos(th))) / w;
+  double h_yth = -(v * (sin(th - w * dt) - sin(th))) / w;
+  double h_xw = (v * (sin(th - w * dt) - sin(th))) / w / w + (v * cos(th - w * dt) * dt) / w;
+  double h_yw = (v * (cos(th - w * dt) - cos(th))) / w / w - (v * sin(th - w * dt) * dt) / w;
+  double h_xv = -(sin(th - w * dt) - sin(th)) / w;
+  double h_yv = -(cos(th - w * dt) - cos(th)) / w;
+
+  if (abs(w) < 0.0001) {
+    h_xth = v * sin(th) * dt;
+    h_yth = v * cos(th) * dt;
+    h_xw = v * sin(th) * dt * dt / 2;
+    h_yw = v * cos(th) * dt * dt / 2;
+    h_xv = cos(th) * dt;
+    h_yv = -sin(th) * dt;
+  }
+
+  dx_di = dx_di + h_xth * dth_di + h_xw * Hwx + h_xv * Hvx;
+  dy_di = dy_di + h_yth * dth_di + h_yw * Hwx + h_yv * Hvx;
+  dth_di = dth_di + h_thw * Hwx;
+}
+
+void UpdaterWheel::AccumulateIntrinsicJacobians3D(double dt, double w_l, double w_r,
+                                                   const Matrix3d &R_3D,
+                                                   double rl, double rr, double b,
+                                                   Matrix3d &dR_di, Matrix3d &dp_di) {
+  Vector3d w(0, 0, (w_r * rr - w_l * rl) / b);
+  Vector3d v((w_r * rr + w_l * rl) / 2, 0, 0);
+
+  Matrix3d Hwx = Matrix3d::Zero();
+  Hwx(2, 0) = -w_l / b;
+  Hwx(2, 1) = w_r / b;
+  Hwx(2, 2) = -(w_r * rr - w_l * rl) / (b * b);
+  Matrix3d Hvx = Matrix3d::Zero();
+  Hvx(0, 0) = w_l / 2;
+  Hvx(0, 1) = w_r / 2;
+
+  Matrix3d R_step = exp_so3(-w * dt);
+  Matrix3d Hth = Jl_so3(-w * dt) * dt;
+
+  dp_di = dp_di - R_3D.transpose() * skew_x(v * dt) * dR_di + R_3D.transpose() * Hvx * dt;
+  dR_di = R_step * dR_di + Hth * Hwx;
+}
+
 void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double time0, double time1) {
   shared_ptr<PoseJPL> pose0 = state->clones.at(time0);
   shared_ptr<PoseJPL> pose1 = state->clones.at(time1);
@@ -418,83 +478,17 @@ void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double t
 }
 
 void UpdaterWheel::preintegration_intrinsics_2D(double dt, WheelData data) {
-  // load measurement
-  double w_l = data.m1;
-  double w_r = data.m2;
-
-  // load intrinsic values
   double rl = state->wheel_intrinsic->value()(0);
   double rr = state->wheel_intrinsic->value()(1);
   double b = state->wheel_intrinsic->value()(2);
-
-  // compute the velocities of the wheel odometry frame
-  double w = (w_r * rr - w_l * rl) / b;
-  double v = (w_r * rr + w_l * rl) / 2;
-
-  // Compute Jacobians of w and v respect to intrinsics
-  Matrix<double, 1, 3> Hwx = Matrix<double, 1, 3>::Zero();
-  Hwx(0, 0) = -w_l / b;
-  Hwx(0, 1) = w_r / b;
-  Hwx(0, 2) = -(w_r * rr - w_l * rl) / (b * b);
-  Matrix<double, 1, 3> Hvx = Matrix<double, 1, 3>::Zero();
-  Hvx(0, 0) = w_l / 2;
-  Hvx(0, 1) = w_r / 2;
-
-  // Compute Jacobians of integtrated measurement of this step
-  double h_thw = dt;
-  double h_xth = (v * (cos(th_2D - w * dt) - cos(th_2D))) / w;
-  double h_yth = -(v * (sin(th_2D - w * dt) - sin(th_2D))) / w;
-  double h_xw = (v * (sin(th_2D - w * dt) - sin(th_2D))) / w / w + (v * cos(th_2D - w * dt) * dt) / w;
-  double h_yw = (v * (cos(th_2D - w * dt) - cos(th_2D))) / w / w - (v * sin(th_2D - w * dt) * dt) / w;
-  double h_xv = -(sin(th_2D - w * dt) - sin(th_2D)) / w;
-  double h_yv = -(cos(th_2D - w * dt) - cos(th_2D)) / w;
-
-  // In case w is too small, apply L'Hopital rule
-  if (abs(w) < 0.0001) {
-    h_xth = v * sin(th_2D) * dt;
-    h_yth = v * cos(th_2D) * dt;
-    h_xw = v * sin(th_2D) * dt * dt / 2;
-    h_yw = v * cos(th_2D) * dt * dt / 2;
-    h_xv = cos(th_2D) * dt;
-    h_yv = -sin(th_2D) * dt;
-  }
-
-  // integrate the intrinsic Jacobians
-  dx_di_2D = dx_di_2D + h_xth * dth_di_2D + h_xw * Hwx + h_xv * Hvx;
-  dy_di_2D = dy_di_2D + h_yth * dth_di_2D + h_yw * Hwx + h_yv * Hvx;
-  dth_di_2D = dth_di_2D + h_thw * Hwx;
+  AccumulateIntrinsicJacobians2D(dt, data.m1, data.m2, th_2D, rl, rr, b, dth_di_2D, dx_di_2D, dy_di_2D);
 }
 
 void UpdaterWheel::preintegration_intrinsics_3D(double dt, WheelData data) {
-  // load measurement
-  double w_l = data.m1;
-  double w_r = data.m2;
-
-  // load intrinsic values
   double rl = state->wheel_intrinsic->value()(0);
   double rr = state->wheel_intrinsic->value()(1);
   double b = state->wheel_intrinsic->value()(2);
-
-  // compute the velocities of the wheel odometry frame
-  Vector3d w(0, 0, (w_r * rr - w_l * rl) / b);
-  Vector3d v((w_r * rr + w_l * rl) / 2, 0, 0);
-
-  // Compute Jacobians of w and v respect to intrinsics
-  Matrix3d Hwx = Matrix3d::Zero();
-  Hwx(2, 0) = -w_l / b;
-  Hwx(2, 1) = w_r / b;
-  Hwx(2, 2) = -(w_r * rr - w_l * rl) / (b * b);
-  Matrix3d Hvx = Matrix3d::Zero();
-  Hvx(0, 0) = w_l / 2;
-  Hvx(0, 1) = w_r / 2;
-
-  // Compute Jacobians of integtrated measurement of this step
-  Matrix3d R = exp_so3(-w * dt);
-  Matrix3d Hth = Jl_so3(-w * dt) * dt;
-
-  // integrate the intrinsic Jacobians
-  dp_di_3D = dp_di_3D - R_3D.transpose() * skew_x(v * dt) * dR_di_3D + R_3D.transpose() * Hvx * dt;
-  dR_di_3D = R * dR_di_3D + Hth * Hwx;
+  AccumulateIntrinsicJacobians3D(dt, data.m1, data.m2, R_3D, rl, rr, b, dR_di_3D, dp_di_3D);
 }
 
 void UpdaterWheel::preintegration_2D(double dt, WheelData data1, WheelData data2) {
@@ -641,6 +635,15 @@ void UpdaterWheel::preintegration_2D(double dt, WheelData data1, WheelData data2
   y_2D = y_next;
 }
 
+Matrix<double, 6, 6> UpdaterWheel::ComputePhiTr3D(const Matrix3d &R_3D, const Matrix3d &R_new,
+                                                    const Vector3d &p_3D, const Vector3d &new_p) {
+  Matrix<double, 6, 6> Phi_tr = Matrix<double, 6, 6>::Zero();
+  Phi_tr.block(0, 0, 3, 3) = R_new * R_3D.transpose();
+  Phi_tr.block(3, 0, 3, 3) = -R_3D.transpose() * skew_x(R_3D * (new_p - p_3D));
+  Phi_tr.block(3, 3, 3, 3) = Matrix3d::Identity();
+  return Phi_tr;
+}
+
 void UpdaterWheel::preintegration_3D(double dt, WheelData data1, WheelData data2) {
 
   // load intrinsic values
@@ -750,10 +753,7 @@ void UpdaterWheel::preintegration_3D(double dt, WheelData data1, WheelData data2
   }
 
   // Compute the Jacobians with respect to the current preintegrated measurements
-  Matrix<double, 6, 6> Phi_tr = Matrix<double, 6, 6>::Zero();
-  Phi_tr.block(0, 0, 3, 3) = R_new * R_3D.transpose();
-  Phi_tr.block(3, 0, 3, 3) = -R_3D.transpose() * skew_x(R_3D.transpose() * (new_p - p_3D));
-  Phi_tr.block(3, 3, 3, 3) = Matrix3d::Identity();
+  Matrix<double, 6, 6> Phi_tr = ComputePhiTr3D(R_3D, R_new, p_3D, new_p);
 
   // Compute the Jacobians with respect to the current preintegrated noises
   Matrix<double, 6, 6> Phi_ns = Matrix<double, 6, 6>::Zero();
@@ -810,3 +810,4 @@ WheelData UpdaterWheel::interpolate_data(const WheelData data1, const WheelData 
   data.m2 = (1 - lambda) * data1.m2 + lambda * data2.m2;
   return data;
 }
+
