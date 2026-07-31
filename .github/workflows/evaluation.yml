@@ -74,14 +74,15 @@ jobs:
           - config: vicon_lidar
             gt: holonomic
             args: "cam_enabled:=false lidar_enabled:=true gps_enabled:=false wheel_enabled:=false vicon_enabled:=true"
-          - config: gps
+          - config: stereo_gps
             gt: holonomic
-            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=true wheel_enabled:=false vicon_enabled:=false"
+            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=false gps_enabled:=true wheel_enabled:=false vicon_enabled:=false"
           - config: vicon
             gt: holonomic
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=false vicon_enabled:=true"
-          # Wheel scenarios: vicon for absolute anchor; 9 combos 2D/3D x Ang/Lin/Cen x planar/(non-planar for 3D).
+          # Wheel scenarios: vicon for absolute anchor; 6 combos 2D/3D x Ang/Lin/Cen, planar sim.
           # WHEEL_TYPE injected via env var into container; sed rewrites config_wheel.yaml before sim loop.
+          # Non-planar 3D wheel removed: sim always generates planar trajectory when wheel is enabled.
           - config: wheel_2d_ang
             gt: nonholonomic_planar
             wheel_type: Wheel2DAng
@@ -94,30 +95,18 @@ jobs:
             gt: nonholonomic_planar
             wheel_type: Wheel2DCen
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
-          - config: wheel_3d_ang_planar
-            gt: nonholonomic_planar
-            wheel_type: Wheel3DAng
-            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
-          - config: wheel_3d_lin_planar
-            gt: nonholonomic_planar
-            wheel_type: Wheel3DLin
-            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
-          - config: wheel_3d_cen_planar
-            gt: nonholonomic_planar
-            wheel_type: Wheel3DCen
-            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: wheel_3d_ang
-            gt: nonholonomic
+            gt: nonholonomic_planar
             wheel_type: Wheel3DAng
-            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true"
+            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: wheel_3d_lin
-            gt: nonholonomic
+            gt: nonholonomic_planar
             wheel_type: Wheel3DLin
-            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true"
+            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: wheel_3d_cen
-            gt: nonholonomic
+            gt: nonholonomic_planar
             wheel_type: Wheel3DCen
-            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true"
+            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: full
             gt: nonholonomic_planar
             args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=true gps_enabled:=true wheel_enabled:=true vicon_enabled:=false sim_const_planar:=true"
