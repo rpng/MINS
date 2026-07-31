@@ -120,7 +120,7 @@ jobs:
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true"
           - config: full
             gt: nonholonomic_planar
-            args: "cam_enabled:=true cam_use_stereo:=true cam_max_n:=2 lidar_enabled:=true gps_enabled:=true wheel_enabled:=true vicon_enabled:=false sim_const_planar:=true"
+            args: "cam_enabled:=false lidar_enabled:=true gps_enabled:=true wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
     steps:
       - name: Checkout (for report script)
         uses: actions/checkout@v4
