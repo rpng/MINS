@@ -213,6 +213,24 @@ public:
   static Eigen::Matrix<double, 6, 6> ComputePhiTr3D(const Eigen::Matrix3d &R_3D, const Eigen::Matrix3d &R_new,
                                                       const Eigen::Vector3d &p_3D, const Eigen::Vector3d &new_p);
 
+  /**
+   * \brief Build the 6x6 continuous-time noise spectral density matrix for 3D wheel preintegration.
+   *
+   * State layout: [delta_R (roll, pitch, yaw), delta_p (x, y, z)].
+   * Measured DOFs are yaw (index 2) and forward-x (index 3); the remaining four are planar
+   * constraints and receive noise_p.
+   *
+   * \param[in] type Wheel type string ("Wheel3DAng", "Wheel3DLin", or "Wheel3DCen").
+   * \param[in] noise_w Angular velocity noise spectral density (rad/s / sqrt(Hz)).
+   * \param[in] noise_v Linear velocity noise spectral density (m/s / sqrt(Hz)).
+   * \param[in] noise_p Planar constraint noise spectral density.
+   * \param[in] b Wheel baseline (metres). Used only for Wheel3DLin.
+   * \param[in] dt Integration time step (seconds).
+   * \return 6x6 diagonal Q matrix.
+   */
+  static Eigen::Matrix<double, 6, 6> ComputeNoiseQ3D(const std::string &type, double noise_w, double noise_v,
+                                                       double noise_p, double b, double dt);
+
 private:
   friend class Initializer;
   friend class IW_Initializer;
