@@ -727,23 +727,23 @@ void UpdaterWheel::preintegration_3D(double dt, WheelData data1, WheelData data2
   // compute measurement noise
   Matrix<double, 6, 6> Q = Matrix<double, 6, 6>::Zero();
   if (state->op->wheel->type == "Wheel3DAng") {
-    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
+    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
+    Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
+    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / dt;
     Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
   } else if (state->op->wheel->type == "Wheel3DLin") {
-    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_v, 2) / b / b / dt;
+    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / 2 / 2 / dt;
+    Q.block(2, 2, 1, 1) << 2 * pow(state->op->wheel->noise_v, 2) / b / b / dt;
+    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / 2 / dt;
     Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
   } else if (state->op->wheel->type == "Wheel3DCen") {
-    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
+    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
     Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / dt;
     Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
