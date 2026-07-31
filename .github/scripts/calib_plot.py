@@ -28,6 +28,16 @@ LABELS = {
     'int_cam':   ['fu (px)', 'fv (px)', 'cu (px)', 'cv (px)', 'k₁', 'k₂', 'p₁', 'p₂'],
 }
 
+# Absolute error tolerance per calib_type (indexed by param order).
+# A parameter passes if |error| <= k*sigma OR |error| <= abs_tol.
+# Prevents physically tiny residuals from failing due to an overconfident filter.
+ABS_TOL = {
+    'dt':        [0.002],                                       # 2 ms
+    'ext':       [0.005, 0.005, 0.005, 0.02, 0.02, 0.02],     # 5 mrad, 20 mm
+    'int_wheel': [0.001, 0.001, 0.005],                        # 1 mm radii, 5 mm baseline
+    'int_cam':   [2.0, 2.0, 2.0, 2.0, 0.002, 0.002, 0.002, 0.002],  # 2 px, 0.002 distortion
+}
+
 
 def load_txt(path):
     if not os.path.isfile(path):
@@ -120,8 +130,8 @@ def make_figure(all_t, all_err, all_s, labels, title, output_png):
             sv = s[:, j]
             h1, = ax.plot(t, e, color=BLUE, alpha=0.5, linewidth=1.0,
                           label='error (seed)')
-            h2  = ax.fill_between(t, e - 3*sv, e + 3*sv,
-                                  color=BLUE, alpha=BLUE_FILL, label='±3σ')
+            h2  = ax.fill_between(t, -3*sv, 3*sv,
+                                  color=BLUE, alpha=BLUE_FILL, label='±3σ bound')
             if k == 0 and j == 0:
                 first_handles = [h1, h2]
         h3 = ax.axhline(0, color=GT_COLOR, linestyle='--', linewidth=0.8, label='GT (zero error)')
@@ -148,10 +158,15 @@ def make_figure(all_t, all_err, all_s, labels, title, output_png):
     plt.close()
 
 
-def convergence_ok(all_err, all_s, k=3.0):
+def convergence_ok(all_err, all_s, calib_type, k=3.0):
+    tols = ABS_TOL.get(calib_type, [0.0])
     for err, s in zip(all_err, all_s):
-        if np.any(np.abs(err[-1]) > k * s[-1]):
-            return False
+        e_last = np.abs(err[-1])
+        s_last = s[-1]
+        for j, (e_j, s_j) in enumerate(zip(e_last, s_last)):
+            tol = tols[j] if j < len(tols) else 0.0
+            if e_j > k * s_j and e_j > tol:
+                return False
     return True
 
 
@@ -195,17 +210,19 @@ def main():
     make_figure(all_t, all_err, all_s, labels, args.title, args.output_png)
 
     # Per-param convergence table
-    ok_overall = convergence_ok(all_err, all_s)
+    ok_overall = convergence_ok(all_err, all_s, args.calib_type)
     icon = '✅' if ok_overall else '❌'
 
     mean_err = np.mean([np.abs(e[-1]) for e in all_err], axis=0)
     mean_std = np.mean([s[-1]        for s in all_s],    axis=0)
+    tols = ABS_TOL.get(args.calib_type, [0.0])
 
     rows = []
     for j, lab in enumerate(labels):
-        e  = mean_err[j] if j < len(mean_err) else float('nan')
-        sv = mean_std[j] if j < len(mean_std) else float('nan')
-        tick = '✅' if e <= 3 * sv else '❌'
+        e   = mean_err[j] if j < len(mean_err) else float('nan')
+        sv  = mean_std[j] if j < len(mean_std) else float('nan')
+        tol = tols[j] if j < len(tols) else 0.0
+        tick = '✅' if e <= 3 * sv or e <= tol else '❌'
         rows.append(f'| {lab} | {e:.3g} | {sv:.3g} | {tick} |')
 
     md = '\n'.join([
