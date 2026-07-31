@@ -86,26 +86,44 @@ jobs:
           - config: wheel_2d_ang
             gt: nonholonomic_planar
             wheel_type: Wheel2DAng
+            wheel_noise_w: "0.05"
+            wheel_noise_v: "0.03"
+            wheel_noise_p: "0.001"
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: wheel_2d_lin
             gt: nonholonomic_planar
             wheel_type: Wheel2DLin
+            wheel_noise_w: "0.05"
+            wheel_noise_v: "0.03"
+            wheel_noise_p: "0.001"
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: wheel_2d_cen
             gt: nonholonomic_planar
             wheel_type: Wheel2DCen
+            wheel_noise_w: "0.05"
+            wheel_noise_v: "0.03"
+            wheel_noise_p: "0.001"
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: wheel_3d_ang
             gt: nonholonomic_planar
             wheel_type: Wheel3DAng
+            wheel_noise_w: "0.05"
+            wheel_noise_v: "0.03"
+            wheel_noise_p: "0.001"
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: wheel_3d_lin
             gt: nonholonomic_planar
             wheel_type: Wheel3DLin
+            wheel_noise_w: "0.05"
+            wheel_noise_v: "0.03"
+            wheel_noise_p: "0.001"
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: wheel_3d_cen
             gt: nonholonomic_planar
             wheel_type: Wheel3DCen
+            wheel_noise_w: "0.05"
+            wheel_noise_v: "0.03"
+            wheel_noise_p: "0.001"
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=true vicon_enabled:=true sim_const_planar:=true"
           - config: full
             gt: nonholonomic_planar
@@ -133,10 +151,16 @@ jobs:
           for ref in master pr; do
             mkdir -p out_$ref
             docker run --rm --entrypoint /bin/bash -v "$PWD/out_$ref:/outputs" \
-            -e WHEEL_TYPE="${{ matrix.wheel_type }}" "mins:$ref" -c '
+            -e WHEEL_TYPE="${{ matrix.wheel_type }}" \
+            -e WHEEL_NOISE_W="${{ matrix.wheel_noise_w }}" \
+            -e WHEEL_NOISE_V="${{ matrix.wheel_noise_v }}" \
+            -e WHEEL_NOISE_P="${{ matrix.wheel_noise_p }}" "mins:$ref" -c '
               source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
               export OMP_NUM_THREADS=1
-              [ -n "$WHEEL_TYPE" ] && sed -i "s/^  type: .*/  type: \"$WHEEL_TYPE\"/" /catkin_ws/src/MINS/mins/config/simulation/config_wheel.yaml
+              [ -n "$WHEEL_TYPE" ]    && sed -i "s/^  type: .*/  type: \"$WHEEL_TYPE\"/"     /catkin_ws/src/MINS/mins/config/simulation/config_wheel.yaml
+              [ -n "$WHEEL_NOISE_W" ] && sed -i "s/^  noise_w: .*/  noise_w: $WHEEL_NOISE_W/" /catkin_ws/src/MINS/mins/config/simulation/config_wheel.yaml
+              [ -n "$WHEEL_NOISE_V" ] && sed -i "s/^  noise_v: .*/  noise_v: $WHEEL_NOISE_V/" /catkin_ws/src/MINS/mins/config/simulation/config_wheel.yaml
+              [ -n "$WHEEL_NOISE_P" ] && sed -i "s/^  noise_p: .*/  noise_p: $WHEEL_NOISE_P/" /catkin_ws/src/MINS/mins/config/simulation/config_wheel.yaml
               for seed in $(seq 0 '"$last_seed"'); do
                 rm -f /outputs/tmp/$seed.txt /outputs/tmp/$seed.time
                 sed -i "s/^  seed: .*/  seed: $seed/" /catkin_ws/src/MINS/mins/config/simulation/config_simulation.yaml
