@@ -644,37 +644,6 @@ Matrix<double, 6, 6> UpdaterWheel::ComputePhiTr3D(const Matrix3d &R_3D, const Ma
   return Phi_tr;
 }
 
-Matrix<double, 6, 6> UpdaterWheel::ComputeNoiseQ3D(const string &type, double noise_w, double noise_v,
-                                                     double noise_p, double b, double dt) {
-  Matrix<double, 6, 6> Q = Matrix<double, 6, 6>::Zero();
-  if (type == "Wheel3DAng") {
-    Q(0, 0) = pow(noise_p, 2) / dt;
-    Q(1, 1) = pow(noise_p, 2) / dt;
-    Q(2, 2) = pow(noise_w, 2) / dt;
-    Q(3, 3) = pow(noise_v, 2) / dt;
-    Q(4, 4) = pow(noise_p, 2) / dt;
-    Q(5, 5) = pow(noise_p, 2) / dt;
-  } else if (type == "Wheel3DLin") {
-    Q(0, 0) = pow(noise_p, 2) / dt;
-    Q(1, 1) = pow(noise_p, 2) / dt;
-    Q(2, 2) = 2 * pow(noise_v, 2) / b / b / dt;
-    Q(3, 3) = pow(noise_v, 2) / 2 / dt;
-    Q(4, 4) = pow(noise_p, 2) / dt;
-    Q(5, 5) = pow(noise_p, 2) / dt;
-  } else if (type == "Wheel3DCen") {
-    Q(0, 0) = pow(noise_p, 2) / dt;
-    Q(1, 1) = pow(noise_p, 2) / dt;
-    Q(2, 2) = pow(noise_w, 2) / dt;
-    Q(3, 3) = pow(noise_v, 2) / dt;
-    Q(4, 4) = pow(noise_p, 2) / dt;
-    Q(5, 5) = pow(noise_p, 2) / dt;
-  } else {
-    PRINT4(RED "[MINS] Invalid wheel type provided.\n" RESET);
-    exit(EXIT_FAILURE);
-  }
-  return Q;
-}
-
 void UpdaterWheel::preintegration_3D(double dt, WheelData data1, WheelData data2) {
 
   // load intrinsic values
@@ -756,8 +725,32 @@ void UpdaterWheel::preintegration_3D(double dt, WheelData data1, WheelData data2
   Vector3d new_p = p_3D + (1.0 / 6.0) * k1_p + (1.0 / 3.0) * k2_p + (1.0 / 3.0) * k3_p + (1.0 / 6.0) * k4_p;
 
   // compute measurement noise
-  Matrix<double, 6, 6> Q = ComputeNoiseQ3D(state->op->wheel->type, state->op->wheel->noise_w,
-                                             state->op->wheel->noise_v, state->op->wheel->noise_p, b, dt);
+  Matrix<double, 6, 6> Q = Matrix<double, 6, 6>::Zero();
+  if (state->op->wheel->type == "Wheel3DAng") {
+    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
+    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / dt;
+    Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+  } else if (state->op->wheel->type == "Wheel3DLin") {
+    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(2, 2, 1, 1) << 2 * pow(state->op->wheel->noise_v, 2) / b / b / dt;
+    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / 2 / dt;
+    Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+  } else if (state->op->wheel->type == "Wheel3DCen") {
+    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
+    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / dt;
+    Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+  } else {
+    PRINT4(RED "[MINS] Invalid wheel type provided.\n" RESET);
+    exit(EXIT_FAILURE);
+  }
 
   // Compute the Jacobians with respect to the current preintegrated measurements
   Matrix<double, 6, 6> Phi_tr = ComputePhiTr3D(R_3D, R_new, p_3D, new_p);
