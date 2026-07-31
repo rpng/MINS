@@ -74,9 +74,9 @@ jobs:
           - config: vicon_lidar
             gt: holonomic
             args: "cam_enabled:=false lidar_enabled:=true gps_enabled:=false wheel_enabled:=false vicon_enabled:=true"
-          - config: vicon_gps
+          - config: gps
             gt: holonomic
-            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=true wheel_enabled:=false vicon_enabled:=true"
+            args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=true wheel_enabled:=false vicon_enabled:=false"
           - config: vicon
             gt: holonomic
             args: "cam_enabled:=false lidar_enabled:=false gps_enabled:=false wheel_enabled:=false vicon_enabled:=true"
