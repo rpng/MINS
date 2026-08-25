@@ -21,6 +21,7 @@
 #ifndef MINS_IW_INITIALIZER_H
 #define MINS_IW_INITIALIZER_H
 
+#include "update/wheel/WheelTypes.h"
 #include <Eigen/Eigen>
 #include <memory>
 #include <vector>
@@ -49,7 +50,7 @@ public:
     shared_ptr<ov_type::PoseJPL> wheel_extrinsic;
     shared_ptr<ov_type::Vec> wheel_dt;
     shared_ptr<ov_type::Vec> wheel_intrinsic;
-    string wheel_type;
+    WheelType wheel_type = WheelType::Wheel2DAng;
     double threshold;
     Vector3d gravity;
     bool imu_gravity_aligned;

@@ -109,7 +109,7 @@ bool UpdaterWheel::update(double time0, double time1) {
   for (size_t i = 0; i < data_vec.size() - 1; i++) {
     double dt = data_vec[i + 1].time - data_vec[i].time;
     // Perform 3D integration
-    if (state->op->wheel->type == "Wheel3DAng" || state->op->wheel->type == "Wheel3DLin" || state->op->wheel->type == "Wheel3DCen") {
+    if (IsWheel3D(state->op->wheel->type)) {
       if (state->op->wheel->do_calib_int)
         preintegration_intrinsics_3D(dt, data_vec[i]);
       preintegration_3D(dt, data_vec[i], data_vec[i + 1]);
@@ -125,7 +125,7 @@ bool UpdaterWheel::update(double time0, double time1) {
   MatrixXd H;
   VectorXd res;
   vector<shared_ptr<ov_type::Type>> x_order;
-  if (state->op->wheel->type == "Wheel3DAng" || state->op->wheel->type == "Wheel3DLin" || state->op->wheel->type == "Wheel3DCen")
+  if (IsWheel3D(state->op->wheel->type))
     compute_linear_system_3D(H, res, time0, time1);
   else
     compute_linear_system_2D(H, res, time0, time1);
@@ -141,7 +141,7 @@ bool UpdaterWheel::update(double time0, double time1) {
     x_order.push_back(state->wheel_intrinsic);
 
   // Perform update
-  if (state->op->wheel->type == "Wheel3DAng" || state->op->wheel->type == "Wheel3DLin" || state->op->wheel->type == "Wheel3DCen") {
+  if (IsWheel3D(state->op->wheel->type)) {
     if (Chi->Chi2Check(state, x_order, H, res, Cov_3D))
       StateHelper::EKFUpdate(state, x_order, H, res, Cov_3D, "WHEEL");
   } else {
@@ -508,25 +508,26 @@ void UpdaterWheel::preintegration_2D(double dt, const WheelData &data1, const Wh
   double b = state->wheel_intrinsic->value()(2);
 
   // compute the velocities at the odometry frame
-  double w1, w2, v1, v2;
-  if (state->op->wheel->type == "Wheel2DAng") {
+  double w1 = 0, w2 = 0, v1 = 0, v2 = 0;
+  switch (ModalityOf(state->op->wheel->type)) {
+  case WheelModality::Angular:
     w1 = (data1.m2 * rr - data1.m1 * rl) / b;
     v1 = (data1.m2 * rr + data1.m1 * rl) / 2;
     w2 = (data2.m2 * rr - data2.m1 * rl) / b;
     v2 = (data2.m2 * rr + data2.m1 * rl) / 2;
-  } else if (state->op->wheel->type == "Wheel2DLin") {
+    break;
+  case WheelModality::Linear:
     w1 = (data1.m2 - data1.m1) / b;
     v1 = (data1.m2 + data1.m1) / 2;
     w2 = (data2.m2 - data2.m1) / b;
     v2 = (data2.m2 + data2.m1) / 2;
-  } else if (state->op->wheel->type == "Wheel2DCen") {
+    break;
+  case WheelModality::Centered:
     w1 = data1.m1;
     v1 = data1.m2;
     w2 = data2.m1;
     v2 = data2.m2;
-  } else {
-    PRINT4("Wrong wheel type selected!");
-    exit(EXIT_FAILURE);
+    break;
   }
 
   // =========================================================
@@ -576,21 +577,25 @@ void UpdaterWheel::preintegration_2D(double dt, const WheelData &data1, const Wh
 
   // Compute noise Jacobians respect to measurements
   Matrix<double, 1, 2> Hwn, Hvn;
-  if (state->op->wheel->type == "Wheel2DAng") {
+  switch (ModalityOf(state->op->wheel->type)) {
+  case WheelModality::Angular:
     Hwn(0, 0) = rl / b;
     Hwn(0, 1) = -rr / b;
     Hvn(0, 0) = -rl / 2;
     Hvn(0, 1) = -rr / 2;
-  } else if (state->op->wheel->type == "Wheel2DLin") {
+    break;
+  case WheelModality::Linear:
     Hwn(0, 0) = 1.0 / b;
     Hwn(0, 1) = -1.0 / b;
     Hvn(0, 0) = -1.0 / 2;
     Hvn(0, 1) = -1.0 / 2;
-  } else if (state->op->wheel->type == "Wheel2DCen") {
+    break;
+  case WheelModality::Centered:
     Hwn(0, 0) = 1;
     Hwn(0, 1) = 0;
     Hvn(0, 0) = 0;
     Hvn(0, 1) = 1;
+    break;
   }
 
   // Compute Jacobians respect to state preintegrated state and the measurement
@@ -625,13 +630,17 @@ void UpdaterWheel::preintegration_2D(double dt, const WheelData &data1, const Wh
 
   // Compute Measurement covariance
   Matrix2d Q = Matrix2d::Zero();
-  if (state->op->wheel->type == "Wheel2DAng") {
+  switch (ModalityOf(state->op->wheel->type)) {
+  case WheelModality::Angular:
     Q = pow(state->op->wheel->noise_w, 2) / dt * Matrix2d::Identity();
-  } else if (state->op->wheel->type == "Wheel2DLin") {
+    break;
+  case WheelModality::Linear:
     Q = pow(state->op->wheel->noise_v, 2) / dt * Matrix2d::Identity();
-  } else if (state->op->wheel->type == "Wheel2DCen") {
+    break;
+  case WheelModality::Centered:
     Q(0, 0) = pow(state->op->wheel->noise_w, 2) / dt;
     Q(1, 1) = pow(state->op->wheel->noise_v, 2) / dt;
+    break;
   }
 
   // integrate noise covarinace
@@ -662,24 +671,25 @@ void UpdaterWheel::preintegration_3D(double dt, const WheelData &data1, const Wh
 
   // compute the velocities at the odometry frame
   Vector3d w_hat1, v_hat1, w_hat2, v_hat2;
-  if (state->op->wheel->type == "Wheel3DAng") {
+  switch (ModalityOf(state->op->wheel->type)) {
+  case WheelModality::Angular:
     w_hat1 << 0, 0, (data1.m2 * rr - data1.m1 * rl) / b;
     v_hat1 << (data1.m2 * rr + data1.m1 * rl) / 2, 0, 0;
     w_hat2 << 0, 0, (data2.m2 * rr - data2.m1 * rl) / b;
     v_hat2 << (data2.m2 * rr + data2.m1 * rl) / 2, 0, 0;
-  } else if (state->op->wheel->type == "Wheel3DLin") {
+    break;
+  case WheelModality::Linear:
     w_hat1 << 0, 0, (data1.m2 - data1.m1) / b;
     v_hat1 << (data1.m2 + data1.m1) / 2, 0, 0;
     w_hat2 << 0, 0, (data2.m2 - data2.m1) / b;
     v_hat2 << (data2.m2 + data2.m1) / 2, 0, 0;
-  } else if (state->op->wheel->type == "Wheel3DCen") {
+    break;
+  case WheelModality::Centered:
     w_hat1 << 0, 0, data1.m1;
     v_hat1 << data1.m2, 0, 0;
     w_hat2 << 0, 0, data2.m1;
     v_hat2 << data2.m2, 0, 0;
-  } else {
-    PRINT4("Wrong wheel type selected!");
-    exit(EXIT_FAILURE);
+    break;
   }
 
   // =========================================================
@@ -735,30 +745,31 @@ void UpdaterWheel::preintegration_3D(double dt, const WheelData &data1, const Wh
 
   // compute measurement noise
   Matrix<double, 6, 6> Q = Matrix<double, 6, 6>::Zero();
-  if (state->op->wheel->type == "Wheel3DAng") {
+  switch (ModalityOf(state->op->wheel->type)) {
+  case WheelModality::Angular:
     Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
     Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / dt;
     Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-  } else if (state->op->wheel->type == "Wheel3DLin") {
+    break;
+  case WheelModality::Linear:
     Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(2, 2, 1, 1) << 2 * pow(state->op->wheel->noise_v, 2) / b / b / dt;
     Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / 2 / dt;
     Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-  } else if (state->op->wheel->type == "Wheel3DCen") {
+    break;
+  case WheelModality::Centered:
     Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
     Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / dt;
     Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
     Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-  } else {
-    PRINT4(RED "[MINS] Invalid wheel type provided.\n" RESET);
-    exit(EXIT_FAILURE);
+    break;
   }
 
   // Compute the Jacobians with respect to the current preintegrated measurements

@@ -81,15 +81,16 @@ void mins::OptionsWheel::load(const std::shared_ptr<ov_core::YamlParser> &parser
     intr << I[0], I[1], I[2];
     intrinsics = intr;
 
-    parser->parse_external(f, "wheel", "type", type);
-    if (type != "Wheel2DAng" && type != "Wheel2DLin" && type != "Wheel2DCen" && type != "Wheel3DAng" && type != "Wheel3DLin" && type != "Wheel3DCen") {
-      PRINT4(RED "%s is not a supported type of wheel.\n" RESET, type.c_str());
+    std::string type_name;
+    parser->parse_external(f, "wheel", "type", type_name);
+    if (!ParseWheelType(type_name, type)) {
+      PRINT4(RED "%s is not a supported type of wheel.\n" RESET, type_name.c_str());
       PRINT4(RED "Available: Wheel2DAng, Wheel2DLin, Wheel2DCen, Wheel3DAng, Wheel3DLin, Wheel3DCen\n" RESET);
       exit(EXIT_FAILURE);
     }
 
     // should disable intrinsic calibration if not using angular velocity of wheel
-    if (type != "Wheel2DAng" && type != "Wheel3DAng") {
+    if (ModalityOf(type) != WheelModality::Angular) {
       do_calib_int = false;
     }
   }
@@ -112,7 +113,7 @@ void mins::OptionsWheel::print() {
   PRINT1("\t- init_cov_in_b: %.6f\n", init_cov_in_b);
   PRINT1("\t- init_cov_in_r: %.6f\n", init_cov_in_r);
   PRINT1("\t- init_cov_in_r: %.6f\n", init_cov_in_r);
-  PRINT1("\t- WheelType: %s\n", type.c_str());
+  PRINT1("\t- WheelType: %s\n", ToString(type));
   PRINT1("\t- timeoffset: %6.3f\n", dt);
   PRINT1("\t- T_imu_wheel:\n");
   Eigen::Matrix3d R = ov_core::quat_2_Rot(extrinsics.head(4)).transpose();

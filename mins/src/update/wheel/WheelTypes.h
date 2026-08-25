@@ -21,15 +21,96 @@
 #ifndef MINS_WHEELTYPES_H
 #define MINS_WHEELTYPES_H
 
+#include <string>
+
 namespace mins {
 
-/// Types of wheel measurements supported
-/// Wheel2DAng: left/right wheel angular velocities. Additionally supports intrinsic (left/right wheel radii & base length) calibration
-/// Wheel2DLin: left/right wheel linear velocities.
-/// Wheel2DCen: angular/linear wheel velocities of the wheel odometry frame.
-/// Wheel3DAng: left/right wheel angular velocities + planar motion constraint. Additionally supports intrinsic calibration
-/// Wheel3DLin: left/right wheel linear velocities + planar motion constraint.
-/// Wheel3DCen: angular/linear wheel velocities of the wheel odometry frame + planar motion constraint.
+/// What the two wheel readings actually measure.
+enum class WheelModality {
+  Angular,  ///< Left and right wheel angular velocities. The only modality supporting intrinsic calibration.
+  Linear,   ///< Left and right wheel linear velocities.
+  Centered, ///< Angular and linear velocity of the wheel odometry frame itself.
+};
+
+/// Wheel measurement model. Each 3D variant adds a planar motion constraint to its 2D counterpart.
+enum class WheelType {
+  Wheel2DAng,
+  Wheel2DLin,
+  Wheel2DCen,
+  Wheel3DAng,
+  Wheel3DLin,
+  Wheel3DCen,
+};
+
+/**
+ * \brief Name of a wheel type, spelled as it appears in the config yaml.
+ * \param[in] type Wheel type to name.
+ * \return Type name, or an empty string for an out-of-range value.
+ */
+inline const char *ToString(WheelType type) {
+  switch (type) {
+  case WheelType::Wheel2DAng:
+    return "Wheel2DAng";
+  case WheelType::Wheel2DLin:
+    return "Wheel2DLin";
+  case WheelType::Wheel2DCen:
+    return "Wheel2DCen";
+  case WheelType::Wheel3DAng:
+    return "Wheel3DAng";
+  case WheelType::Wheel3DLin:
+    return "Wheel3DLin";
+  case WheelType::Wheel3DCen:
+    return "Wheel3DCen";
+  }
+  return "";
+}
+
+/// Every supported wheel type, in declaration order.
+static constexpr WheelType ALL_WHEEL_TYPES[] = {WheelType::Wheel2DAng, WheelType::Wheel2DLin, WheelType::Wheel2DCen,
+                                                WheelType::Wheel3DAng, WheelType::Wheel3DLin, WheelType::Wheel3DCen};
+
+/**
+ * \brief Resolve a config yaml type name to a wheel type.
+ * \param[in] name Type name to resolve.
+ * \param[out] type Resolved type, left untouched when the name is not supported.
+ * \return True when the name names a supported type.
+ */
+inline bool ParseWheelType(const std::string &name, WheelType &type) {
+  for (WheelType candidate : ALL_WHEEL_TYPES) {
+    if (name == ToString(candidate)) {
+      type = candidate;
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * \brief Whether a type carries the planar motion constraint.
+ * \param[in] type Wheel type to test.
+ * \return True for the 3D variants.
+ */
+inline bool IsWheel3D(WheelType type) { return type == WheelType::Wheel3DAng || type == WheelType::Wheel3DLin || type == WheelType::Wheel3DCen; }
+
+/**
+ * \brief What the readings of a given type measure, ignoring its 2D/3D flavor.
+ * \param[in] type Wheel type to inspect.
+ * \return Modality of the type.
+ */
+inline WheelModality ModalityOf(WheelType type) {
+  switch (type) {
+  case WheelType::Wheel2DAng:
+  case WheelType::Wheel3DAng:
+    return WheelModality::Angular;
+  case WheelType::Wheel2DLin:
+  case WheelType::Wheel3DLin:
+    return WheelModality::Linear;
+  case WheelType::Wheel2DCen:
+  case WheelType::Wheel3DCen:
+    return WheelModality::Centered;
+  }
+  return WheelModality::Angular;
+}
 
 struct WheelData {
 

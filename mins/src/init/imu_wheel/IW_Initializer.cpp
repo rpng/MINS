@@ -147,18 +147,19 @@ bool IW_Initializer::get_IMU_Wheel_data(vector<ImuData> &imu_data, vector<pair<d
   for (auto wheel : wheel_raw_data) {
     // compute the angular velocity at the odometry frame
     Vector3d w_OinO, v_OinO;
-    if (op->wheel_type == "Wheel2DAng" || op->wheel_type == "Wheel3DAng") {
+    switch (ModalityOf(op->wheel_type)) {
+    case WheelModality::Angular:
       w_OinO << 0, 0, (wheel.m2 * rr - wheel.m1 * rl) / base_length;
       v_OinO << (wheel.m2 * rr + wheel.m1 * rl) / 2, 0, 0;
-    } else if (op->wheel_type == "Wheel2DLin" || op->wheel_type == "Wheel3DLin") {
+      break;
+    case WheelModality::Linear:
       w_OinO << 0, 0, (wheel.m2 - wheel.m1) / base_length;
       v_OinO << (wheel.m2 + wheel.m1) / 2, 0, 0;
-    } else if (op->wheel_type == "Wheel2DCen" || op->wheel_type == "Wheel3DCen") {
+      break;
+    case WheelModality::Centered:
       w_OinO << 0, 0, wheel.m1;
       v_OinO << wheel.m2, 0, 0;
-    } else {
-      PRINT4("Wrong wheel type selected!");
-      exit(EXIT_FAILURE);
+      break;
     }
 
     // append the velocities
