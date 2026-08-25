@@ -36,6 +36,15 @@ using namespace std;
 using namespace ov_type;
 using namespace ov_core;
 
+/// Angular rate below which the closed-form integration is replaced by its L'Hopital limit.
+static constexpr double SMALL_ANGULAR_RATE = 1e-4;
+
+/// Wheel measurements older than this many seconds are dropped from the stack.
+static constexpr double MEASUREMENT_HISTORY_SECONDS = 100;
+
+/// Maximum number of measurement timestamps kept for frequency bookkeeping.
+static constexpr size_t MAX_TIME_HISTORY = 100;
+
 UpdaterWheel::UpdaterWheel(StatePtr state) : state(state) { Chi = make_shared<UpdaterStatistics>(state->op->wheel->chi2_mult, "WHEEL"); }
 
 void UpdaterWheel::try_update() {
@@ -253,7 +262,7 @@ pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians2D(const Matrix3d &R_GtoI
   Matrix<double, 2, 3> Lambda = Matrix<double, 2, 3>::Zero();
   Lambda.block(0, 0, 2, 2) = Matrix2d::Identity();
 
-  // d log_so3(R * exp(��)) / d�� = Jr(��)^{-1}, corrects for SO(3) curvature.
+  // d log_so3(R * exp(dth)) / d(dth) = Jr(dth)^-1, corrects for SO(3) curvature.
   Matrix3d Jr_phi_inv = Jr_so3(phi).inverse();
   Matrix<double, 1, 3> dzr_dth0 = -e3.transpose() * Jr_phi_inv * R_ItoO;
   Matrix<double, 1, 3> dzr_dth1 = e3.transpose() * Jr_phi_inv * RO1toO0 * R_ItoO;
@@ -408,7 +417,7 @@ void UpdaterWheel::AccumulateIntrinsicJacobians2D(double dt, double w_l, double 
   double h_xv = -(sin(th - w * dt) - sin(th)) / w;
   double h_yv = -(cos(th - w * dt) - cos(th)) / w;
 
-  if (abs(w) < 0.0001) {
+  if (abs(w) < SMALL_ANGULAR_RATE) {
     h_xth = v * sin(th) * dt;
     h_yth = v * cos(th) * dt;
     h_xw = v * sin(th) * dt * dt / 2;
@@ -477,21 +486,21 @@ void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double t
   }
 }
 
-void UpdaterWheel::preintegration_intrinsics_2D(double dt, WheelData data) {
+void UpdaterWheel::preintegration_intrinsics_2D(double dt, const WheelData &data) {
   double rl = state->wheel_intrinsic->value()(0);
   double rr = state->wheel_intrinsic->value()(1);
   double b = state->wheel_intrinsic->value()(2);
   AccumulateIntrinsicJacobians2D(dt, data.m1, data.m2, th_2D, rl, rr, b, dth_di_2D, dx_di_2D, dy_di_2D);
 }
 
-void UpdaterWheel::preintegration_intrinsics_3D(double dt, WheelData data) {
+void UpdaterWheel::preintegration_intrinsics_3D(double dt, const WheelData &data) {
   double rl = state->wheel_intrinsic->value()(0);
   double rr = state->wheel_intrinsic->value()(1);
   double b = state->wheel_intrinsic->value()(2);
   AccumulateIntrinsicJacobians3D(dt, data.m1, data.m2, R_3D, rl, rr, b, dR_di_3D, dp_di_3D);
 }
 
-void UpdaterWheel::preintegration_2D(double dt, WheelData data1, WheelData data2) {
+void UpdaterWheel::preintegration_2D(double dt, const WheelData &data1, const WheelData &data2) {
 
   // load intrinsic values
   double rl = state->wheel_intrinsic->value()(0);
@@ -560,7 +569,7 @@ void UpdaterWheel::preintegration_2D(double dt, WheelData data1, WheelData data2
   double x_next = x_2D + (1.0 / 6.0) * (k1_x + 2 * k2_x + 2 * k3_x + k4_x);
   double y_next = y_2D + (1.0 / 6.0) * (k1_y + 2 * k2_y + 2 * k3_y + k4_y);
 
-  if (abs(w1) < 0.0001) // In case w is too small, apply L'Hopital rule
+  if (abs(w1) < SMALL_ANGULAR_RATE) // In case w is too small, apply L'Hopital rule
     y_next = y_2D - v1 * sin(th_2D - w1 * dt) * dt;
   else // use discrete integration value for y because it is working better for some unknown reason...
     y_next = y_2D - (v1 * (cos(th_2D - w1 * dt) - cos(th_2D))) / w1;
@@ -594,7 +603,7 @@ void UpdaterWheel::preintegration_2D(double dt, WheelData data1, WheelData data2
   double h_yv = -(cos(th_2D - w1 * dt) - cos(th_2D)) / w1;
 
   // In case w is too small, apply L'Hopital rule
-  if (abs(w1) < 0.0001) {
+  if (abs(w1) < SMALL_ANGULAR_RATE) {
     h_xth = v1 * sin(th_2D) * dt;
     h_yth = v1 * cos(th_2D) * dt;
     h_xw = v1 * sin(th_2D) * dt * dt / 2;
@@ -644,7 +653,7 @@ Matrix<double, 6, 6> UpdaterWheel::ComputePhiTr3D(const Matrix3d &R_3D, const Ma
   return Phi_tr;
 }
 
-void UpdaterWheel::preintegration_3D(double dt, WheelData data1, WheelData data2) {
+void UpdaterWheel::preintegration_3D(double dt, const WheelData &data1, const WheelData &data2) {
 
   // load intrinsic values
   double rl = state->wheel_intrinsic->value()(0);
@@ -785,22 +794,26 @@ bool UpdaterWheel::get_bounding_data(double t_given, vector<WheelData> &data_sta
   }
   return false;
 }
-void UpdaterWheel::feed_measurement(WheelData data) {
+void UpdaterWheel::feed_measurement(const WheelData &data) {
+  // read the time before touching the stack, as data may alias one of its elements
+  double time = data.time;
   data_stack.push_back(data);
 
   // erase measurements that are to old
   for (auto it = data_stack.begin(); it != data_stack.end();) {
-    if (data.time - it->time > 100)
+    if (time - it->time > MEASUREMENT_HISTORY_SECONDS)
       it = data_stack.erase(it);
     else
       ++it;
   }
 
-  t_hist.size() > 100 ? t_hist.pop_front() : void(); // remove if we have too many
-  t_hist.push_back(data.time);
+  if (t_hist.size() > MAX_TIME_HISTORY) { // remove if we have too many
+    t_hist.pop_front();
+  }
+  t_hist.push_back(time);
 }
 
-WheelData UpdaterWheel::interpolate_data(const WheelData data1, const WheelData data2, double timestamp) {
+WheelData UpdaterWheel::interpolate_data(const WheelData &data1, const WheelData &data2, double timestamp) {
   // time-distance lambda
   double lambda = (timestamp - data1.time) / (data2.time - data1.time);
   // interpolate between the two times
