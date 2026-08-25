@@ -1,7 +1,7 @@
 // Numerically verifies UpdaterWheel's 3D analytical Jacobians using central finite differences.
 #include <gtest/gtest.h>
 #include <Eigen/Core>
-#include "update/wheel/UpdaterWheel.h"
+#include "update/wheel/WheelJacobians.h"
 #include "utils/quat_ops.h"
 
 using namespace mins;
@@ -25,7 +25,7 @@ TEST(WheelJacobian3D, AnalyticalMatchesNumerical) {
     Matrix3d R_3D = R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose();
     Vector3d p_3D = R_ItoO * R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG - R_GtoI0.transpose() * pOinI);
 
-    const auto [H_poses, H_ext] = UpdaterWheel::ComputeJacobians3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO);
+    const auto [H_poses, H_ext] = wheel::ComputeJacobians3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO);
 
     // --- H_poses: perturb pose0 (cols 0-5) and pose1 (cols 6-11) ---
     MatrixXd H_poses_numerical = MatrixXd::Zero(6, 12);
@@ -42,8 +42,8 @@ TEST(WheelJacobian3D, AnalyticalMatchesNumerical) {
             p0_plus(i - 3) += epsilon;
             p0_minus(i - 3) -= epsilon;
         }
-        Eigen::Matrix<double, 6, 1> res_plus = UpdaterWheel::ComputeResidual3D(R0_plus, p0_plus, R_GtoI1, p_I1inG, R_ItoO, p_IinO, R_3D, p_3D);
-        Eigen::Matrix<double, 6, 1> res_minus = UpdaterWheel::ComputeResidual3D(R0_minus, p0_minus, R_GtoI1, p_I1inG, R_ItoO, p_IinO, R_3D, p_3D);
+        Eigen::Matrix<double, 6, 1> res_plus = wheel::ComputeResidual3D(R0_plus, p0_plus, R_GtoI1, p_I1inG, R_ItoO, p_IinO, R_3D, p_3D);
+        Eigen::Matrix<double, 6, 1> res_minus = wheel::ComputeResidual3D(R0_minus, p0_minus, R_GtoI1, p_I1inG, R_ItoO, p_IinO, R_3D, p_3D);
         double sign = (i < 3) ? 1.0 : -1.0;
         H_poses_numerical.col(i) = sign * (res_plus - res_minus) / (2.0 * epsilon);
 
@@ -59,8 +59,8 @@ TEST(WheelJacobian3D, AnalyticalMatchesNumerical) {
             p1_plus(i - 3) += epsilon;
             p1_minus(i - 3) -= epsilon;
         }
-        res_plus = UpdaterWheel::ComputeResidual3D(R_GtoI0, p_I0inG, R1_plus, p1_plus, R_ItoO, p_IinO, R_3D, p_3D);
-        res_minus = UpdaterWheel::ComputeResidual3D(R_GtoI0, p_I0inG, R1_minus, p1_minus, R_ItoO, p_IinO, R_3D, p_3D);
+        res_plus = wheel::ComputeResidual3D(R_GtoI0, p_I0inG, R1_plus, p1_plus, R_ItoO, p_IinO, R_3D, p_3D);
+        res_minus = wheel::ComputeResidual3D(R_GtoI0, p_I0inG, R1_minus, p1_minus, R_ItoO, p_IinO, R_3D, p_3D);
         H_poses_numerical.col(6 + i) = sign * (res_plus - res_minus) / (2.0 * epsilon);
     }
 
@@ -89,8 +89,8 @@ TEST(WheelJacobian3D, AnalyticalMatchesNumerical) {
             p_plus(i - 3) += epsilon;
             p_minus(i - 3) -= epsilon;
         }
-        Eigen::Matrix<double, 6, 1> res_plus = UpdaterWheel::ComputeResidual3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_plus, p_plus, R_3D, p_3D);
-        Eigen::Matrix<double, 6, 1> res_minus = UpdaterWheel::ComputeResidual3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_minus, p_minus, R_3D, p_3D);
+        Eigen::Matrix<double, 6, 1> res_plus = wheel::ComputeResidual3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_plus, p_plus, R_3D, p_3D);
+        Eigen::Matrix<double, 6, 1> res_minus = wheel::ComputeResidual3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_minus, p_minus, R_3D, p_3D);
         double sign = (i < 3) ? 1.0 : -1.0;
         H_ext_numerical.col(i) = sign * (res_plus - res_minus) / (2.0 * epsilon);
     }

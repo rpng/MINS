@@ -6,7 +6,7 @@
 // Covers turning, straight (L'Hopital branch), and varying-speed motion.
 #include <Eigen/Core>
 #include <gtest/gtest.h>
-#include "update/wheel/UpdaterWheel.h"
+#include "update/wheel/WheelJacobians.h"
 #include "utils/quat_ops.h"
 
 using namespace mins;
@@ -48,7 +48,7 @@ static void integrate2D(const double *wl, const double *wr, int N, double dt,
     dx_di.setZero();
     dy_di.setZero();
     for (int i = 0; i < N; i++) {
-        UpdaterWheel::AccumulateIntrinsicJacobians2D(dt, wl[i], wr[i], th, rl, rr, b, dth_di, dx_di, dy_di);
+        wheel::AccumulateIntrinsicJacobians2D(dt, wl[i], wr[i], th, rl, rr, b, dth_di, dx_di, dy_di);
         step2D(dt, wl[i], wr[i], rl, rr, b, th, x, y);
     }
 }
@@ -62,7 +62,7 @@ static void integrate3D(const double *wl, const double *wr, int N, double dt,
     dR_di = Matrix3d::Zero();
     dp_di = Matrix3d::Zero();
     for (int i = 0; i < N; i++) {
-        UpdaterWheel::AccumulateIntrinsicJacobians3D(dt, wl[i], wr[i], R_3D, rl, rr, b, dR_di, dp_di);
+        wheel::AccumulateIntrinsicJacobians3D(dt, wl[i], wr[i], R_3D, rl, rr, b, dR_di, dp_di);
         step3D(dt, wl[i], wr[i], rl, rr, b, R_3D, p_3D);
     }
 }
@@ -108,8 +108,8 @@ static void run2DResidualTest(const double *wl, const double *wr, int N, const c
         integrate2D(wl, wr, N, dt, rl_p, rr_p, b_p, th_p, x_p, y_p, dum1, dum2, dum3);
         integrate2D(wl, wr, N, dt, rl_m, rr_m, b_m, th_m, x_m, y_m, dum1, dum2, dum3);
 
-        Vector3d res_p = UpdaterWheel::ComputeResidual2D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO, th_p, x_p, y_p);
-        Vector3d res_m = UpdaterWheel::ComputeResidual2D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO, th_m, x_m, y_m);
+        Vector3d res_p = wheel::ComputeResidual2D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO, th_p, x_p, y_p);
+        Vector3d res_m = wheel::ComputeResidual2D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO, th_m, x_m, y_m);
 
         Vector3d fd_col = -(res_p - res_m) / (2.0 * eps);
 
@@ -164,8 +164,8 @@ static void run3DResidualTest(const double *wl, const double *wr, int N, const c
         integrate3D(wl, wr, N, dt, rl_p, rr_p, b_p, R_p, p_p, dR_dum, dp_dum);
         integrate3D(wl, wr, N, dt, rl_m, rr_m, b_m, R_m, p_m, dR_dum, dp_dum);
 
-        Eigen::Matrix<double, 6, 1> res_p_vec = UpdaterWheel::ComputeResidual3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO, R_p, p_p);
-        Eigen::Matrix<double, 6, 1> res_m_vec = UpdaterWheel::ComputeResidual3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO, R_m, p_m);
+        Eigen::Matrix<double, 6, 1> res_p_vec = wheel::ComputeResidual3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO, R_p, p_p);
+        Eigen::Matrix<double, 6, 1> res_m_vec = wheel::ComputeResidual3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO, R_m, p_m);
 
         Eigen::Matrix<double, 6, 1> fd_col = -(res_p_vec - res_m_vec) / (2.0 * eps);
 
@@ -216,7 +216,7 @@ TEST(WheelCovPropagation3D, PhiTrMatchesFD) {
     Vector3d new_p = p_3D + R_3D.transpose() * v * dt;
     Matrix3d R_new = ov_core::exp_so3(Vector3d(0, 0, -0.05)) * R_3D;
 
-    Eigen::Matrix<double, 6, 6> Phi = UpdaterWheel::ComputePhiTr3D(R_3D, R_new, p_3D, new_p);
+    Eigen::Matrix<double, 6, 6> Phi = wheel::ComputePhiTr3D(R_3D, R_new, p_3D, new_p);
 
     // block(3,0): d(new_p)/d(delta_phi) — perturb R_3D via JPL: R_true = exp(-eps*ej)*R_3D
     for (int j = 0; j < 3; j++) {

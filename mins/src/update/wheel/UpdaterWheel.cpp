@@ -19,6 +19,7 @@
  */
 
 #include "UpdaterWheel.h"
+#include "WheelJacobians.h"
 #include "WheelTypes.h"
 #include "options/OptionsEstimator.h"
 #include "options/OptionsWheel.h"
@@ -31,13 +32,11 @@
 #include "utils/colors.h"
 
 using namespace mins;
+using namespace mins::wheel;
 using namespace Eigen;
 using namespace std;
 using namespace ov_type;
 using namespace ov_core;
-
-/// Angular rate below which the closed-form integration is replaced by its L'Hopital limit.
-static constexpr double SMALL_ANGULAR_RATE = 1e-4;
 
 /// Wheel measurements older than this many seconds are dropped from the stack.
 static constexpr double MEASUREMENT_HISTORY_SECONDS = 100;
@@ -234,63 +233,6 @@ bool UpdaterWheel::select_wheel_data(double time0, double time1, vector<WheelDat
  * Given a measurement, this will compute the linear system of the new measurements in respect to the state
  * This will return a "small" H, res, and R which are only of a single measurement and sub-set of the state
  */
-Eigen::Vector3d UpdaterWheel::ComputeResidual2D(const Matrix3d &R_GtoI0, const Vector3d &p_I0inG,
-                                                 const Matrix3d &R_GtoI1, const Vector3d &p_I1inG,
-                                                 const Matrix3d &R_ItoO, const Vector3d &p_IinO,
-                                                 double th, double x, double y) {
-  Vector3d pOinI = -R_ItoO.transpose() * p_IinO;
-  Vector3d e3(0, 0, 1);
-  Matrix<double, 2, 3> Lambda = Matrix<double, 2, 3>::Zero();
-  Lambda.block(0, 0, 2, 2) = Matrix2d::Identity();
-
-  Vector3d res = Vector3d::Zero();
-  double theta_est = e3.transpose() * log_so3(R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose());
-  res(0) = theta_est - th;
-  Vector2d d_est = Lambda * R_ItoO * R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG - R_GtoI0.transpose() * pOinI);
-  res.block(1, 0, 2, 1) = Vector2d(x, y) - d_est;
-  return res;
-}
-
-pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians2D(const Matrix3d &R_GtoI0, const Vector3d &p_I0inG,
-                                                            const Matrix3d &R_GtoI1, const Vector3d &p_I1inG,
-                                                            const Matrix3d &R_ItoO, const Vector3d &p_IinO) {
-  Vector3d pOinI = -R_ItoO.transpose() * p_IinO;
-  Matrix3d RO0toO1 = R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose();
-  Matrix3d RO1toO0 = RO0toO1.transpose();
-  Vector3d phi = log_so3(RO0toO1);
-  Vector3d e3(0, 0, 1);
-  Matrix<double, 2, 3> Lambda = Matrix<double, 2, 3>::Zero();
-  Lambda.block(0, 0, 2, 2) = Matrix2d::Identity();
-
-  // d log_so3(R * exp(dth)) / d(dth) = Jr(dth)^-1, corrects for SO(3) curvature.
-  Matrix3d Jr_phi_inv = Jr_so3(phi).inverse();
-  Matrix<double, 1, 3> dzr_dth0 = -e3.transpose() * Jr_phi_inv * R_ItoO;
-  Matrix<double, 1, 3> dzr_dth1 = e3.transpose() * Jr_phi_inv * RO1toO0 * R_ItoO;
-  Matrix<double, 2, 3> dzp_dth0 = Lambda * R_ItoO * skew_x(R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG));
-  Matrix<double, 2, 3> dzp_dp0 = -Lambda * R_ItoO * R_GtoI0;
-  Matrix<double, 2, 3> dzp_dth1 = -Lambda * R_ItoO * R_GtoI0 * R_GtoI1.transpose() * skew_x(pOinI);
-  Matrix<double, 2, 3> dzp_dp1 = Lambda * R_ItoO * R_GtoI0;
-
-  MatrixXd H_poses = MatrixXd::Zero(3, 12);
-  H_poses.block(0, 0, 1, 3) = dzr_dth0;
-  H_poses.block(0, 6, 1, 3) = dzr_dth1;
-  H_poses.block(1, 0, 2, 3) = dzp_dth0;
-  H_poses.block(1, 3, 2, 3) = dzp_dp0;
-  H_poses.block(1, 6, 2, 3) = dzp_dth1;
-  H_poses.block(1, 9, 2, 3) = dzp_dp1;
-
-  Matrix<double, 1, 3> dzr_dthcalib = e3.transpose() * Jr_phi_inv * (RO1toO0 - Matrix3d::Identity());
-  Matrix<double, 2, 3> dzp_dthcalib = Lambda * (skew_x(R_ItoO * R_GtoI0 * (p_I1inG - p_I0inG) - RO1toO0 * p_IinO) + RO1toO0 * skew_x(p_IinO));
-  Matrix<double, 2, 3> dzp_dpcalib = Lambda * (-RO1toO0 + Matrix3d::Identity());
-
-  MatrixXd H_ext = MatrixXd::Zero(3, 6);
-  H_ext.block(0, 0, 1, 3) = dzr_dthcalib;
-  H_ext.block(1, 0, 2, 3) = dzp_dthcalib;
-  H_ext.block(1, 3, 2, 3) = dzp_dpcalib;
-
-  return {H_poses, H_ext};
-}
-
 void UpdaterWheel::compute_linear_system_2D(MatrixXd &H, VectorXd &res, double time0, double time1) {
   shared_ptr<PoseJPL> pose0 = state->clones.at(time0);
   shared_ptr<PoseJPL> pose1 = state->clones.at(time1);
@@ -319,8 +261,7 @@ void UpdaterWheel::compute_linear_system_2D(MatrixXd &H, VectorXd &res, double t
   if (state->op->wheel->do_calib_dt) {
     assert(state->cpis.find(time0) != state->cpis.end());
     assert(state->cpis.find(time1) != state->cpis.end());
-    H.col(H_count) = ComputeTimeOffsetJacobian2D(H_poses, state->cpis.at(time0).w, state->cpis.at(time0).v,
-                                                  state->cpis.at(time1).w, state->cpis.at(time1).v);
+    H.col(H_count) = ComputeTimeOffsetJacobian(H_poses, state->cpis.at(time0).w, state->cpis.at(time0).v, state->cpis.at(time1).w, state->cpis.at(time1).v);
     H_count += 1;
   }
 
@@ -329,128 +270,6 @@ void UpdaterWheel::compute_linear_system_2D(MatrixXd &H, VectorXd &res, double t
     H.block(1, H_count, 1, 3) = -dx_di_2D;
     H.block(2, H_count, 1, 3) = -dy_di_2D;
   }
-}
-
-Matrix<double, 6, 1> UpdaterWheel::ComputeResidual3D(const Matrix3d &R_GtoI0, const Vector3d &p_I0inG,
-                                                       const Matrix3d &R_GtoI1, const Vector3d &p_I1inG,
-                                                       const Matrix3d &R_ItoO, const Vector3d &p_IinO,
-                                                       const Matrix3d &R_3D, const Vector3d &p_3D) {
-  Vector3d pOinI = -R_ItoO.transpose() * p_IinO;
-  Matrix3d RO0toO1 = R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose();
-  Matrix<double, 6, 1> res = Matrix<double, 6, 1>::Zero();
-  res.head(3) = -log_so3(R_3D * RO0toO1.transpose());
-  res.tail(3) = p_3D - R_ItoO * R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG - R_GtoI0.transpose() * pOinI);
-  return res;
-}
-
-pair<MatrixXd, MatrixXd> UpdaterWheel::ComputeJacobians3D(const Matrix3d &R_GtoI0, const Vector3d &p_I0inG,
-                                                            const Matrix3d &R_GtoI1, const Vector3d &p_I1inG,
-                                                            const Matrix3d &R_ItoO, const Vector3d &p_IinO) {
-  Vector3d pOinI = -R_ItoO.transpose() * p_IinO;
-  Matrix3d RO0toO1 = R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose();
-  Matrix3d RO1toO0 = RO0toO1.transpose();
-
-  Matrix3d dzr_dth0 = -R_ItoO * R_GtoI1 * R_GtoI0.transpose();
-  Matrix3d dzr_dth1 = R_ItoO;
-  Matrix3d dzp_dth0 = R_ItoO * skew_x(R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG));
-  Matrix3d dzp_dp0 = -R_ItoO * R_GtoI0;
-  Matrix3d dzp_dth1 = -R_ItoO * R_GtoI0 * R_GtoI1.transpose() * skew_x(pOinI);
-  Matrix3d dzp_dp1 = R_ItoO * R_GtoI0;
-
-  MatrixXd H_poses = MatrixXd::Zero(6, 12);
-  H_poses.block(0, 0, 3, 3) = dzr_dth0;
-  H_poses.block(0, 6, 3, 3) = dzr_dth1;
-  H_poses.block(3, 0, 3, 3) = dzp_dth0;
-  H_poses.block(3, 3, 3, 3) = dzp_dp0;
-  H_poses.block(3, 6, 3, 3) = dzp_dth1;
-  H_poses.block(3, 9, 3, 3) = dzp_dp1;
-
-  Matrix3d dzr_dthcalib = Matrix3d::Identity() - RO0toO1;
-  Matrix3d dzp_dthcalib = skew_x(R_ItoO * R_GtoI0 * (p_I1inG - p_I0inG) - RO1toO0 * p_IinO) + RO1toO0 * skew_x(p_IinO);
-  Matrix3d dzp_dpcalib = -RO1toO0 + Matrix3d::Identity();
-
-  MatrixXd H_ext = MatrixXd::Zero(6, 6);
-  H_ext.block(0, 0, 3, 3) = dzr_dthcalib;
-  H_ext.block(3, 0, 3, 3) = dzp_dthcalib;
-  H_ext.block(3, 3, 3, 3) = dzp_dpcalib;
-
-  return {H_poses, H_ext};
-}
-
-Vector3d UpdaterWheel::ComputeTimeOffsetJacobian2D(const MatrixXd &H_poses,
-                                                    const Vector3d &w0, const Vector3d &v0,
-                                                    const Vector3d &w1, const Vector3d &v1) {
-  Matrix<double, 12, 1> vel;
-  vel << w0, v0, w1, v1;
-  return H_poses * vel;
-}
-
-Matrix<double, 6, 1> UpdaterWheel::ComputeTimeOffsetJacobian3D(const MatrixXd &H_poses,
-                                                                 const Vector3d &w0, const Vector3d &v0,
-                                                                 const Vector3d &w1, const Vector3d &v1) {
-  Matrix<double, 12, 1> vel;
-  vel << w0, v0, w1, v1;
-  return H_poses * vel;
-}
-
-void UpdaterWheel::AccumulateIntrinsicJacobians2D(double dt, double w_l, double w_r, double th,
-                                                   double rl, double rr, double b,
-                                                   Matrix<double, 1, 3> &dth_di,
-                                                   Matrix<double, 1, 3> &dx_di,
-                                                   Matrix<double, 1, 3> &dy_di) {
-  double w = (w_r * rr - w_l * rl) / b;
-  double v = (w_r * rr + w_l * rl) / 2;
-
-  Matrix<double, 1, 3> Hwx = Matrix<double, 1, 3>::Zero();
-  Hwx(0, 0) = -w_l / b;
-  Hwx(0, 1) = w_r / b;
-  Hwx(0, 2) = -(w_r * rr - w_l * rl) / (b * b);
-  Matrix<double, 1, 3> Hvx = Matrix<double, 1, 3>::Zero();
-  Hvx(0, 0) = w_l / 2;
-  Hvx(0, 1) = w_r / 2;
-
-  double h_thw = dt;
-  double h_xth = (v * (cos(th - w * dt) - cos(th))) / w;
-  double h_yth = -(v * (sin(th - w * dt) - sin(th))) / w;
-  double h_xw = (v * (sin(th - w * dt) - sin(th))) / w / w + (v * cos(th - w * dt) * dt) / w;
-  double h_yw = (v * (cos(th - w * dt) - cos(th))) / w / w - (v * sin(th - w * dt) * dt) / w;
-  double h_xv = -(sin(th - w * dt) - sin(th)) / w;
-  double h_yv = -(cos(th - w * dt) - cos(th)) / w;
-
-  if (abs(w) < SMALL_ANGULAR_RATE) {
-    h_xth = v * sin(th) * dt;
-    h_yth = v * cos(th) * dt;
-    h_xw = v * sin(th) * dt * dt / 2;
-    h_yw = v * cos(th) * dt * dt / 2;
-    h_xv = cos(th) * dt;
-    h_yv = -sin(th) * dt;
-  }
-
-  dx_di = dx_di + h_xth * dth_di + h_xw * Hwx + h_xv * Hvx;
-  dy_di = dy_di + h_yth * dth_di + h_yw * Hwx + h_yv * Hvx;
-  dth_di = dth_di + h_thw * Hwx;
-}
-
-void UpdaterWheel::AccumulateIntrinsicJacobians3D(double dt, double w_l, double w_r,
-                                                   const Matrix3d &R_3D,
-                                                   double rl, double rr, double b,
-                                                   Matrix3d &dR_di, Matrix3d &dp_di) {
-  Vector3d w(0, 0, (w_r * rr - w_l * rl) / b);
-  Vector3d v((w_r * rr + w_l * rl) / 2, 0, 0);
-
-  Matrix3d Hwx = Matrix3d::Zero();
-  Hwx(2, 0) = -w_l / b;
-  Hwx(2, 1) = w_r / b;
-  Hwx(2, 2) = -(w_r * rr - w_l * rl) / (b * b);
-  Matrix3d Hvx = Matrix3d::Zero();
-  Hvx(0, 0) = w_l / 2;
-  Hvx(0, 1) = w_r / 2;
-
-  Matrix3d R_step = exp_so3(-w * dt);
-  Matrix3d Hth = Jl_so3(-w * dt) * dt;
-
-  dp_di = dp_di - R_3D.transpose() * skew_x(v * dt) * dR_di + R_3D.transpose() * Hvx * dt;
-  dR_di = R_step * dR_di + Hth * Hwx;
 }
 
 void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double time0, double time1) {
@@ -476,8 +295,7 @@ void UpdaterWheel::compute_linear_system_3D(MatrixXd &H, VectorXd &res, double t
   if (state->op->wheel->do_calib_dt) {
     assert(state->cpis.find(time0) != state->cpis.end());
     assert(state->cpis.find(time1) != state->cpis.end());
-    H.col(H_count) = ComputeTimeOffsetJacobian3D(H_poses, state->cpis.at(time0).w, state->cpis.at(time0).v,
-                                                  state->cpis.at(time1).w, state->cpis.at(time1).v);
+    H.col(H_count) = ComputeTimeOffsetJacobian(H_poses, state->cpis.at(time0).w, state->cpis.at(time0).v, state->cpis.at(time1).w, state->cpis.at(time1).v);
     H_count += 1;
   }
   if (state->op->wheel->do_calib_int) {
@@ -653,15 +471,6 @@ void UpdaterWheel::preintegration_2D(double dt, const WheelData &data1, const Wh
   y_2D = y_next;
 }
 
-Matrix<double, 6, 6> UpdaterWheel::ComputePhiTr3D(const Matrix3d &R_3D, const Matrix3d &R_new,
-                                                    const Vector3d &p_3D, const Vector3d &new_p) {
-  Matrix<double, 6, 6> Phi_tr = Matrix<double, 6, 6>::Zero();
-  Phi_tr.block(0, 0, 3, 3) = R_new * R_3D.transpose();
-  Phi_tr.block(3, 0, 3, 3) = -R_3D.transpose() * skew_x(R_3D * (new_p - p_3D));
-  Phi_tr.block(3, 3, 3, 3) = Matrix3d::Identity();
-  return Phi_tr;
-}
-
 void UpdaterWheel::preintegration_3D(double dt, const WheelData &data1, const WheelData &data2) {
 
   // load intrinsic values
@@ -834,4 +643,3 @@ WheelData UpdaterWheel::interpolate_data(const WheelData &data1, const WheelData
   data.m2 = (1 - lambda) * data1.m2 + lambda * data2.m2;
   return data;
 }
-

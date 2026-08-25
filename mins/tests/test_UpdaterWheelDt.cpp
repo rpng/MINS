@@ -1,9 +1,9 @@
-// Numerically verifies the time-offset Jacobian (ComputeTimeOffsetJacobian2D/3D) via
+// Numerically verifies the time-offset Jacobian (ComputeTimeOffsetJacobian) via
 // a combined central finite difference: both clone poses are shifted simultaneously
 // by (exp_so3(w*eps)*R, p - v*eps), which models increasing dt by eps (backward shift).
 #include <gtest/gtest.h>
 #include <Eigen/Core>
-#include "update/wheel/UpdaterWheel.h"
+#include "update/wheel/WheelJacobians.h"
 #include "utils/quat_ops.h"
 
 using namespace mins;
@@ -36,8 +36,8 @@ TEST(WheelTimeOffset2D, AnalyticalMatchesNumerical) {
     Eigen::Vector2d d_est = Lambda * R_ItoO * R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG - R_GtoI0.transpose() * pOinI);
     double x = d_est(0), y = d_est(1);
 
-    const auto [H_poses, H_ext] = UpdaterWheel::ComputeJacobians2D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO);
-    Vector3d H_dt = UpdaterWheel::ComputeTimeOffsetJacobian2D(H_poses, w0, v0, w1, v1);
+    const auto [H_poses, H_ext] = wheel::ComputeJacobians2D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO);
+    Vector3d H_dt = wheel::ComputeTimeOffsetJacobian(H_poses, w0, v0, w1, v1);
 
     // Combined FD: shift both poses backward in time by eps (models dt += eps).
     // R(t-eps) ~ exp_so3(w*eps)*R,  p(t-eps) ~ p - v*eps.
@@ -51,8 +51,8 @@ TEST(WheelTimeOffset2D, AnalyticalMatchesNumerical) {
     Matrix3d R1m = ov_core::exp_so3(-w1 * eps) * R_GtoI1;
     Vector3d p1m = p_I1inG + v1 * eps;
 
-    Vector3d res_plus = UpdaterWheel::ComputeResidual2D(R0p, p0p, R1p, p1p, R_ItoO, p_IinO, th, x, y);
-    Vector3d res_minus = UpdaterWheel::ComputeResidual2D(R0m, p0m, R1m, p1m, R_ItoO, p_IinO, th, x, y);
+    Vector3d res_plus = wheel::ComputeResidual2D(R0p, p0p, R1p, p1p, R_ItoO, p_IinO, th, x, y);
+    Vector3d res_minus = wheel::ComputeResidual2D(R0m, p0m, R1m, p1m, R_ItoO, p_IinO, th, x, y);
     Vector3d H_dt_numerical = (res_plus - res_minus) / (2.0 * eps);
 
     for (int i = 0; i < 3; i++) {
@@ -84,8 +84,8 @@ TEST(WheelTimeOffset3D, AnalyticalMatchesNumerical) {
     Matrix3d R_3D = R_ItoO * R_GtoI1 * R_GtoI0.transpose() * R_ItoO.transpose();
     Vector3d p_3D = R_ItoO * R_GtoI0 * (p_I1inG + R_GtoI1.transpose() * pOinI - p_I0inG - R_GtoI0.transpose() * pOinI);
 
-    const auto [H_poses, H_ext] = UpdaterWheel::ComputeJacobians3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO);
-    Eigen::Matrix<double, 6, 1> H_dt = UpdaterWheel::ComputeTimeOffsetJacobian3D(H_poses, w0, v0, w1, v1);
+    const auto [H_poses, H_ext] = wheel::ComputeJacobians3D(R_GtoI0, p_I0inG, R_GtoI1, p_I1inG, R_ItoO, p_IinO);
+    Eigen::Matrix<double, 6, 1> H_dt = wheel::ComputeTimeOffsetJacobian(H_poses, w0, v0, w1, v1);
 
     Matrix3d R0p = ov_core::exp_so3(w0 * eps) * R_GtoI0;
     Vector3d p0p = p_I0inG - v0 * eps;
@@ -97,8 +97,8 @@ TEST(WheelTimeOffset3D, AnalyticalMatchesNumerical) {
     Matrix3d R1m = ov_core::exp_so3(-w1 * eps) * R_GtoI1;
     Vector3d p1m = p_I1inG + v1 * eps;
 
-    Eigen::Matrix<double, 6, 1> res_plus = UpdaterWheel::ComputeResidual3D(R0p, p0p, R1p, p1p, R_ItoO, p_IinO, R_3D, p_3D);
-    Eigen::Matrix<double, 6, 1> res_minus = UpdaterWheel::ComputeResidual3D(R0m, p0m, R1m, p1m, R_ItoO, p_IinO, R_3D, p_3D);
+    Eigen::Matrix<double, 6, 1> res_plus = wheel::ComputeResidual3D(R0p, p0p, R1p, p1p, R_ItoO, p_IinO, R_3D, p_3D);
+    Eigen::Matrix<double, 6, 1> res_minus = wheel::ComputeResidual3D(R0m, p0m, R1m, p1m, R_ItoO, p_IinO, R_3D, p_3D);
     Eigen::Matrix<double, 6, 1> H_dt_numerical = (res_plus - res_minus) / (2.0 * eps);
 
     for (int i = 0; i < 6; i++) {

@@ -52,6 +52,7 @@ list(APPEND LIBRARY_SOURCES
         src/update/vicon/UpdaterVicon.cpp
         src/update/gps/UpdaterGPS.cpp
         src/update/wheel/UpdaterWheel.cpp
+        src/update/wheel/WheelJacobians.cpp
         src/update/lidar/ikd_Tree.cpp
         src/update/lidar/UpdaterLidar.cpp
         src/update/lidar/LidarHelper.cpp
