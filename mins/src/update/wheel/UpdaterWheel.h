@@ -38,7 +38,7 @@ public:
   UpdaterWheel(std::shared_ptr<State> state);
 
   /// Get wheel measurement
-  void feed_measurement(WheelData data);
+  void feed_measurement(const WheelData &data);
 
   /// Try update with available measurements
   void try_update();
@@ -199,7 +199,7 @@ public:
                                               Eigen::Matrix3d &dp_di);
 
   /**
-   * rief Computes the 6x6 covariance transition matrix for 3D wheel preintegration.
+   * \brief Computes the 6x6 covariance transition matrix for 3D wheel preintegration.
    *
    * Propagates the preintegrated covariance from one step to the next after
    * one wheel measurement. State layout: [delta_R (3), delta_p (3)].
@@ -208,7 +208,7 @@ public:
    * \param[in] R_new New preintegrated rotation.
    * \param[in] p_3D Previous preintegrated position.
    * \param[in] new_p New preintegrated position.
-   * eturn 6x6 transition matrix Phi_tr.
+   * \return 6x6 transition matrix Phi_tr.
    */
   static Eigen::Matrix<double, 6, 6> ComputePhiTr3D(const Eigen::Matrix3d &R_3D, const Eigen::Matrix3d &R_new,
                                                       const Eigen::Vector3d &p_3D, const Eigen::Vector3d &new_p);
@@ -235,15 +235,15 @@ private:
    * @param data2 wheel at end of interpolation interval
    * @param timestamp Timestamp being interpolated to
    */
-  static WheelData interpolate_data(const WheelData data1, const WheelData data2, double timestamp);
+  static WheelData interpolate_data(const WheelData &data1, const WheelData &data2, double timestamp);
 
   /**
    * @brief Compute 2D or 3D Jacobians of intrinsic parameters during preintegration
    * @param dt time interval between the preintegration steps
    * @param WheelData wheel measurement of the current step
    */
-  void preintegration_intrinsics_2D(double dt, WheelData data);
-  void preintegration_intrinsics_3D(double dt, WheelData data);
+  void preintegration_intrinsics_2D(double dt, const WheelData &data);
+  void preintegration_intrinsics_3D(double dt, const WheelData &data);
 
   /**
    * @brief Compute 2D or 3D linearized system vectors and matrices
@@ -261,8 +261,8 @@ private:
    * @param data1 wheel measurement of the start time
    * @param data2 wheel measurement of the end time
    */
-  void preintegration_2D(double dt, WheelData data1, WheelData data2);
-  void preintegration_3D(double dt, WheelData data1, WheelData data2);
+  void preintegration_2D(double dt, const WheelData &data1, const WheelData &data2);
+  void preintegration_3D(double dt, const WheelData &data1, const WheelData &data2);
 
   /**
    * @brief Collects a set of wheel measurements between time0 and time1
