@@ -65,3 +65,66 @@ jobs:
                 issue_number: context.issue.number, body,
               });
             }
+      - name: Measure coverage
+        # Separate build: -O3 inlines away the lines we want to count, so this one is -O0
+        # with --coverage. It reuses the image from the test step rather than a second job,
+        # which would mean rebuilding the whole docker image.
+        run: |
+          mkdir -p /tmp/mins_coverage
+          docker run --rm -v /tmp/mins_coverage:/results --entrypoint /bin/bash mins:noetic -c '
+            set -eo pipefail
+            apt-get update -q && apt-get install -qy --no-install-recommends libgtest-dev python3-pip
+            pip3 install -q "gcovr==7.2"
+            source /opt/ros/noetic/setup.bash
+            cd /catkin_ws
+            catkin config --cmake-args -DBUILD_TESTS=ON -DENABLE_COVERAGE=ON
+            catkin build mins
+            cd /catkin_ws/build/mins
+            ctest || true
+            # Run from the source root with the build tree as the search path: gcovr filters
+            # relative to --root, so from inside the build tree every source looks external
+            # and the report comes back empty.
+            cd /catkin_ws/src/MINS
+            gcovr --root . \
+                  --filter mins/src/ \
+                  --exclude ".*thirdparty.*" \
+                  --gcov-ignore-parse-errors \
+                  --json-summary-pretty -o /results/coverage.json \
+                  --html-details /results/coverage.html \
+                  --print-summary \
+                  /catkin_ws/build/mins
+          '
+          python3 .github/scripts/gen_coverage_summary.py /tmp/mins_coverage/coverage.json coverage_report.md || true
+      - name: Upload coverage HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: /tmp/mins_coverage/*.html
+          if-no-files-found: warn
+      - name: Post coverage report to PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- mins-coverage-report -->';
+            const body = fs.existsSync('coverage_report.md')
+              ? fs.readFileSync('coverage_report.md', 'utf8')
+              : marker + '\n## Coverage\n\n*Report not generated - check the CI log.*';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body,
+              });
+            }
