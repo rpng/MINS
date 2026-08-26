@@ -59,6 +59,32 @@ public:
   /// Try update with available measurements
   void try_update();
 
+  /**
+   * @brief Collects a set of wheel measurements between time0 and time1
+   * @param data_vec output as a set of wheel measurements
+   * @param time0 start timestamp of the update
+   * @param state end timestamp of the update
+   */
+  bool select_wheel_data(double time0, double time1, std::vector<WheelData> &data_vec);
+
+  /**
+   * @brief Drops wheel measurements older than the given time
+   * @param oldest_time timestamp to keep measurements from
+   * @return number of measurements dropped
+   */
+  int cleanup_measurements(double oldest_time);
+
+  /// Number of wheel measurements currently in the stack
+  size_t num_measurements() const;
+
+  /**
+   * @brief Timestamps of the wheel stack usable for interpolation, which excludes the first and last measurement
+   * @param min_time output as the oldest usable timestamp
+   * @param max_time output as the newest usable timestamp
+   * @return false if the stack holds fewer than 3 measurements
+   */
+  bool measurement_time_span(double &min_time, double &max_time) const;
+
   /// chi-2 checker
   std::shared_ptr<UpdaterStatistics> Chi;
 
@@ -244,8 +270,6 @@ public:
                                                       const Eigen::Vector3d &p_3D, const Eigen::Vector3d &new_p);
 
 private:
-  friend class Initializer;
-  friend class IW_Initializer;
   /**
    * @brief Checks if we have enough clones and handover two last clone times to update
    * @param state current state info
@@ -293,14 +317,6 @@ private:
    */
   void preintegration_2D(double dt, const WheelData &data1, const WheelData &data2);
   void preintegration_3D(double dt, const WheelData &data1, const WheelData &data2);
-
-  /**
-   * @brief Collects a set of wheel measurements between time0 and time1
-   * @param data_vec output as a set of wheel measurements
-   * @param time0 start timestamp of the update
-   * @param state end timestamp of the update
-   */
-  bool select_wheel_data(double time0, double time1, std::vector<WheelData> &data_vec);
 
   /// Our history of wheel messages (time, ang_left, ang_right)
   std::vector<WheelData> data_stack;

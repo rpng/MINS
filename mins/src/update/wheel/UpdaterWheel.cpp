@@ -154,6 +154,26 @@ bool UpdaterWheel::update(double time0, double time1) {
   return true;
 }
 
+int UpdaterWheel::cleanup_measurements(double oldest_time) {
+  int count = 0;
+  for (auto data = data_stack.begin(); data != data_stack.end() && data->time < oldest_time;) {
+    count++;
+    data = data_stack.erase(data);
+  }
+  return count;
+}
+
+size_t UpdaterWheel::num_measurements() const { return data_stack.size(); }
+
+bool UpdaterWheel::measurement_time_span(double &min_time, double &max_time) const {
+  if (data_stack.size() < 3) {
+    return false;
+  }
+  min_time = data_stack.at(1).time;
+  max_time = data_stack.at(data_stack.size() - 2).time;
+  return true;
+}
+
 bool UpdaterWheel::select_wheel_data(double time0, double time1, vector<WheelData> &data_vec) {
   // Ensure we have some measurements in the first place!
   if (data_stack.empty()) {

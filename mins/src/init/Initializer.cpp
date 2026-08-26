@@ -48,6 +48,7 @@
 #include "update/gps/UpdaterGPS.h"
 #include "update/lidar/LidarHelper.h"
 #include "update/lidar/LidarTypes.h"
+#include "update/lidar/PointCloud.h"
 #include "update/lidar/UpdaterLidar.h"
 #include "update/lidar/ikd_Tree.h"
 #include "update/wheel/UpdaterWheel.h"
@@ -55,7 +56,6 @@
 #include "utils/Print_Logger.h"
 #include "utils/TimeChecker.h"
 #include "utils/dataset_reader.h"
-#include "update/lidar/PointCloud.h"
 using namespace std;
 using namespace Eigen;
 using namespace mins;
@@ -178,12 +178,8 @@ void Initializer::delete_old_measurements() {
 
     // wheel
     if (state->op->wheel->enabled) {
-      int del_whl = 0;
-      for (auto data = up_whl->data_stack.begin(); !up_whl->data_stack.empty() && (*data).time < old_time;) {
-        del_whl++;
-        data = up_whl->data_stack.erase(data);
-      }
-      del_whl > 0 ? PRINT1(YELLOW "[INIT]: Delete Wheel stack. Del: %d, Remain: %d\n" RESET, del_whl, up_whl->data_stack.size()) : void();
+      int del_whl = up_whl->cleanup_measurements(old_time);
+      del_whl > 0 ? PRINT1(YELLOW "[INIT]: Delete Wheel stack. Del: %d, Remain: %d\n" RESET, del_whl, up_whl->num_measurements()) : void();
     }
 
     // lidar
