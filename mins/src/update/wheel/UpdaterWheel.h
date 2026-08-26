@@ -273,9 +273,9 @@ public:
 private:
   /**
    * @brief Checks if we have enough clones and handover two last clone times to update
-   * @param state current state info
    * @param time0 start timestamp of the update
    * @param time1 end timestamp of the update
+   * @return false if the measurements or the clones cannot support the update
    */
   bool update(double time0, double time1);
 
@@ -289,13 +289,14 @@ private:
    * @param data1 wheel at begining of interpolation interval
    * @param data2 wheel at end of interpolation interval
    * @param timestamp Timestamp being interpolated to
+   * @return wheel measurement at the given timestamp
    */
   static WheelData interpolate_data(const WheelData &data1, const WheelData &data2, double timestamp);
 
   /**
    * @brief Compute 2D or 3D Jacobians of intrinsic parameters during preintegration
    * @param dt time interval between the preintegration steps
-   * @param WheelData wheel measurement of the current step
+   * @param data wheel measurement of the current step
    */
   void preintegration_intrinsics_2D(double dt, const WheelData &data);
   void preintegration_intrinsics_3D(double dt, const WheelData &data);
