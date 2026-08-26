@@ -31,6 +31,22 @@ namespace mins {
 class State;
 class UpdaterStatistics;
 struct WheelData;
+/**
+ * \brief Partial derivatives of one 2D preintegration step, shared by the state and intrinsic Jacobians.
+ *
+ * Signs follow the error-state convention of the updater, so each term is the negated
+ * derivative of the closed-form (x, y) update.
+ */
+struct PreintegrationPartials2D {
+  double h_thw; ///< d(theta)/d(w).
+  double h_xth; ///< d(x)/d(theta).
+  double h_yth; ///< d(y)/d(theta).
+  double h_xw;  ///< d(x)/d(w).
+  double h_yw;  ///< d(y)/d(w).
+  double h_xv;  ///< d(x)/d(v).
+  double h_yv;  ///< d(y)/d(v).
+};
+
 class UpdaterWheel {
 
 public:
@@ -153,6 +169,20 @@ public:
   static Eigen::Matrix<double, 6, 1> ComputeTimeOffsetJacobian3D(const Eigen::MatrixXd &H_poses,
                                                                    const Eigen::Vector3d &w0, const Eigen::Vector3d &v0,
                                                                    const Eigen::Vector3d &w1, const Eigen::Vector3d &v1);
+
+  /**
+   * \brief Compute the partial derivatives of one 2D preintegration step.
+   *
+   * Falls back to the L'Hopital limit of each term when the angular rate is near zero.
+   *
+   * \param[in] dt Time interval for this step.
+   * \param[in] w Angular rate of the odometry frame.
+   * \param[in] v Forward velocity of the odometry frame.
+   * \param[in] th Accumulated heading angle before this step.
+   * \return Partial derivatives of this step.
+   */
+  static PreintegrationPartials2D ComputePreintegrationPartials2D(double dt, double w, double v,
+                                                                  double th);
 
   /**
    * \brief Accumulate one step of intrinsic Jacobians for the 2D wheel odometry preintegration.
