@@ -63,7 +63,8 @@ public:
    * @brief Collects a set of wheel measurements between time0 and time1
    * @param data_vec output as a set of wheel measurements
    * @param time0 start timestamp of the update
-   * @param state end timestamp of the update
+   * @param time1 end timestamp of the update
+   * @return false if the stack cannot cover the interval with at least two measurements
    */
   bool select_wheel_data(double time0, double time1, std::vector<WheelData> &data_vec);
 
