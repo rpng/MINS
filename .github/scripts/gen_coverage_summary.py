@@ -1,4 +1,4 @@
-"""Turn a gcovr json-summary into the markdown coverage comment posted on each PR."""
+"""Turn a gcovr json-summary into the unit test code coverage comment posted on each PR."""
 import json, os, sys
 
 MARKER = '<!-- mins-coverage-report -->'
@@ -41,7 +41,7 @@ def summarize(report):
 
 def render(report):
     totals = summarize(report)
-    lines = [MARKER, '## Coverage', '', '| Area | Lines | Line % | Branch % |',
+    lines = [MARKER, '## Unit Test Code Coverage', '', '| Area | Lines | Line % | Branch % |',
              '|------|-------|--------|----------|']
     for name, _ in GROUPS + [('other', None)]:
         if name not in totals:
@@ -64,7 +64,7 @@ out_file = sys.argv[2] if len(sys.argv) > 2 else None
 if os.path.exists(json_path):
     summary = render(json.load(open(json_path)))
 else:
-    summary = '\n'.join([MARKER, '## Coverage', '',
+    summary = '\n'.join([MARKER, '## Unit Test Code Coverage', '',
                          '*Report not generated - check the CI log.*'])
 
 print(summary)
