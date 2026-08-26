@@ -21,6 +21,7 @@
 #ifndef MINS_OPTIONSWHEEL_H
 #define MINS_OPTIONSWHEEL_H
 
+#include "update/wheel/WheelTypes.h"
 #include <Eigen/Eigen>
 #include <memory>
 #include <vector>
@@ -47,8 +48,8 @@ struct OptionsWheel {
 
   vector<string> sub_topics = {"front_left_wheel_joint", "front_right_wheel_joint", "rear_left_wheel_joint", "rear_right_wheel_joint"};
 
-  /// Type of the wheel
-  string type;
+  /// Measurement model of the wheel, resolved from the config yaml name
+  WheelType type = WheelType::Wheel2DAng;
 
   /// Noise settings for the measurements (angular/linear velocities & planar motion constraint)
   double noise_w = 0.005;

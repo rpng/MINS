@@ -487,7 +487,7 @@ void SystemManager::print_status() {
   if (w_op->enabled)
   {
 
-    if (w_op->type != "Rover" && up_whl->t_hist.size() > 2)
+    if (up_whl->t_hist.size() > 2)
       PRINT2(" WHL %.1f", (up_whl->t_hist.size() - 1) / (up_whl->t_hist.back() - up_whl->t_hist.front()));
   }
 
