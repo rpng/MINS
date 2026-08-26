@@ -154,6 +154,26 @@ bool UpdaterWheel::update(double time0, double time1) {
   return true;
 }
 
+int UpdaterWheel::cleanup_measurements(double oldest_time) {
+  int count = 0;
+  for (auto data = data_stack.begin(); data != data_stack.end() && data->time < oldest_time;) {
+    count++;
+    data = data_stack.erase(data);
+  }
+  return count;
+}
+
+size_t UpdaterWheel::num_measurements() const { return data_stack.size(); }
+
+bool UpdaterWheel::measurement_time_span(double &min_time, double &max_time) const {
+  if (data_stack.size() < 3) {
+    return false;
+  }
+  min_time = data_stack.at(1).time;
+  max_time = data_stack.at(data_stack.size() - 2).time;
+  return true;
+}
+
 bool UpdaterWheel::select_wheel_data(double time0, double time1, vector<WheelData> &data_vec) {
   // Ensure we have some measurements in the first place!
   if (data_stack.empty()) {
@@ -393,6 +413,28 @@ Matrix<double, 6, 1> UpdaterWheel::ComputeTimeOffsetJacobian3D(const MatrixXd &H
   return H_poses * vel;
 }
 
+PreintegrationPartials2D UpdaterWheel::ComputePreintegrationPartials2D(double dt, double w, double v,
+                                                                      double th) {
+  PreintegrationPartials2D partials;
+  partials.h_thw = dt;
+  if (abs(w) < SMALL_ANGULAR_RATE) {
+    partials.h_xth = v * sin(th) * dt;
+    partials.h_yth = v * cos(th) * dt;
+    partials.h_xw = v * sin(th) * dt * dt / 2;
+    partials.h_yw = v * cos(th) * dt * dt / 2;
+    partials.h_xv = cos(th) * dt;
+    partials.h_yv = -sin(th) * dt;
+    return partials;
+  }
+  partials.h_xth = (v * (cos(th - w * dt) - cos(th))) / w;
+  partials.h_yth = -(v * (sin(th - w * dt) - sin(th))) / w;
+  partials.h_xw = (v * (sin(th - w * dt) - sin(th))) / w / w + (v * cos(th - w * dt) * dt) / w;
+  partials.h_yw = (v * (cos(th - w * dt) - cos(th))) / w / w - (v * sin(th - w * dt) * dt) / w;
+  partials.h_xv = -(sin(th - w * dt) - sin(th)) / w;
+  partials.h_yv = -(cos(th - w * dt) - cos(th)) / w;
+  return partials;
+}
+
 void UpdaterWheel::AccumulateIntrinsicJacobians2D(double dt, double w_l, double w_r, double th,
                                                    double rl, double rr, double b,
                                                    Matrix<double, 1, 3> &dth_di,
@@ -409,26 +451,11 @@ void UpdaterWheel::AccumulateIntrinsicJacobians2D(double dt, double w_l, double 
   Hvx(0, 0) = w_l / 2;
   Hvx(0, 1) = w_r / 2;
 
-  double h_thw = dt;
-  double h_xth = (v * (cos(th - w * dt) - cos(th))) / w;
-  double h_yth = -(v * (sin(th - w * dt) - sin(th))) / w;
-  double h_xw = (v * (sin(th - w * dt) - sin(th))) / w / w + (v * cos(th - w * dt) * dt) / w;
-  double h_yw = (v * (cos(th - w * dt) - cos(th))) / w / w - (v * sin(th - w * dt) * dt) / w;
-  double h_xv = -(sin(th - w * dt) - sin(th)) / w;
-  double h_yv = -(cos(th - w * dt) - cos(th)) / w;
+  const PreintegrationPartials2D partials = ComputePreintegrationPartials2D(dt, w, v, th);
 
-  if (abs(w) < SMALL_ANGULAR_RATE) {
-    h_xth = v * sin(th) * dt;
-    h_yth = v * cos(th) * dt;
-    h_xw = v * sin(th) * dt * dt / 2;
-    h_yw = v * cos(th) * dt * dt / 2;
-    h_xv = cos(th) * dt;
-    h_yv = -sin(th) * dt;
-  }
-
-  dx_di = dx_di + h_xth * dth_di + h_xw * Hwx + h_xv * Hvx;
-  dy_di = dy_di + h_yth * dth_di + h_yw * Hwx + h_yv * Hvx;
-  dth_di = dth_di + h_thw * Hwx;
+  dx_di = dx_di + partials.h_xth * dth_di + partials.h_xw * Hwx + partials.h_xv * Hvx;
+  dy_di = dy_di + partials.h_yth * dth_di + partials.h_yw * Hwx + partials.h_yv * Hvx;
+  dth_di = dth_di + partials.h_thw * Hwx;
 }
 
 void UpdaterWheel::AccumulateIntrinsicJacobians3D(double dt, double w_l, double w_r,
@@ -599,34 +626,18 @@ void UpdaterWheel::preintegration_2D(double dt, const WheelData &data1, const Wh
   }
 
   // Compute Jacobians respect to state preintegrated state and the measurement
-  double h_thw = dt;
-  double h_xth = (v1 * (cos(th_2D - w1 * dt) - cos(th_2D))) / w1;
-  double h_yth = -(v1 * (sin(th_2D - w1 * dt) - sin(th_2D))) / w1;
-  double h_xw = (v1 * (sin(th_2D - w1 * dt) - sin(th_2D))) / w1 / w1 + (v1 * cos(th_2D - w1 * dt) * dt) / w1;
-  double h_yw = (v1 * (cos(th_2D - w1 * dt) - cos(th_2D))) / w1 / w1 - (v1 * sin(th_2D - w1 * dt) * dt) / w1;
-  double h_xv = -(sin(th_2D - w1 * dt) - sin(th_2D)) / w1;
-  double h_yv = -(cos(th_2D - w1 * dt) - cos(th_2D)) / w1;
-
-  // In case w is too small, apply L'Hopital rule
-  if (abs(w1) < SMALL_ANGULAR_RATE) {
-    h_xth = v1 * sin(th_2D) * dt;
-    h_yth = v1 * cos(th_2D) * dt;
-    h_xw = v1 * sin(th_2D) * dt * dt / 2;
-    h_yw = v1 * cos(th_2D) * dt * dt / 2;
-    h_xv = cos(th_2D) * dt;
-    h_yv = -sin(th_2D) * dt;
-  }
+  const PreintegrationPartials2D partials = ComputePreintegrationPartials2D(dt, w1, v1, th_2D);
 
   // Compute the Jacobians with respect to the current preintegrated states
   Matrix3d Phi_tr = Matrix3d::Identity();
-  Phi_tr(1, 0) = h_xth;
-  Phi_tr(2, 0) = h_yth;
+  Phi_tr(1, 0) = partials.h_xth;
+  Phi_tr(2, 0) = partials.h_yth;
 
   // compute noise Jacobian
   Matrix<double, 3, 2> Phi_ns = Matrix<double, 3, 2>::Zero();
-  Phi_ns.block(0, 0, 1, 2) = h_thw * Hwn;
-  Phi_ns.block(1, 0, 1, 2) = h_xw * Hwn + h_xv * Hvn;
-  Phi_ns.block(2, 0, 1, 2) = h_yw * Hwn + h_yv * Hvn;
+  Phi_ns.block(0, 0, 1, 2) = partials.h_thw * Hwn;
+  Phi_ns.block(1, 0, 1, 2) = partials.h_xw * Hwn + partials.h_xv * Hvn;
+  Phi_ns.block(2, 0, 1, 2) = partials.h_yw * Hwn + partials.h_yv * Hvn;
 
   // Compute Measurement covariance
   Matrix2d Q = Matrix2d::Zero();

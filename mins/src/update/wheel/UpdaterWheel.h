@@ -31,6 +31,22 @@ namespace mins {
 class State;
 class UpdaterStatistics;
 struct WheelData;
+/**
+ * \brief Partial derivatives of one 2D preintegration step, shared by the state and intrinsic Jacobians.
+ *
+ * Signs follow the error-state convention of the updater, so each term is the negated
+ * derivative of the closed-form (x, y) update.
+ */
+struct PreintegrationPartials2D {
+  double h_thw; ///< d(theta)/d(w).
+  double h_xth; ///< d(x)/d(theta).
+  double h_yth; ///< d(y)/d(theta).
+  double h_xw;  ///< d(x)/d(w).
+  double h_yw;  ///< d(y)/d(w).
+  double h_xv;  ///< d(x)/d(v).
+  double h_yv;  ///< d(y)/d(v).
+};
+
 class UpdaterWheel {
 
 public:
@@ -42,6 +58,33 @@ public:
 
   /// Try update with available measurements
   void try_update();
+
+  /**
+   * @brief Collects a set of wheel measurements between time0 and time1
+   * @param data_vec output as a set of wheel measurements
+   * @param time0 start timestamp of the update
+   * @param time1 end timestamp of the update
+   * @return false if the stack cannot cover the interval with at least two measurements
+   */
+  bool select_wheel_data(double time0, double time1, std::vector<WheelData> &data_vec);
+
+  /**
+   * @brief Drops wheel measurements older than the given time
+   * @param oldest_time timestamp to keep measurements from
+   * @return number of measurements dropped
+   */
+  int cleanup_measurements(double oldest_time);
+
+  /// Number of wheel measurements currently in the stack
+  size_t num_measurements() const;
+
+  /**
+   * @brief Timestamps of the wheel stack usable for interpolation, which excludes the first and last measurement
+   * @param min_time output as the oldest usable timestamp
+   * @param max_time output as the newest usable timestamp
+   * @return false if the stack holds fewer than 3 measurements
+   */
+  bool measurement_time_span(double &min_time, double &max_time) const;
 
   /// chi-2 checker
   std::shared_ptr<UpdaterStatistics> Chi;
@@ -155,6 +198,20 @@ public:
                                                                    const Eigen::Vector3d &w1, const Eigen::Vector3d &v1);
 
   /**
+   * \brief Compute the partial derivatives of one 2D preintegration step.
+   *
+   * Falls back to the L'Hopital limit of each term when the angular rate is near zero.
+   *
+   * \param[in] dt Time interval for this step.
+   * \param[in] w Angular rate of the odometry frame.
+   * \param[in] v Forward velocity of the odometry frame.
+   * \param[in] th Accumulated heading angle before this step.
+   * \return Partial derivatives of this step.
+   */
+  static PreintegrationPartials2D ComputePreintegrationPartials2D(double dt, double w, double v,
+                                                                  double th);
+
+  /**
    * \brief Accumulate one step of intrinsic Jacobians for the 2D wheel odometry preintegration.
    *
    * Updates dth_di, dx_di, dy_di in-place to include the effect of this step's measurements.
@@ -214,13 +271,11 @@ public:
                                                       const Eigen::Vector3d &p_3D, const Eigen::Vector3d &new_p);
 
 private:
-  friend class Initializer;
-  friend class IW_Initializer;
   /**
    * @brief Checks if we have enough clones and handover two last clone times to update
-   * @param state current state info
    * @param time0 start timestamp of the update
    * @param time1 end timestamp of the update
+   * @return false if the measurements or the clones cannot support the update
    */
   bool update(double time0, double time1);
 
@@ -234,13 +289,14 @@ private:
    * @param data1 wheel at begining of interpolation interval
    * @param data2 wheel at end of interpolation interval
    * @param timestamp Timestamp being interpolated to
+   * @return wheel measurement at the given timestamp
    */
   static WheelData interpolate_data(const WheelData &data1, const WheelData &data2, double timestamp);
 
   /**
    * @brief Compute 2D or 3D Jacobians of intrinsic parameters during preintegration
    * @param dt time interval between the preintegration steps
-   * @param WheelData wheel measurement of the current step
+   * @param data wheel measurement of the current step
    */
   void preintegration_intrinsics_2D(double dt, const WheelData &data);
   void preintegration_intrinsics_3D(double dt, const WheelData &data);
@@ -263,14 +319,6 @@ private:
    */
   void preintegration_2D(double dt, const WheelData &data1, const WheelData &data2);
   void preintegration_3D(double dt, const WheelData &data1, const WheelData &data2);
-
-  /**
-   * @brief Collects a set of wheel measurements between time0 and time1
-   * @param data_vec output as a set of wheel measurements
-   * @param time0 start timestamp of the update
-   * @param state end timestamp of the update
-   */
-  bool select_wheel_data(double time0, double time1, std::vector<WheelData> &data_vec);
 
   /// Our history of wheel messages (time, ang_left, ang_right)
   std::vector<WheelData> data_stack;

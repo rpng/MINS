@@ -110,16 +110,17 @@ bool IW_Initializer::initialization(Matrix<double, 17, 1> &imustate) {
 bool IW_Initializer::get_IMU_Wheel_data(vector<ImuData> &imu_data, vector<pair<double, VectorXd>> &wheel_data) {
 
   // do not perform initialization if we don't have enough data
-  if (imu_pp->imu_data.size() < 3 || wheel_up->data_stack.size() < 3) {
-    PRINT1(YELLOW "[IW-Init]: Waiting for collecting IMU(%d < 3) and wheel data(%d < 3).\n" RESET, imu_pp->imu_data.size(), wheel_up->data_stack.size());
+  double min_wheel_t, max_wheel_t;
+  if (imu_pp->imu_data.size() < 3 || !wheel_up->measurement_time_span(min_wheel_t, max_wheel_t)) {
+    PRINT1(YELLOW "[IW-Init]: Waiting for collecting IMU(%d < 3) and wheel data(%d < 3).\n" RESET, imu_pp->imu_data.size(), wheel_up->num_measurements());
     return false;
   }
 
   // get the min max times of imu and wheel data
   double min_imu_t = imu_pp->imu_data.at(1).timestamp;
   double max_imu_t = imu_pp->imu_data.at(imu_pp->imu_data.size() - 2).timestamp;
-  double min_wheel_t = wheel_up->data_stack.at(1).time + toff;                               // convert to IMU time
-  double max_wheel_t = wheel_up->data_stack.at(wheel_up->data_stack.size() - 2).time + toff; // convert to IMU time
+  min_wheel_t += toff; // convert to IMU time
+  max_wheel_t += toff; // convert to IMU time
 
   // find common time zone
   double min_t = max(min_imu_t, min_wheel_t);
