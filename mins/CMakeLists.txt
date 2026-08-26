@@ -28,6 +28,19 @@ else ()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -Wall -Wuninitialized -Wmaybe-uninitialized -fno-omit-frame-pointer")
 endif ()
 
+# Coverage instrumentation (opt-in: cmake -DENABLE_COVERAGE=ON -DBUILD_TESTS=ON)
+option(ENABLE_COVERAGE "Instrument for gcov coverage. Forces -O0, so never use for a real build." OFF)
+if (ENABLE_COVERAGE)
+    if (MSVC)
+        message(FATAL_ERROR "ENABLE_COVERAGE needs a gcc or clang toolchain")
+    endif ()
+    # The -O3 set above would inline away the very lines we are trying to measure.
+    string(REPLACE "-O3" "-O0" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -fno-inline -fno-inline-small-functions -fno-default-inline")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} --coverage")
+endif ()
+
 # Include libraries (if we don't have opencv 4, then fallback to opencv 3)
 # The OpenCV version needs to match the one used by cv_bridge otherwise you will get a segmentation fault!
 find_package(Eigen3 REQUIRED QUIET)
