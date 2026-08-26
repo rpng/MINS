@@ -1,7 +1,13 @@
 // Covers the measurement stack of UpdaterWheel: feeding, pruning, and window selection.
 #include <gtest/gtest.h>
 
-#include "WheelTestFixture.h"
+#include "options/OptionsCamera.h"
+#include "options/OptionsEstimator.h"
+#include "options/OptionsGPS.h"
+#include "options/OptionsLidar.h"
+#include "options/OptionsVicon.h"
+#include "options/OptionsWheel.h"
+#include "state/State.h"
 #include "update/wheel/UpdaterWheel.h"
 #include "update/wheel/WheelTypes.h"
 
@@ -18,9 +24,23 @@ WheelData MakeData(double time) {
     return data;
 }
 
+/// Wheel-only state, with the other sensors switched off: they default to enabled but have
+/// no per-sensor defaults, so State would index empty extrinsic maps while setting them up.
+std::shared_ptr<State> MakeWheelOnlyState() {
+    std::shared_ptr<OptionsEstimator> op = std::make_shared<OptionsEstimator>();
+    op->load();
+    op->cam->enabled = false;
+    op->vicon->enabled = false;
+    op->gps->enabled = false;
+    op->lidar->enabled = false;
+    op->wheel->enabled = true;
+    op->wheel->type = WheelType::Wheel2DAng;
+    return std::make_shared<State>(op);
+}
+
 /// Updater holding a wheel-only state, fed one measurement per entry of times.
 std::shared_ptr<UpdaterWheel> MakeUpdater(const std::vector<double> &times) {
-    std::shared_ptr<State> state = wheel_test::MakeWheelOnlyState(WheelType::Wheel2DAng);
+    std::shared_ptr<State> state = MakeWheelOnlyState();
     std::shared_ptr<UpdaterWheel> updater = std::make_shared<UpdaterWheel>(state);
     for (double time : times) {
         updater->feed_measurement(MakeData(time));
