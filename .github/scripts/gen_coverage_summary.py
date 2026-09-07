@@ -45,13 +45,12 @@ def summarize(report):
     return totals
 
 
-def coloured(current, previous, covered, total):
-    """This branch's coverage, green above master and red below. GitHub renders the colour as math."""
-    counts = '(%d/%d)' % (covered, total)
+def cell(current, previous, covered, total):
+    """This branch's coverage, with the signed change against master when it moved."""
+    text = '%.1f%% (%d/%d)' % (current, covered, total)
     if previous is None or abs(current - previous) < 0.05:
-        return '%.1f%% %s' % (current, counts)
-    colour = 'green' if current > previous else 'red'
-    return r'$\color{%s}{%.1f\%%}$ %s' % (colour, current, counts)
+        return text
+    return '%s %+.1f' % (text, current - previous)
 
 
 def render(report, baseline):
@@ -68,13 +67,13 @@ def render(report, baseline):
         was_pct = pct(before[0], before[1]) if before else None
         lines.append('| `%s` | %s | %s |' % (
             name, 'n/a' if was_pct is None else '%.1f%%' % was_pct,
-            coloured(pct(line_covered, line_total), was_pct, line_covered, line_total)))
+            cell(pct(line_covered, line_total), was_pct, line_covered, line_total)))
     lines.append('')
     line_percent = report.get('line_percent', 0.0)
     was_overall = baseline.get('line_percent') if baseline else None
     lines.append('**Overall %s across `mins/src`, master is %s.**' % (
-        coloured(line_percent, was_overall, report.get('line_covered', 0),
-                 report.get('line_total', 0)),
+        cell(line_percent, was_overall, report.get('line_covered', 0),
+             report.get('line_total', 0)),
         'n/a' if was_overall is None else '%.1f%%' % was_overall))
     lines.append('')
     if baseline is None:
