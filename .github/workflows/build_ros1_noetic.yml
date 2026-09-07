@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  actions: read
 
 jobs:
 
@@ -65,6 +66,16 @@ jobs:
                 issue_number: context.issue.number, body,
               });
             }
+      - name: Fetch the master unit test code coverage baseline
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/mins_baseline
+          run_id=$(gh run list --workflow "${{ github.workflow }}" --branch master --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -n "$run_id" ]; then
+            gh run download "$run_id" --name coverage-report --dir /tmp/mins_baseline || true
+          fi
       - name: Measure unit test code coverage
         # Separate build: -O3 inlines away the lines we want to count, so this one is -O0
         # with --coverage. It reuses the image from the test step rather than a second job,
@@ -94,13 +105,15 @@ jobs:
                   --print-summary \
                   /catkin_ws/build/mins
           '
-          python3 .github/scripts/gen_coverage_summary.py /tmp/mins_coverage/coverage.json coverage_report.md || true
-      - name: Upload unit test code coverage HTML
+          python3 .github/scripts/gen_coverage_summary.py /tmp/mins_coverage/coverage.json coverage_report.md /tmp/mins_baseline/coverage.json
+      - name: Upload unit test code coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-html
-          path: /tmp/mins_coverage/*.html
+          name: coverage-report
+          path: |
+            /tmp/mins_coverage/*.html
+            /tmp/mins_coverage/coverage.json
           if-no-files-found: warn
       - name: Post unit test code coverage report to PR
         if: always() && github.event_name == 'pull_request'

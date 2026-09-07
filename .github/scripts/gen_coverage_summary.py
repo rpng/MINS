@@ -3,14 +3,20 @@ import json, os, sys
 
 MARKER = '<!-- mins-coverage-report -->'
 
-# Directories we care about enough to give their own row. Order is the order shown.
+# Directories we care about enough to give their own row. Order is the order shown, and the
+# first matching prefix wins, so the per-sensor rows have to come before the update catch-all.
 GROUPS = [
+    ('update/cam', 'mins/src/update/cam/'),
+    ('update/gps', 'mins/src/update/gps/'),
+    ('update/lidar', 'mins/src/update/lidar/'),
+    ('update/vicon', 'mins/src/update/vicon/'),
     ('update/wheel', 'mins/src/update/wheel/'),
     ('update', 'mins/src/update/'),
     ('state', 'mins/src/state/'),
     ('init', 'mins/src/init/'),
     ('options', 'mins/src/options/'),
     ('core', 'mins/src/core/'),
+    ('sim', 'mins/src/sim/'),
     ('utils', 'mins/src/utils/'),
 ]
 
@@ -39,30 +45,56 @@ def summarize(report):
     return totals
 
 
-def render(report):
+def coloured(current, previous, covered, total):
+    """This branch's coverage, green above master and red below. GitHub renders the colour as math."""
+    counts = '(%d/%d)' % (covered, total)
+    if previous is None or abs(current - previous) < 0.05:
+        return '%.1f%% %s' % (current, counts)
+    colour = 'green' if current > previous else 'red'
+    return r'$\color{%s}{%.1f\%%}$ %s' % (colour, current, counts)
+
+
+def render(report, baseline):
     totals = summarize(report)
-    lines = [MARKER, '## Unit Test Code Coverage', '', '| Area | Lines | Line % | Branch % |',
-             '|------|-------|--------|----------|']
+    was = summarize(baseline) if baseline else {}
+    lines = [MARKER, '## Unit Test Code Coverage', '',
+             '| Area | master | this branch |',
+             '|------|--------|-------------|']
     for name, _ in GROUPS + [('other', None)]:
         if name not in totals:
             continue
-        line_covered, line_total, branch_covered, branch_total = totals[name]
-        lines.append('| `%s` | %d/%d | %.1f%% | %.1f%% |' % (
-            name, line_covered, line_total, pct(line_covered, line_total),
-            pct(branch_covered, branch_total)))
+        line_covered, line_total = totals[name][0], totals[name][1]
+        before = was.get(name)
+        was_pct = pct(before[0], before[1]) if before else None
+        lines.append('| `%s` | %s | %s |' % (
+            name, 'n/a' if was_pct is None else '%.1f%%' % was_pct,
+            coloured(pct(line_covered, line_total), was_pct, line_covered, line_total)))
     lines.append('')
-    lines.append('**Overall %.1f%% lines, %.1f%% branches** across `mins/src`.' % (
-        report.get('line_percent', 0.0), report.get('branch_percent', 0.0)))
+    line_percent = report.get('line_percent', 0.0)
+    was_overall = baseline.get('line_percent') if baseline else None
+    lines.append('**Overall %s across `mins/src`, master is %s.**' % (
+        coloured(line_percent, was_overall, report.get('line_covered', 0),
+                 report.get('line_total', 0)),
+        'n/a' if was_overall is None else '%.1f%%' % was_overall))
     lines.append('')
-    lines.append('Full HTML report is in the `coverage-html` artifact of this run.')
+    if baseline is None:
+        lines.append('No master baseline was available for this run. It fills in once a master '
+                     'build has published a coverage report.')
+        lines.append('')
+    lines.append('Full HTML report is in the `coverage-report` artifact of this run.')
     return '\n'.join(lines)
 
 
 json_path = sys.argv[1]
 out_file = sys.argv[2] if len(sys.argv) > 2 else None
+baseline_path = sys.argv[3] if len(sys.argv) > 3 else None
+
+baseline = None
+if baseline_path and os.path.exists(baseline_path):
+    baseline = json.load(open(baseline_path))
 
 if os.path.exists(json_path):
-    summary = render(json.load(open(json_path)))
+    summary = render(json.load(open(json_path)), baseline)
 else:
     summary = '\n'.join([MARKER, '## Unit Test Code Coverage', '',
                          '*Report not generated - check the CI log.*'])
