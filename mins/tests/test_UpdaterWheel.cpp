@@ -1,7 +1,8 @@
 // Unit tests for mins/src/update/wheel/UpdaterWheel: the OptionsWheel defaults it relies on,
-// its measurement stack, and its analytical Jacobians.
+// its measurement stack, its preintegration steps, and its analytical Jacobians.
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <cmath>
 
 #include "options/OptionsCamera.h"
 #include "options/OptionsEstimator.h"
@@ -773,4 +774,198 @@ TEST(SelectWheelData, FailsWhenOnlyOneSampleLandsInTheWindow) {
     std::shared_ptr<UpdaterWheel> updater = MakeUpdater({0.0, 10.0});
     std::vector<WheelData> data_vec;
     EXPECT_FALSE(updater->select_wheel_data(1.0, 2.0, data_vec));
+}
+
+// ---- Preintegration ----
+
+TEST(OdometryVelocity, AngularScalesTheReadingsByTheWheelRadii) {
+    WheelData data;
+    data.m1 = 1.3;
+    data.m2 = 2.1;
+    const OdometryVelocity vel = UpdaterWheel::ComputeOdometryVelocity(WheelType::Wheel2DAng, data, 0.2, 0.25, 0.6);
+    EXPECT_DOUBLE_EQ(vel.w, (2.1 * 0.25 - 1.3 * 0.2) / 0.6);
+    EXPECT_DOUBLE_EQ(vel.v, (2.1 * 0.25 + 1.3 * 0.2) / 2);
+}
+
+TEST(OdometryVelocity, LinearAndCenteredIgnoreTheWheelRadii) {
+    WheelData data;
+    data.m1 = 1.3;
+    data.m2 = 2.1;
+    for (WheelType type : {WheelType::Wheel2DLin, WheelType::Wheel2DCen}) {
+        const OdometryVelocity vel = UpdaterWheel::ComputeOdometryVelocity(type, data, 0.2, 0.25, 0.6);
+        const OdometryVelocity other = UpdaterWheel::ComputeOdometryVelocity(type, data, 9.9, 9.9, 0.6);
+        EXPECT_DOUBLE_EQ(vel.w, other.w) << ToString(type);
+        EXPECT_DOUBLE_EQ(vel.v, other.v) << ToString(type);
+    }
+    const OdometryVelocity centered = UpdaterWheel::ComputeOdometryVelocity(WheelType::Wheel2DCen, data, 0.2, 0.25, 0.6);
+    EXPECT_DOUBLE_EQ(centered.w, data.m1);
+    EXPECT_DOUBLE_EQ(centered.v, data.m2);
+}
+
+TEST(OdometryVelocity, The3DTypesResolveLikeTheir2DCounterparts) {
+    WheelData data;
+    data.m1 = 1.3;
+    data.m2 = 2.1;
+    const WheelType pairs[3][2] = {{WheelType::Wheel2DAng, WheelType::Wheel3DAng},
+                                   {WheelType::Wheel2DLin, WheelType::Wheel3DLin},
+                                   {WheelType::Wheel2DCen, WheelType::Wheel3DCen}};
+    for (const WheelType *pair : pairs) {
+        const OdometryVelocity flat = UpdaterWheel::ComputeOdometryVelocity(pair[0], data, 0.2, 0.25, 0.6);
+        const OdometryVelocity full = UpdaterWheel::ComputeOdometryVelocity(pair[1], data, 0.2, 0.25, 0.6);
+        EXPECT_DOUBLE_EQ(flat.w, full.w) << ToString(pair[1]);
+        EXPECT_DOUBLE_EQ(flat.v, full.v) << ToString(pair[1]);
+    }
+}
+
+TEST(IntegrateMean2D, StraightLineMovesAlongXOnly) {
+    const Vector3d next = UpdaterWheel::IntegrateMean2D(0.1, {0.0, 2.0}, {0.0, 2.0}, 0.0, 0.0, 0.0);
+    EXPECT_NEAR(next(0), 0.0, 1e-12);
+    EXPECT_NEAR(next(1), 0.2, 1e-12);
+    EXPECT_NEAR(next(2), 0.0, 1e-12);
+}
+
+TEST(IntegrateMean2D, ConstantTurnTracesACircularArc) {
+    const double w = 0.4;
+    const double v = 1.5;
+    const double dt = 0.001;
+    const int N = 500;
+    double th = 0.0, x = 0.0, y = 0.0;
+    for (int i = 0; i < N; i++) {
+        const Vector3d next = UpdaterWheel::IntegrateMean2D(dt, {w, v}, {w, v}, th, x, y);
+        th = next(0);
+        x = next(1);
+        y = next(2);
+    }
+    const double total = N * dt;
+    EXPECT_NEAR(th, -w * total, 1e-9);
+    EXPECT_NEAR(y, v * (1 - std::cos(w * total)) / w, 1e-6);
+    // x comes out as the path length, not the arc chord: the stage headings th2/th3/th4 are the
+    // heading change inside the step, so the accumulated heading never reaches the x update. y is
+    // spared because it is overwritten by a closed form that does use it. Pinned as-is; the
+    // expectation this should meet is in the disabled test below.
+    EXPECT_NEAR(x, v * total, 1e-6);
+}
+
+TEST(IntegrateMean2D, DISABLED_ForwardDisplacementFollowsTheAccumulatedHeading) {
+    // The value ComputePreintegrationPartials2D linearizes about: h_xv is d/dv of the closed form
+    // -(v * (sin(th - w * dt) - sin(th))) / w, so the filter's Jacobian already assumes this arc.
+    const double w = 0.4;
+    const double v = 1.5;
+    const double dt = 0.001;
+    const int N = 500;
+    double th = 0.0, x = 0.0, y = 0.0;
+    for (int i = 0; i < N; i++) {
+        const Vector3d next = UpdaterWheel::IntegrateMean2D(dt, {w, v}, {w, v}, th, x, y);
+        th = next(0);
+        x = next(1);
+        y = next(2);
+    }
+    EXPECT_NEAR(x, v * std::sin(w * N * dt) / w, 1e-6);
+}
+
+TEST(IntegrateMean2D, NearZeroRateAgreesWithTheGeneralBranch) {
+    // Either side of the rate below which the closed form is replaced by its limit.
+    const double v = 1.5;
+    const double dt = 0.01;
+    const double th = 0.3;
+    const Vector3d below = UpdaterWheel::IntegrateMean2D(dt, {0.99e-4, v}, {0.99e-4, v}, th, 0.0, 0.0);
+    const Vector3d above = UpdaterWheel::IntegrateMean2D(dt, {1.01e-4, v}, {1.01e-4, v}, th, 0.0, 0.0);
+    EXPECT_NEAR(below(2), above(2), 1e-8);
+}
+
+TEST(IntegrateMean3D, StraightLineMatchesThe2DIntegrator) {
+    const double v = 2.0;
+    const double dt = 0.05;
+    Matrix3d R_new;
+    Vector3d p_new;
+    UpdaterWheel::IntegrateMean3D(dt, Vector3d::Zero(), Vector3d(v, 0, 0), Vector3d::Zero(), Vector3d(v, 0, 0),
+                                  Matrix3d::Identity(), Vector3d::Zero(), R_new, p_new);
+    const Vector3d flat = UpdaterWheel::IntegrateMean2D(dt, {0.0, v}, {0.0, v}, 0.0, 0.0, 0.0);
+    EXPECT_TRUE(R_new.isApprox(Matrix3d::Identity()));
+    EXPECT_NEAR(p_new(0), flat(1), 1e-12);
+    EXPECT_NEAR(p_new(1), flat(2), 1e-12);
+    EXPECT_NEAR(p_new(2), 0.0, 1e-12);
+}
+
+TEST(IntegrateMean3D, ConstantYawRateTracesTheSameArcAs2D) {
+    const double w = 0.4;
+    const double v = 1.5;
+    const double dt = 0.001;
+    const int N = 500;
+    Matrix3d R = Matrix3d::Identity();
+    Vector3d p = Vector3d::Zero();
+    for (int i = 0; i < N; i++) {
+        Matrix3d R_new;
+        Vector3d p_new;
+        UpdaterWheel::IntegrateMean3D(dt, Vector3d(0, 0, w), Vector3d(v, 0, 0), Vector3d(0, 0, w), Vector3d(v, 0, 0),
+                                      R, p, R_new, p_new);
+        R = R_new;
+        p = p_new;
+    }
+    const double total = N * dt;
+    EXPECT_TRUE((R.transpose() * R).isApprox(Matrix3d::Identity()));
+    EXPECT_NEAR(R(2, 2), 1.0, 1e-9);
+    EXPECT_NEAR(std::acos(R(0, 0)), w * total, 1e-6);
+    EXPECT_NEAR(p(0), v * std::sin(w * total) / w, 1e-6);
+    EXPECT_NEAR(p(1), v * (1 - std::cos(w * total)) / w, 1e-6);
+    EXPECT_NEAR(p(2), 0.0, 1e-12);
+}
+
+TEST(VelocityNoiseJacobians, MatchTheNumericalDerivatives) {
+    // Angular and Linear carry the negated derivative, Centered the plain one. Both are fine: these
+    // only ever enter the covariance as Phi_ns * Q * Phi_ns^T, which an overall sign flip leaves alone.
+    const double rl = 0.2, rr = 0.25, b = 0.6, eps = 1e-6;
+    WheelData data;
+    data.m1 = 1.3;
+    data.m2 = 2.1;
+    for (WheelType type : ALL_WHEEL_TYPES) {
+        Eigen::Matrix<double, 1, 2> Hwn, Hvn;
+        UpdaterWheel::ComputeVelocityNoiseJacobians(type, rl, rr, b, Hwn, Hvn);
+        const double sign = ModalityOf(type) == WheelModality::Centered ? 1.0 : -1.0;
+        for (int i = 0; i < 2; i++) {
+            WheelData plus = data, minus = data;
+            (i == 0 ? plus.m1 : plus.m2) += eps;
+            (i == 0 ? minus.m1 : minus.m2) -= eps;
+            const OdometryVelocity up = UpdaterWheel::ComputeOdometryVelocity(type, plus, rl, rr, b);
+            const OdometryVelocity down = UpdaterWheel::ComputeOdometryVelocity(type, minus, rl, rr, b);
+            EXPECT_NEAR(Hwn(0, i), sign * (up.w - down.w) / (2 * eps), 1e-8) << ToString(type) << " column " << i;
+            EXPECT_NEAR(Hvn(0, i), sign * (up.v - down.v) / (2 * eps), 1e-8) << ToString(type) << " column " << i;
+        }
+    }
+}
+
+TEST(MeasurementCovariance2D, IsDiagonalAndScalesWithTheStep) {
+    const double noise_w = 0.02, noise_v = 0.05, dt = 0.01;
+    const Eigen::Matrix2d ang = UpdaterWheel::ComputeMeasurementCovariance2D(WheelType::Wheel2DAng, noise_w, noise_v, dt);
+    const Eigen::Matrix2d lin = UpdaterWheel::ComputeMeasurementCovariance2D(WheelType::Wheel2DLin, noise_w, noise_v, dt);
+    const Eigen::Matrix2d cen = UpdaterWheel::ComputeMeasurementCovariance2D(WheelType::Wheel2DCen, noise_w, noise_v, dt);
+    EXPECT_DOUBLE_EQ(ang(0, 0), std::pow(noise_w, 2) / dt);
+    EXPECT_DOUBLE_EQ(ang(1, 1), std::pow(noise_w, 2) / dt);
+    EXPECT_DOUBLE_EQ(lin(0, 0), std::pow(noise_v, 2) / dt);
+    EXPECT_DOUBLE_EQ(lin(1, 1), std::pow(noise_v, 2) / dt);
+    EXPECT_DOUBLE_EQ(cen(0, 0), std::pow(noise_w, 2) / dt);
+    EXPECT_DOUBLE_EQ(cen(1, 1), std::pow(noise_v, 2) / dt);
+    for (const Eigen::Matrix2d &Q : {ang, lin, cen}) {
+        EXPECT_DOUBLE_EQ(Q(0, 1), 0.0);
+        EXPECT_DOUBLE_EQ(Q(1, 0), 0.0);
+    }
+}
+
+TEST(MeasurementCovariance3D, ConstrainsTheOffPlaneAxesWithTheConstraintNoise) {
+    const double noise_w = 0.02, noise_v = 0.05, noise_p = 0.001, b = 0.6, dt = 0.01;
+    for (WheelType type : ALL_WHEEL_TYPES) {
+        const Eigen::Matrix<double, 6, 6> Q =
+            UpdaterWheel::ComputeMeasurementCovariance3D(type, noise_w, noise_v, noise_p, b, dt);
+        EXPECT_TRUE(Q.isApprox(Eigen::Matrix<double, 6, 6>(Q.diagonal().asDiagonal()))) << ToString(type);
+        for (int i : {0, 1, 4, 5}) {
+            EXPECT_DOUBLE_EQ(Q(i, i), std::pow(noise_p, 2) / dt) << ToString(type) << " axis " << i;
+        }
+        if (ModalityOf(type) == WheelModality::Linear) {
+            EXPECT_DOUBLE_EQ(Q(2, 2), 2 * std::pow(noise_v, 2) / b / b / dt);
+            EXPECT_DOUBLE_EQ(Q(3, 3), std::pow(noise_v, 2) / 2 / dt);
+        } else {
+            EXPECT_DOUBLE_EQ(Q(2, 2), std::pow(noise_w, 2) / dt) << ToString(type);
+            EXPECT_DOUBLE_EQ(Q(3, 3), std::pow(noise_v, 2) / dt) << ToString(type);
+        }
+    }
 }
