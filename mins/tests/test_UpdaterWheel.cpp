@@ -836,41 +836,37 @@ TEST(IntegrateMean2D, ConstantTurnTracesACircularArc) {
         x = next(1);
         y = next(2);
     }
+    // The arc chord, which is what the exact solution of the unicycle model gives.
     const double total = N * dt;
     EXPECT_NEAR(th, -w * total, 1e-9);
+    EXPECT_NEAR(x, v * std::sin(w * total) / w, 1e-6);
     EXPECT_NEAR(y, v * (1 - std::cos(w * total)) / w, 1e-6);
-    // x comes out as the path length, not the arc chord: the stage headings th2/th3/th4 are the
-    // heading change inside the step, so the accumulated heading never reaches the x update. y is
-    // spared because it is overwritten by a closed form that does use it. Pinned as-is; the
-    // expectation this should meet is in the disabled test below.
-    EXPECT_NEAR(x, v * total, 1e-6);
 }
 
-TEST(IntegrateMean2D, DISABLED_ForwardDisplacementFollowsTheAccumulatedHeading) {
-    // The value ComputePreintegrationPartials2D linearizes about: h_xv is d/dv of the closed form
-    // -(v * (sin(th - w * dt) - sin(th))) / w, so the filter's Jacobian already assumes this arc.
-    const double w = 0.4;
-    const double v = 1.5;
-    const double dt = 0.001;
-    const int N = 500;
-    double th = 0.0, x = 0.0, y = 0.0;
-    for (int i = 0; i < N; i++) {
-        const Vector3d next = UpdaterWheel::IntegrateMean2D(dt, {w, v}, {w, v}, th, x, y);
-        th = next(0);
-        x = next(1);
-        y = next(2);
-    }
-    EXPECT_NEAR(x, v * std::sin(w * N * dt) / w, 1e-6);
-}
-
-TEST(IntegrateMean2D, NearZeroRateAgreesWithTheGeneralBranch) {
-    // Either side of the rate below which the closed form is replaced by its limit.
-    const double v = 1.5;
-    const double dt = 0.01;
+TEST(IntegrateMean2D, OneBigStepMatchesAFineSubdivisionUnderARamp) {
+    // RK4 is fourth order in the step, so a single step across a ramping rate and speed
+    // should land on the finely subdivided answer far closer than a first-order step would:
+    // freezing the velocities at the left endpoint instead is off by about 2e-2 here.
+    const double dt = 0.05;
+    const OdometryVelocity vel0{0.2, 1.0};
+    const OdometryVelocity vel1{0.8, 2.0};
     const double th = 0.3;
-    const Vector3d below = UpdaterWheel::IntegrateMean2D(dt, {0.99e-4, v}, {0.99e-4, v}, th, 0.0, 0.0);
-    const Vector3d above = UpdaterWheel::IntegrateMean2D(dt, {1.01e-4, v}, {1.01e-4, v}, th, 0.0, 0.0);
-    EXPECT_NEAR(below(2), above(2), 1e-8);
+
+    const Vector3d one = UpdaterWheel::IntegrateMean2D(dt, vel0, vel1, th, 0.0, 0.0);
+
+    const int N = 2000;
+    const double sub = dt / N;
+    Vector3d fine(th, 0.0, 0.0);
+    for (int i = 0; i < N; i++) {
+        const double a0 = double(i) / N, a1 = double(i + 1) / N;
+        const OdometryVelocity s0{vel0.w + a0 * (vel1.w - vel0.w), vel0.v + a0 * (vel1.v - vel0.v)};
+        const OdometryVelocity s1{vel0.w + a1 * (vel1.w - vel0.w), vel0.v + a1 * (vel1.v - vel0.v)};
+        fine = UpdaterWheel::IntegrateMean2D(sub, s0, s1, fine(0), fine(1), fine(2));
+    }
+
+    EXPECT_NEAR(one(0), fine(0), 1e-12);
+    EXPECT_NEAR(one(1), fine(1), 1e-6);
+    EXPECT_NEAR(one(2), fine(2), 1e-6);
 }
 
 TEST(IntegrateMean3D, StraightLineMatchesThe2DIntegrator) {
