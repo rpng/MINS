@@ -70,10 +70,10 @@ struct OptionsWheel {
   double chi2_mult = 1;
 
   /// wheel extrinsics (q_ItoW, p_IinW). Default value identity
-  Eigen::VectorXd extrinsics;
+  Eigen::VectorXd extrinsics = (Eigen::Matrix<double, 7, 1>() << 0, 0, 0, 1, 0, 0, 0).finished();
 
-  /// wheel intrinsics (r_l, r_r, b)
-  Eigen::Vector3d intrinsics;
+  /// wheel intrinsics (r_l, r_r, b). Default value 1m wheels on a 2m baseline
+  Eigen::Vector3d intrinsics = Eigen::Vector3d(1, 1, 2);
 
   /// Bool to determine whether or not to calibrate timeoffset
   bool do_calib_dt = true;
