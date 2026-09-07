@@ -91,7 +91,7 @@ void integrate3D(const double *wl, const double *wr, int N, double dt,
     }
 }
 
-void run2DResidualTest(const double *wl, const double *wr, int N, const char *label) {
+void run2DResidualTest(const double *wl, const double *wr, int N) {
     const double eps = 1e-6;
     const double tol = 1e-5;
     const double rl = 0.1, rr = 0.11, b = 0.5, dt = 0.01;
@@ -138,12 +138,12 @@ void run2DResidualTest(const double *wl, const double *wr, int N, const char *la
         Vector3d fd_col = -(res_p - res_m) / (2.0 * eps);
 
         for (int row = 0; row < 3; row++) {
-            EXPECT_NEAR(H_int(row, j), fd_col(row), tol) << label << " row=" << row << " col=" << j;
+            EXPECT_NEAR(H_int(row, j), fd_col(row), tol) << " row=" << row << " col=" << j;
         }
     }
 }
 
-void run3DResidualTest(const double *wl, const double *wr, int N, const char *label) {
+void run3DResidualTest(const double *wl, const double *wr, int N) {
     const double eps = 1e-6;
     const double tol = 1e-5;
     const double rl = 0.1, rr = 0.11, b = 0.5, dt = 0.01;
@@ -194,7 +194,7 @@ void run3DResidualTest(const double *wl, const double *wr, int N, const char *la
         Eigen::Matrix<double, 6, 1> fd_col = -(res_p_vec - res_m_vec) / (2.0 * eps);
 
         for (int row = 0; row < 6; row++) {
-            EXPECT_NEAR(H_int(row, j), fd_col(row), tol) << label << " row=" << row << " col=" << j;
+            EXPECT_NEAR(H_int(row, j), fd_col(row), tol) << " row=" << row << " col=" << j;
         }
     }
 }
@@ -572,25 +572,25 @@ TEST(WheelTimeOffset3D, AnalyticalMatchesNumerical) {
 TEST(WheelIntrinsic2D, TurningVaryingSpeed) {
     double wl[] = {2.0, 2.1, 1.9};
     double wr[] = {2.5, 2.4, 2.6};
-    run2DResidualTest(wl, wr, 3, "2D TurningVaryingSpeed");
+    run2DResidualTest(wl, wr, 3);
 }
 
 TEST(WheelIntrinsic2D, LargeTurn) {
     double wl[] = {1.0, 1.2, 0.8};
     double wr[] = {3.0, 2.8, 3.2};
-    run2DResidualTest(wl, wr, 3, "2D LargeTurn");
+    run2DResidualTest(wl, wr, 3);
 }
 
 TEST(WheelIntrinsic3D, TurningVaryingSpeed) {
     double wl[] = {2.0, 2.1, 1.9};
     double wr[] = {2.5, 2.4, 2.6};
-    run3DResidualTest(wl, wr, 3, "3D TurningVaryingSpeed");
+    run3DResidualTest(wl, wr, 3);
 }
 
 TEST(WheelIntrinsic3D, LargeTurn) {
     double wl[] = {1.0, 1.2, 0.8};
     double wr[] = {3.0, 2.8, 3.2};
-    run3DResidualTest(wl, wr, 3, "3D LargeTurn");
+    run3DResidualTest(wl, wr, 3);
 }
 
 // Verifies ComputePhiTr3D: the 6x6 covariance transition matrix for 3D preintegration.
