@@ -21,6 +21,7 @@
 #ifndef MINS_UPDATERWHEEL_H
 #define MINS_UPDATERWHEEL_H
 
+#include "WheelTypes.h"
 #include <Eigen/Eigen>
 #include <deque>
 #include <memory>
@@ -45,6 +46,12 @@ struct PreintegrationPartials2D {
   double h_yw;  ///< d(y)/d(w).
   double h_xv;  ///< d(x)/d(v).
   double h_yv;  ///< d(y)/d(v).
+};
+
+/// Angular and forward velocity of the wheel odometry frame, resolved from one raw reading.
+struct OdometryVelocity {
+  double w; ///< Angular rate of the odometry frame, rad/s.
+  double v; ///< Forward velocity of the odometry frame, m/s.
 };
 
 class UpdaterWheel {
@@ -269,6 +276,96 @@ public:
    */
   static Eigen::Matrix<double, 6, 6> ComputePhiTr3D(const Eigen::Matrix3d &R_3D, const Eigen::Matrix3d &R_new,
                                                       const Eigen::Vector3d &p_3D, const Eigen::Vector3d &new_p);
+
+  /**
+   * \brief Resolve one raw wheel reading into the velocities of the odometry frame.
+   *
+   * The intrinsics are ignored by every modality but Angular, which is the only one whose
+   * readings are wheel-side rather than frame-side.
+   *
+   * \param[in] type Wheel type of the reading.
+   * \param[in] data Raw wheel reading.
+   * \param[in] rl Left wheel radius.
+   * \param[in] rr Right wheel radius.
+   * \param[in] b Wheel baseline.
+   * \return Velocities of the odometry frame.
+   */
+  static OdometryVelocity ComputeOdometryVelocity(WheelType type, const WheelData &data, double rl, double rr,
+                                                   double b);
+
+  /**
+   * \brief Runge-Kutta integration of one 2D preintegration step.
+   *
+   * The lateral term falls back to its L'Hopital limit when the angular rate is near zero.
+   *
+   * \param[in] dt Time interval for this step.
+   * \param[in] vel0 Odometry velocities at the start of the step.
+   * \param[in] vel1 Odometry velocities at the end of the step.
+   * \param[in] th Accumulated heading angle before this step.
+   * \param[in] x Accumulated forward displacement before this step.
+   * \param[in] y Accumulated lateral displacement before this step.
+   * \return Accumulated [heading, x, y] after this step.
+   */
+  static Eigen::Vector3d IntegrateMean2D(double dt, const OdometryVelocity &vel0, const OdometryVelocity &vel1,
+                                          double th, double x, double y);
+
+  /**
+   * \brief Runge-Kutta integration of one 3D preintegration step.
+   *
+   * \param[in] dt Time interval for this step.
+   * \param[in] w_hat0 Angular velocity of the odometry frame at the start of the step.
+   * \param[in] v_hat0 Linear velocity of the odometry frame at the start of the step.
+   * \param[in] w_hat1 Angular velocity of the odometry frame at the end of the step.
+   * \param[in] v_hat1 Linear velocity of the odometry frame at the end of the step.
+   * \param[in] R_3D Accumulated rotation before this step.
+   * \param[in] p_3D Accumulated position before this step.
+   * \param[out] R_new Accumulated rotation after this step.
+   * \param[out] new_p Accumulated position after this step.
+   */
+  static void IntegrateMean3D(double dt, const Eigen::Vector3d &w_hat0, const Eigen::Vector3d &v_hat0,
+                               const Eigen::Vector3d &w_hat1, const Eigen::Vector3d &v_hat1,
+                               const Eigen::Matrix3d &R_3D, const Eigen::Vector3d &p_3D,
+                               Eigen::Matrix3d &R_new, Eigen::Vector3d &new_p);
+
+  /**
+   * \brief Derivatives of the odometry frame velocities with respect to the two raw readings.
+   * \param[in] type Wheel type of the readings.
+   * \param[in] rl Left wheel radius.
+   * \param[in] rr Right wheel radius.
+   * \param[in] b Wheel baseline.
+   * \param[out] Hwn d(w)/d([m1, m2]).
+   * \param[out] Hvn d(v)/d([m1, m2]).
+   */
+  static void ComputeVelocityNoiseJacobians(WheelType type, double rl, double rr, double b,
+                                             Eigen::Matrix<double, 1, 2> &Hwn,
+                                             Eigen::Matrix<double, 1, 2> &Hvn);
+
+  /**
+   * \brief Continuous-time noise covariance of one 2D wheel reading, discretized over the step.
+   * \param[in] type Wheel type of the reading.
+   * \param[in] noise_w Angular measurement noise.
+   * \param[in] noise_v Linear measurement noise.
+   * \param[in] dt Time interval for this step.
+   * \return 2x2 measurement noise covariance.
+   */
+  static Eigen::Matrix2d ComputeMeasurementCovariance2D(WheelType type, double noise_w, double noise_v, double dt);
+
+  /**
+   * \brief Continuous-time noise covariance of one 3D wheel reading, discretized over the step.
+   *
+   * The four off-plane entries carry the planar motion constraint, so they are driven by the
+   * constraint noise rather than by either measurement noise.
+   *
+   * \param[in] type Wheel type of the reading.
+   * \param[in] noise_w Angular measurement noise.
+   * \param[in] noise_v Linear measurement noise.
+   * \param[in] noise_p Planar motion constraint noise.
+   * \param[in] b Wheel baseline.
+   * \param[in] dt Time interval for this step.
+   * \return 6x6 measurement noise covariance, ordered [w(3), v(3)].
+   */
+  static Eigen::Matrix<double, 6, 6> ComputeMeasurementCovariance3D(WheelType type, double noise_w, double noise_v,
+                                                                     double noise_p, double b, double dt);
 
 private:
   /**

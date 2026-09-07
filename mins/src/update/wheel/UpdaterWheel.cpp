@@ -527,6 +527,97 @@ void UpdaterWheel::preintegration_intrinsics_3D(double dt, const WheelData &data
   AccumulateIntrinsicJacobians3D(dt, data.m1, data.m2, R_3D, rl, rr, b, dR_di_3D, dp_di_3D);
 }
 
+OdometryVelocity UpdaterWheel::ComputeOdometryVelocity(WheelType type, const WheelData &data, double rl, double rr,
+                                                       double b) {
+  switch (ModalityOf(type)) {
+  case WheelModality::Angular:
+    return {(data.m2 * rr - data.m1 * rl) / b, (data.m2 * rr + data.m1 * rl) / 2};
+  case WheelModality::Linear:
+    return {(data.m2 - data.m1) / b, (data.m2 + data.m1) / 2};
+  case WheelModality::Centered:
+    return {data.m1, data.m2};
+  }
+  return {0, 0};
+}
+
+Vector3d UpdaterWheel::IntegrateMean2D(double dt, const OdometryVelocity &vel0, const OdometryVelocity &vel1,
+                                       double th, double x, double y) {
+  double w_alpha = (vel1.w - vel0.w) / dt;
+  double v_jerk = (vel1.v - vel0.v) / dt;
+
+  // k1 ================
+  double w = vel0.w;
+  double v = vel0.v;
+  double k1_th = -w * dt;
+  double k1_x = v * 1 * dt;
+
+  // k2 ================
+  double th2 = 0.5 * k1_th;
+  w += 0.5 * w_alpha * dt;
+  v += 0.5 * v_jerk * dt;
+  double k2_th = -w * dt;
+  double k2_x = v * cos(th2) * dt;
+
+  // k3 ================
+  double th3 = 0.5 * k2_th;
+  double k3_th = -w * dt;
+  double k3_x = v * cos(th3) * dt;
+
+  // k4 ================
+  double th4 = k3_th;
+  w += 0.5 * w_alpha * dt;
+  v += 0.5 * v_jerk * dt;
+  double k4_th = -w * dt;
+  double k4_x = v * cos(th4) * dt;
+
+  // integrated value
+  double th_next = th + (1.0 / 6.0) * (k1_th + 2 * k2_th + 2 * k3_th + k4_th);
+  double x_next = x + (1.0 / 6.0) * (k1_x + 2 * k2_x + 2 * k3_x + k4_x);
+  double y_next;
+
+  if (abs(vel0.w) < SMALL_ANGULAR_RATE) // In case w is too small, apply L'Hopital rule
+    y_next = y - vel0.v * sin(th - vel0.w * dt) * dt;
+  else // use discrete integration value for y because it is working better for some unknown reason...
+    y_next = y - (vel0.v * (cos(th - vel0.w * dt) - cos(th))) / vel0.w;
+
+  return {th_next, x_next, y_next};
+}
+
+void UpdaterWheel::ComputeVelocityNoiseJacobians(WheelType type, double rl, double rr, double b,
+                                                 Matrix<double, 1, 2> &Hwn, Matrix<double, 1, 2> &Hvn) {
+  switch (ModalityOf(type)) {
+  case WheelModality::Angular:
+    Hwn << rl / b, -rr / b;
+    Hvn << -rl / 2, -rr / 2;
+    break;
+  case WheelModality::Linear:
+    Hwn << 1.0 / b, -1.0 / b;
+    Hvn << -1.0 / 2, -1.0 / 2;
+    break;
+  case WheelModality::Centered:
+    Hwn << 1, 0;
+    Hvn << 0, 1;
+    break;
+  }
+}
+
+Matrix2d UpdaterWheel::ComputeMeasurementCovariance2D(WheelType type, double noise_w, double noise_v, double dt) {
+  Matrix2d Q = Matrix2d::Zero();
+  switch (ModalityOf(type)) {
+  case WheelModality::Angular:
+    Q = pow(noise_w, 2) / dt * Matrix2d::Identity();
+    break;
+  case WheelModality::Linear:
+    Q = pow(noise_v, 2) / dt * Matrix2d::Identity();
+    break;
+  case WheelModality::Centered:
+    Q(0, 0) = pow(noise_w, 2) / dt;
+    Q(1, 1) = pow(noise_v, 2) / dt;
+    break;
+  }
+  return Q;
+}
+
 void UpdaterWheel::preintegration_2D(double dt, const WheelData &data1, const WheelData &data2) {
 
   // load intrinsic values
@@ -535,98 +626,18 @@ void UpdaterWheel::preintegration_2D(double dt, const WheelData &data1, const Wh
   double b = state->wheel_intrinsic->value()(2);
 
   // compute the velocities at the odometry frame
-  double w1 = 0, w2 = 0, v1 = 0, v2 = 0;
-  switch (ModalityOf(state->op->wheel->type)) {
-  case WheelModality::Angular:
-    w1 = (data1.m2 * rr - data1.m1 * rl) / b;
-    v1 = (data1.m2 * rr + data1.m1 * rl) / 2;
-    w2 = (data2.m2 * rr - data2.m1 * rl) / b;
-    v2 = (data2.m2 * rr + data2.m1 * rl) / 2;
-    break;
-  case WheelModality::Linear:
-    w1 = (data1.m2 - data1.m1) / b;
-    v1 = (data1.m2 + data1.m1) / 2;
-    w2 = (data2.m2 - data2.m1) / b;
-    v2 = (data2.m2 + data2.m1) / 2;
-    break;
-  case WheelModality::Centered:
-    w1 = data1.m1;
-    v1 = data1.m2;
-    w2 = data2.m1;
-    v2 = data2.m2;
-    break;
-  }
+  const OdometryVelocity vel1 = ComputeOdometryVelocity(state->op->wheel->type, data1, rl, rr, b);
+  const OdometryVelocity vel2 = ComputeOdometryVelocity(state->op->wheel->type, data2, rl, rr, b);
 
-  // =========================================================
   // Compute means
-  // =========================================================
-  double w_alpha = (w2 - w1) / dt;
-  double v_jerk = (v2 - v1) / dt;
-
-  // k1 ================
-  double w = w1;
-  double v = v1;
-  double k1_th = -w * dt;
-  double k1_x = v * 1 * dt;
-  double k1_y = -v * 0 * dt;
-
-  // k2 ================
-  double th2 = 0.5 * k1_th;
-  w += 0.5 * w_alpha * dt;
-  v += 0.5 * v_jerk * dt;
-  double k2_th = -w * dt;
-  double k2_x = v * cos(th2) * dt;
-  double k2_y = -v * sin(th2) * dt;
-
-  // k3 ================
-  double th3 = 0.5 * k2_th;
-  double k3_th = -w * dt;
-  double k3_x = v * cos(th3) * dt;
-  double k3_y = -v * sin(th3) * dt;
-
-  // k4 ================
-  double th4 = k3_th;
-  w += 0.5 * w_alpha * dt;
-  v += 0.5 * v_jerk * dt;
-  double k4_th = -w * dt;
-  double k4_x = v * cos(th4) * dt;
-  double k4_y = -v * sin(th4) * dt;
-
-  // integrated value
-  double th_next = th_2D + (1.0 / 6.0) * (k1_th + 2 * k2_th + 2 * k3_th + k4_th);
-  double x_next = x_2D + (1.0 / 6.0) * (k1_x + 2 * k2_x + 2 * k3_x + k4_x);
-  double y_next = y_2D + (1.0 / 6.0) * (k1_y + 2 * k2_y + 2 * k3_y + k4_y);
-
-  if (abs(w1) < SMALL_ANGULAR_RATE) // In case w is too small, apply L'Hopital rule
-    y_next = y_2D - v1 * sin(th_2D - w1 * dt) * dt;
-  else // use discrete integration value for y because it is working better for some unknown reason...
-    y_next = y_2D - (v1 * (cos(th_2D - w1 * dt) - cos(th_2D))) / w1;
+  const Vector3d mean_next = IntegrateMean2D(dt, vel1, vel2, th_2D, x_2D, y_2D);
 
   // Compute noise Jacobians respect to measurements
   Matrix<double, 1, 2> Hwn, Hvn;
-  switch (ModalityOf(state->op->wheel->type)) {
-  case WheelModality::Angular:
-    Hwn(0, 0) = rl / b;
-    Hwn(0, 1) = -rr / b;
-    Hvn(0, 0) = -rl / 2;
-    Hvn(0, 1) = -rr / 2;
-    break;
-  case WheelModality::Linear:
-    Hwn(0, 0) = 1.0 / b;
-    Hwn(0, 1) = -1.0 / b;
-    Hvn(0, 0) = -1.0 / 2;
-    Hvn(0, 1) = -1.0 / 2;
-    break;
-  case WheelModality::Centered:
-    Hwn(0, 0) = 1;
-    Hwn(0, 1) = 0;
-    Hvn(0, 0) = 0;
-    Hvn(0, 1) = 1;
-    break;
-  }
+  ComputeVelocityNoiseJacobians(state->op->wheel->type, rl, rr, b, Hwn, Hvn);
 
   // Compute Jacobians respect to state preintegrated state and the measurement
-  const PreintegrationPartials2D partials = ComputePreintegrationPartials2D(dt, w1, v1, th_2D);
+  const PreintegrationPartials2D partials = ComputePreintegrationPartials2D(dt, vel1.w, vel1.v, th_2D);
 
   // Compute the Jacobians with respect to the current preintegrated states
   Matrix3d Phi_tr = Matrix3d::Identity();
@@ -640,28 +651,17 @@ void UpdaterWheel::preintegration_2D(double dt, const WheelData &data1, const Wh
   Phi_ns.block(2, 0, 1, 2) = partials.h_yw * Hwn + partials.h_yv * Hvn;
 
   // Compute Measurement covariance
-  Matrix2d Q = Matrix2d::Zero();
-  switch (ModalityOf(state->op->wheel->type)) {
-  case WheelModality::Angular:
-    Q = pow(state->op->wheel->noise_w, 2) / dt * Matrix2d::Identity();
-    break;
-  case WheelModality::Linear:
-    Q = pow(state->op->wheel->noise_v, 2) / dt * Matrix2d::Identity();
-    break;
-  case WheelModality::Centered:
-    Q(0, 0) = pow(state->op->wheel->noise_w, 2) / dt;
-    Q(1, 1) = pow(state->op->wheel->noise_v, 2) / dt;
-    break;
-  }
+  const Matrix2d Q = ComputeMeasurementCovariance2D(state->op->wheel->type, state->op->wheel->noise_w,
+                                                    state->op->wheel->noise_v, dt);
 
   // integrate noise covarinace
   Cov_2D = Phi_tr * Cov_2D * Phi_tr.transpose() + Phi_ns * Q * Phi_ns.transpose();
   Cov_2D = 0.5 * (Cov_2D + Cov_2D.transpose());
 
   // integrate the measurement
-  th_2D = th_next;
-  x_2D = x_next;
-  y_2D = y_next;
+  th_2D = mean_next(0);
+  x_2D = mean_next(1);
+  y_2D = mean_next(2);
 }
 
 Matrix<double, 6, 6> UpdaterWheel::ComputePhiTr3D(const Matrix3d &R_3D, const Matrix3d &R_new,
@@ -673,43 +673,13 @@ Matrix<double, 6, 6> UpdaterWheel::ComputePhiTr3D(const Matrix3d &R_3D, const Ma
   return Phi_tr;
 }
 
-void UpdaterWheel::preintegration_3D(double dt, const WheelData &data1, const WheelData &data2) {
-
-  // load intrinsic values
-  double rl = state->wheel_intrinsic->value()(0);
-  double rr = state->wheel_intrinsic->value()(1);
-  double b = state->wheel_intrinsic->value()(2);
-
-  // compute the velocities at the odometry frame
-  Vector3d w_hat1, v_hat1, w_hat2, v_hat2;
-  switch (ModalityOf(state->op->wheel->type)) {
-  case WheelModality::Angular:
-    w_hat1 << 0, 0, (data1.m2 * rr - data1.m1 * rl) / b;
-    v_hat1 << (data1.m2 * rr + data1.m1 * rl) / 2, 0, 0;
-    w_hat2 << 0, 0, (data2.m2 * rr - data2.m1 * rl) / b;
-    v_hat2 << (data2.m2 * rr + data2.m1 * rl) / 2, 0, 0;
-    break;
-  case WheelModality::Linear:
-    w_hat1 << 0, 0, (data1.m2 - data1.m1) / b;
-    v_hat1 << (data1.m2 + data1.m1) / 2, 0, 0;
-    w_hat2 << 0, 0, (data2.m2 - data2.m1) / b;
-    v_hat2 << (data2.m2 + data2.m1) / 2, 0, 0;
-    break;
-  case WheelModality::Centered:
-    w_hat1 << 0, 0, data1.m1;
-    v_hat1 << data1.m2, 0, 0;
-    w_hat2 << 0, 0, data2.m1;
-    v_hat2 << data2.m2, 0, 0;
-    break;
-  }
-
-  // =========================================================
-  // Compute means
-  // =========================================================
-  Vector3d w_hat = w_hat1;
-  Vector3d v_hat = v_hat1;
-  Vector3d w_alpha = (w_hat2 - w_hat1) / dt;
-  Vector3d v_jerk = (v_hat2 - v_hat1) / dt;
+void UpdaterWheel::IntegrateMean3D(double dt, const Vector3d &w_hat0, const Vector3d &v_hat0, const Vector3d &w_hat1,
+                                   const Vector3d &v_hat1, const Matrix3d &R_3D, const Vector3d &p_3D,
+                                   Matrix3d &R_new, Vector3d &new_p) {
+  Vector3d w_hat = w_hat0;
+  Vector3d v_hat = v_hat0;
+  Vector3d w_alpha = (w_hat1 - w_hat0) / dt;
+  Vector3d v_jerk = (v_hat1 - v_hat0) / dt;
   Vector4d q_local = rot_2_quat(R_3D);
 
   // k1 ================
@@ -751,37 +721,55 @@ void UpdaterWheel::preintegration_3D(double dt, const WheelData &data1, const Wh
   // integrated value
   Vector4d dq = quatnorm(dq_0 + (1.0 / 6.0) * k1_q + (1.0 / 3.0) * k2_q + (1.0 / 3.0) * k3_q + (1.0 / 6.0) * k4_q);
   Vector4d new_q = quat_multiply(dq, q_local);
-  Matrix3d R_new = quat_2_Rot(new_q);
-  Vector3d new_p = p_3D + (1.0 / 6.0) * k1_p + (1.0 / 3.0) * k2_p + (1.0 / 3.0) * k3_p + (1.0 / 6.0) * k4_p;
+  R_new = quat_2_Rot(new_q);
+  new_p = p_3D + (1.0 / 6.0) * k1_p + (1.0 / 3.0) * k2_p + (1.0 / 3.0) * k3_p + (1.0 / 6.0) * k4_p;
+}
 
-  // compute measurement noise
+Matrix<double, 6, 6> UpdaterWheel::ComputeMeasurementCovariance3D(WheelType type, double noise_w, double noise_v,
+                                                                  double noise_p, double b, double dt) {
   Matrix<double, 6, 6> Q = Matrix<double, 6, 6>::Zero();
-  switch (ModalityOf(state->op->wheel->type)) {
+  Q(0, 0) = pow(noise_p, 2) / dt;
+  Q(1, 1) = pow(noise_p, 2) / dt;
+  Q(4, 4) = pow(noise_p, 2) / dt;
+  Q(5, 5) = pow(noise_p, 2) / dt;
+  switch (ModalityOf(type)) {
   case WheelModality::Angular:
-    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
-    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / dt;
-    Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+  case WheelModality::Centered:
+    Q(2, 2) = pow(noise_w, 2) / dt;
+    Q(3, 3) = pow(noise_v, 2) / dt;
     break;
   case WheelModality::Linear:
-    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(2, 2, 1, 1) << 2 * pow(state->op->wheel->noise_v, 2) / b / b / dt;
-    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / 2 / dt;
-    Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    break;
-  case WheelModality::Centered:
-    Q.block(0, 0, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(1, 1, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(2, 2, 1, 1) << pow(state->op->wheel->noise_w, 2) / dt;
-    Q.block(3, 3, 1, 1) << pow(state->op->wheel->noise_v, 2) / dt;
-    Q.block(4, 4, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
-    Q.block(5, 5, 1, 1) << pow(state->op->wheel->noise_p, 2) / dt;
+    Q(2, 2) = 2 * pow(noise_v, 2) / b / b / dt;
+    Q(3, 3) = pow(noise_v, 2) / 2 / dt;
     break;
   }
+  return Q;
+}
+
+void UpdaterWheel::preintegration_3D(double dt, const WheelData &data1, const WheelData &data2) {
+
+  // load intrinsic values
+  double rl = state->wheel_intrinsic->value()(0);
+  double rr = state->wheel_intrinsic->value()(1);
+  double b = state->wheel_intrinsic->value()(2);
+
+  // compute the velocities at the odometry frame
+  const OdometryVelocity vel1 = ComputeOdometryVelocity(state->op->wheel->type, data1, rl, rr, b);
+  const OdometryVelocity vel2 = ComputeOdometryVelocity(state->op->wheel->type, data2, rl, rr, b);
+  const Vector3d w_hat1(0, 0, vel1.w);
+  const Vector3d v_hat1(vel1.v, 0, 0);
+  const Vector3d w_hat2(0, 0, vel2.w);
+  const Vector3d v_hat2(vel2.v, 0, 0);
+
+  // Compute means
+  Matrix3d R_new;
+  Vector3d new_p;
+  IntegrateMean3D(dt, w_hat1, v_hat1, w_hat2, v_hat2, R_3D, p_3D, R_new, new_p);
+
+  // compute measurement noise
+  const Matrix<double, 6, 6> Q = ComputeMeasurementCovariance3D(state->op->wheel->type, state->op->wheel->noise_w,
+                                                                state->op->wheel->noise_v, state->op->wheel->noise_p,
+                                                                b, dt);
 
   // Compute the Jacobians with respect to the current preintegrated measurements
   Matrix<double, 6, 6> Phi_tr = ComputePhiTr3D(R_3D, R_new, p_3D, new_p);
