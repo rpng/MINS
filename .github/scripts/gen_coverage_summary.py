@@ -39,42 +39,41 @@ def summarize(report):
     return totals
 
 
-def delta(current, previous):
-    """Change against master, coloured by direction. GitHub renders the colour as inline math."""
-    if previous is None:
-        return 'n/a'
-    change = current - previous
-    if abs(change) < 0.05:
-        return 'same'
-    return r'$\color{%s}%+.1f$' % ('green' if change > 0 else 'red', change)
+def coloured(current, previous, covered, total):
+    """This branch's coverage, green above master and red below. GitHub renders the colour as math."""
+    counts = '(%d/%d)' % (covered, total)
+    if previous is None or abs(current - previous) < 0.05:
+        return '%.1f%% %s' % (current, counts)
+    colour = 'green' if current > previous else 'red'
+    return r'$\color{%s}{%.1f\%%}$ %s' % (colour, current, counts)
 
 
 def render(report, baseline):
     totals = summarize(report)
     was = summarize(baseline) if baseline else {}
     lines = [MARKER, '## Unit Test Code Coverage', '',
-             '| Area | Lines | Line % | vs master | Branches | Branch % | vs master |',
-             '|------|-------|--------|-----------|----------|----------|-----------|']
+             '| Area | master | this branch |',
+             '|------|--------|-------------|']
     for name, _ in GROUPS + [('other', None)]:
         if name not in totals:
             continue
-        line_covered, line_total, branch_covered, branch_total = totals[name]
+        line_covered, line_total = totals[name][0], totals[name][1]
         before = was.get(name)
-        lines.append('| `%s` | %d/%d | %.1f%% | %s | %d/%d | %.1f%% | %s |' % (
-            name, line_covered, line_total, pct(line_covered, line_total),
-            delta(pct(line_covered, line_total), pct(before[0], before[1]) if before else None),
-            branch_covered, branch_total, pct(branch_covered, branch_total),
-            delta(pct(branch_covered, branch_total), pct(before[2], before[3]) if before else None)))
+        was_pct = pct(before[0], before[1]) if before else None
+        lines.append('| `%s` | %s | %s |' % (
+            name, 'n/a' if was_pct is None else '%.1f%%' % was_pct,
+            coloured(pct(line_covered, line_total), was_pct, line_covered, line_total)))
     lines.append('')
     line_percent = report.get('line_percent', 0.0)
-    branch_percent = report.get('branch_percent', 0.0)
-    lines.append('**Overall %.1f%% lines (%s), %.1f%% branches (%s)** across `mins/src`.' % (
-        line_percent, delta(line_percent, baseline.get('line_percent') if baseline else None),
-        branch_percent, delta(branch_percent, baseline.get('branch_percent') if baseline else None)))
+    was_overall = baseline.get('line_percent') if baseline else None
+    lines.append('**Overall %s across `mins/src`, master is %s.**' % (
+        coloured(line_percent, was_overall, report.get('line_covered', 0),
+                 report.get('line_total', 0)),
+        'n/a' if was_overall is None else '%.1f%%' % was_overall))
     lines.append('')
     if baseline is None:
-        lines.append('No master baseline was available for this run, so the comparison columns '
-                     'are empty. They fill in once a master build has published a report.')
+        lines.append('No master baseline was available for this run. It fills in once a master '
+                     'build has published a coverage report.')
         lines.append('')
     lines.append('Full HTML report is in the `coverage-report` artifact of this run.')
     return '\n'.join(lines)
