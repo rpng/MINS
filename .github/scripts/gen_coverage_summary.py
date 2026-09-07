@@ -3,14 +3,20 @@ import json, os, sys
 
 MARKER = '<!-- mins-coverage-report -->'
 
-# Directories we care about enough to give their own row. Order is the order shown.
+# Directories we care about enough to give their own row. Order is the order shown, and the
+# first matching prefix wins, so the per-sensor rows have to come before the update catch-all.
 GROUPS = [
+    ('update/cam', 'mins/src/update/cam/'),
+    ('update/gps', 'mins/src/update/gps/'),
+    ('update/lidar', 'mins/src/update/lidar/'),
+    ('update/vicon', 'mins/src/update/vicon/'),
     ('update/wheel', 'mins/src/update/wheel/'),
     ('update', 'mins/src/update/'),
     ('state', 'mins/src/state/'),
     ('init', 'mins/src/init/'),
     ('options', 'mins/src/options/'),
     ('core', 'mins/src/core/'),
+    ('sim', 'mins/src/sim/'),
     ('utils', 'mins/src/utils/'),
 ]
 
