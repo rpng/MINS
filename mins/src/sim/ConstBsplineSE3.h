@@ -194,9 +194,9 @@ protected:
    * @param timestamp Desired timestamp we want to get two bounding poses of
    * @param poses Map of poses and timestamps
    * @param t0 Timestamp of the first pose
-   * @param pose0 SE(3) pose of the first pose
+   * @param pos0 Position of the first pose
    * @param t1 Timestamp of the second pose
-   * @param pose1 SE(3) pose of the second pose
+   * @param pos1 Position of the second pose
    * @return False if we are unable to find bounding poses
    */
 
@@ -206,18 +206,17 @@ protected:
    * @brief Will find two older poses and two newer poses for the current timestamp
    *
    * @param timestamp Desired timestamp we want to get four bounding poses of
-   * @param poses Map of poses and timestamps
+   * @param positions Map of control positions and timestamps
    * @param t0 Timestamp of the first pose
-   * @param pose0 SE(3) pose of the first pose
+   * @param pos0 Position of the first pose
    * @param t1 Timestamp of the second pose
-   * @param pose1 SE(3) pose of the second pose
+   * @param pos1 Position of the second pose
    * @param t2 Timestamp of the third pose
-   * @param pose2 SE(3) pose of the third pose
+   * @param pos2 Position of the third pose
    * @param t3 Timestamp of the fourth pose
-   * @param pose3 SE(3) pose of the fourth pose
+   * @param pos3 Position of the fourth pose
    * @return False if we are unable to find bounding poses
    */
-  typedef Vector3d V3;
   bool find_bounding_control_positions(const double timestamp, const AlignedEigenVec3d &positions, double &t0, Vector3d &pos0, double &t1, Vector3d &pos1, double &t2,
                                        Vector3d &pos2, double &t3, Vector3d &pos3);
 

@@ -67,7 +67,7 @@ class Simulator {
 public:
   /**
    * @brief Default constructor, will load all configuration variables
-   * @param params_ VioManager parameters. Should have already been loaded from cmd.
+   * @param op Estimator options. Should have already been loaded from cmd.
    */
   Simulator(std::shared_ptr<Options> op);
 
@@ -161,8 +161,6 @@ protected:
 
   /**
    * @brief Will get a set of perturbed parameters
-   * @param gen_state Random number gen to use
-   * @param op_ Parameters we will perturb
    */
   void perturb_calibration();
 
@@ -171,7 +169,6 @@ protected:
    * @param R_GtoI Orientation of the IMU pose
    * @param p_IinG Position of the IMU pose
    * @param camid Camera id of the camera sensor we want to project into
-   * @param feats Our set of 3d features
    * @return True distorted raw image measurements and their ids for the specified camera
    */
   std::vector<std::pair<size_t, VectorXf>> project_pointcloud(const Matrix3d &R_GtoI, const Vector3d &p_IinG, int camid);

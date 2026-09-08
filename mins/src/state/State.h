@@ -64,7 +64,7 @@ class State {
 public:
   /**
    * @brief Default Constructor (will initialize variables to defaults)
-   * @param options_ Options structure containing filter options
+   * @param op Options structure containing filter options
    */
   State(shared_ptr<OptionsEstimator> op, std::shared_ptr<Simulator> sim = nullptr);
 
