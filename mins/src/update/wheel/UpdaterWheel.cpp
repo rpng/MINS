@@ -787,22 +787,6 @@ void UpdaterWheel::preintegration_3D(double dt, const WheelData &data1, const Wh
   p_3D = new_p;
 }
 
-bool UpdaterWheel::get_bounding_data(double t_given, vector<WheelData> &data_stack, WheelData &data1, WheelData &data2) {
-
-  // check if requested time is in valid area
-  if (t_given > data_stack.back().time || t_given < data_stack.front().time)
-    return false;
-
-  // data_stack is ascending order!
-  for (int i = 0; i < (int)data_stack.size() - 1; i++) {
-    if (t_given >= data_stack.at(i).time && t_given < data_stack.at(i + 1).time) {
-      data1 = data_stack.at(i);
-      data2 = data_stack.at(i + 1);
-      return true;
-    }
-  }
-  return false;
-}
 void UpdaterWheel::feed_measurement(const WheelData &data) {
   // read the time before touching the stack, as data may alias one of its elements
   double time = data.time;

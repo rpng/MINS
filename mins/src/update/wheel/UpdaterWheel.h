@@ -376,9 +376,6 @@ private:
    */
   bool update(double time0, double time1);
 
-  /// get two wheel data bounding the t_given time
-  bool get_bounding_data(double t_given, std::vector<WheelData> &data_stack, WheelData &data1, WheelData &data2);
-
   /**
    * @brief Nice helper function that will linearly interpolate between two wheel messages.
    * This should be used instead of just "cutting" wheel messages that bound the clone times
