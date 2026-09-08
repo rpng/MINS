@@ -229,7 +229,7 @@ def main():
     md = '\n'.join([
         f'### {icon} {args.title}',
         '',
-        '| Parameter | final |error| | final σ | ±3σ |',
+        '| Parameter | final abs error | final σ | ±3σ |',
         '|---|---|---|---|',
     ] + rows)
 

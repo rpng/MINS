@@ -34,11 +34,12 @@ jobs:
             catkin build mins
             cd /catkin_ws/build/mins
             set +e
-            ctest --output-on-failure > /results/ctest.txt 2>&1
+            # ctest only counts test binaries; per-case numbers come from the gtest xml.
+            GTEST_OUTPUT=xml:/results/gtest/ ctest --output-on-failure > /results/ctest.txt 2>&1
             echo $? > /results/exit.txt
             cat /results/ctest.txt
           '
-          python3 .github/scripts/gen_unit_test_summary.py /tmp/mins_tests/ctest.txt unit_test_report.md || true
+          python3 .github/scripts/gen_unit_test_summary.py /tmp/mins_tests/ctest.txt unit_test_report.md /tmp/mins_tests/gtest || true
           exit $(cat /tmp/mins_tests/exit.txt 2>/dev/null || echo 1)
       - name: Post unit test report to PR
         if: always() && github.event_name == 'pull_request'
