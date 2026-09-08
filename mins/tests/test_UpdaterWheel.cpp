@@ -11,6 +11,8 @@
 #include "options/OptionsVicon.h"
 #include "options/OptionsWheel.h"
 #include "state/State.h"
+#include "state/StateHelper.h"
+#include "types/IMU.h"
 #include "types/PoseJPL.h"
 #include "types/Vec.h"
 #include "update/wheel/UpdaterWheel.h"
@@ -226,6 +228,62 @@ std::vector<double> TimesOf(const std::vector<WheelData> &data_vec) {
         times.push_back(data.time);
     }
     return times;
+}
+
+/// The two clone times the end-to-end tests update between, the speed driven between them,
+/// and how far that drive carries the body.
+const double CLONE_TIME_0 = 1.0;
+const double CLONE_TIME_1 = 1.2;
+const double DRIVE_SPEED = 0.5;
+const double DRIVEN_DISTANCE = DRIVE_SPEED * (CLONE_TIME_1 - CLONE_TIME_0);
+
+/// How far off the clone can sit and still pass the chi2 gate against the default priors,
+/// which are tight enough that a centimetre is already an outlier.
+const double CONSISTENT_DRIFT = 1e-3;
+
+/// Clone the IMU into the state at the given time, with the IMU sitting at p_IinG unrotated.
+void AddClone(const std::shared_ptr<State> &state, double time, const Vector3d &p_IinG) {
+    Eigen::Matrix<double, 16, 1> imu_value = Eigen::Matrix<double, 16, 1>::Zero();
+    imu_value(3) = 1; // JPL identity quaternion
+    imu_value.block(4, 0, 3, 1) = p_IinG;
+    state->imu->set_value(imu_value);
+    state->imu->set_fej(imu_value);
+    state->time = time;
+    StateHelper::augment_clone(state);
+}
+
+/// Wheel-only state holding two clones, the second one driven straight along x at DRIVE_SPEED.
+/// The drift is added on top of that drive, so it is exactly how far the state disagrees with
+/// what the wheels below will report.
+std::shared_ptr<State> MakeTwoCloneState(WheelType type, double drift, bool do_calib_dt = false) {
+    std::shared_ptr<OptionsEstimator> op = MakeWheelOnlyOptions(type);
+    // The time offset Jacobian reads CPI velocities, which only exist once the IMU has been
+    // propagated, so the test that wants that column installs them by hand below.
+    op->wheel->do_calib_dt = do_calib_dt;
+    std::shared_ptr<State> state = std::make_shared<State>(op);
+
+    AddClone(state, CLONE_TIME_0, Vector3d::Zero());
+    AddClone(state, CLONE_TIME_1, Vector3d(DRIVEN_DISTANCE + drift, 0, 0));
+
+    if (do_calib_dt) {
+        for (double time : {CLONE_TIME_0, CLONE_TIME_1}) {
+            state->cpis[time].v = Vector3d(DRIVE_SPEED, 0, 0);
+        }
+    }
+    return state;
+}
+
+/// Wheel readings for a straight drive at DRIVE_SPEED, spanning past both clone times so the
+/// window between them can be cut out of the stack.
+void FeedStraightDrive(const std::shared_ptr<UpdaterWheel> &updater) {
+    for (int i = -5; i <= 25; i++) {
+        WheelData data;
+        data.time = CLONE_TIME_0 + 0.01 * i;
+        // Equal readings on both wheels: no yaw rate, and the unit radii leave the speed as is.
+        data.m1 = DRIVE_SPEED;
+        data.m2 = DRIVE_SPEED;
+        updater->feed_measurement(data);
+    }
 }
 
 } // namespace
@@ -964,4 +1022,89 @@ TEST(MeasurementCovariance3D, ConstrainsTheOffPlaneAxesWithTheConstraintNoise) {
             EXPECT_DOUBLE_EQ(Q(3, 3), std::pow(noise_v, 2) / dt) << ToString(type);
         }
     }
+}
+
+// ---- End-to-end update ----
+
+TEST(WheelUpdate, AConsistentMeasurementIsAcceptedAndShrinksTheCovariance) {
+    for (WheelType type : {WheelType::Wheel2DAng, WheelType::Wheel3DAng}) {
+        std::shared_ptr<State> state = MakeTwoCloneState(type, CONSISTENT_DRIFT);
+        std::shared_ptr<UpdaterWheel> updater = std::make_shared<UpdaterWheel>(state);
+        FeedStraightDrive(updater);
+        const double trace_before = state->cov.trace();
+        updater->try_update();
+        EXPECT_LT(state->cov.trace(), trace_before) << ToString(type);
+    }
+}
+
+TEST(WheelUpdate, AWildlyInconsistentMeasurementIsRejectedAndLeavesTheStateAlone) {
+    for (WheelType type : {WheelType::Wheel2DAng, WheelType::Wheel3DAng}) {
+        std::shared_ptr<State> state = MakeTwoCloneState(type, 50.0);
+        std::shared_ptr<UpdaterWheel> updater = std::make_shared<UpdaterWheel>(state);
+        FeedStraightDrive(updater);
+        const MatrixXd cov_before = state->cov;
+        const Eigen::Matrix<double, 7, 1> pose_before = state->clones.at(CLONE_TIME_1)->value();
+        updater->try_update();
+        EXPECT_TRUE(state->cov.isApprox(cov_before)) << ToString(type);
+        EXPECT_TRUE(state->clones.at(CLONE_TIME_1)->value().isApprox(pose_before)) << ToString(type);
+    }
+}
+
+TEST(WheelUpdate, TimeOffsetCalibrationTakesItsColumnFromTheCPIVelocities) {
+    for (WheelType type : {WheelType::Wheel2DAng, WheelType::Wheel3DAng}) {
+        std::shared_ptr<State> state = MakeTwoCloneState(type, CONSISTENT_DRIFT, true);
+        std::shared_ptr<UpdaterWheel> updater = std::make_shared<UpdaterWheel>(state);
+        FeedStraightDrive(updater);
+        const double trace_before = state->cov.trace();
+        updater->try_update();
+        EXPECT_LT(state->cov.trace(), trace_before) << ToString(type);
+    }
+}
+
+TEST(WheelUpdate, ReuseOfInformationUpdatesFromTheOldestClone) {
+    for (WheelType type : {WheelType::Wheel2DAng, WheelType::Wheel3DAng}) {
+        std::shared_ptr<State> state = MakeTwoCloneState(type, CONSISTENT_DRIFT);
+        state->op->wheel->reuse_of_information = true;
+        std::shared_ptr<UpdaterWheel> updater = std::make_shared<UpdaterWheel>(state);
+        FeedStraightDrive(updater);
+        const double trace_before = state->cov.trace();
+        updater->try_update();
+        EXPECT_LT(state->cov.trace(), trace_before) << ToString(type);
+    }
+}
+
+TEST(WheelUpdate, ReuseOfInformationSkipsAWindowLongerThanTheConfiguredOne) {
+    std::shared_ptr<State> state = MakeTwoCloneState(WheelType::Wheel2DAng, CONSISTENT_DRIFT);
+    state->op->wheel->reuse_of_information = true;
+    state->op->window_size = 0.1; // shorter than the span the two clones already cover
+    std::shared_ptr<UpdaterWheel> updater = std::make_shared<UpdaterWheel>(state);
+    FeedStraightDrive(updater);
+    const MatrixXd cov_before = state->cov;
+    updater->try_update();
+    EXPECT_TRUE(state->cov.isApprox(cov_before));
+}
+
+TEST(WheelUpdate, ReuseOfInformationNeedsACloneOlderThanTheNewestReading) {
+    std::shared_ptr<State> state = MakeTwoCloneState(WheelType::Wheel2DAng, CONSISTENT_DRIFT);
+    state->op->wheel->reuse_of_information = true;
+    std::shared_ptr<UpdaterWheel> updater = std::make_shared<UpdaterWheel>(state);
+    // Every reading predates both clones, so there is no clone to integrate up to.
+    for (int i = 0; i < 10; i++) {
+        WheelData data;
+        data.time = 0.5 + 0.01 * i;
+        data.m1 = DRIVE_SPEED;
+        data.m2 = DRIVE_SPEED;
+        updater->feed_measurement(data);
+    }
+    const MatrixXd cov_before = state->cov;
+    updater->try_update();
+    EXPECT_TRUE(state->cov.isApprox(cov_before));
+}
+
+TEST(WheelUpdate, AnEmptyMeasurementStackLeavesTheStateAlone) {
+    std::shared_ptr<State> state = MakeTwoCloneState(WheelType::Wheel2DAng, CONSISTENT_DRIFT);
+    std::shared_ptr<UpdaterWheel> updater = std::make_shared<UpdaterWheel>(state);
+    const MatrixXd cov_before = state->cov;
+    updater->try_update();
+    EXPECT_TRUE(state->cov.isApprox(cov_before));
 }
