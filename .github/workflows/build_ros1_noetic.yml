@@ -76,7 +76,7 @@ jobs:
           if [ -n "$run_id" ]; then
             gh run download "$run_id" --name coverage-report --dir /tmp/mins_baseline || true
           fi
-      - name: Measure unit test code coverage
+      - name: Measure unit test code coverage and gate on it
         # Separate build: -O3 inlines away the lines we want to count, so this one is -O0
         # with --coverage. It reuses the image from the test step rather than a second job,
         # which would mean rebuilding the whole docker image.
