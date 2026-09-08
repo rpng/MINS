@@ -13,7 +13,7 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-file(GLOB MINS_TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp)
+file(GLOB MINS_TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp)
 foreach(TEST_SOURCE ${MINS_TEST_SOURCES})
     get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
