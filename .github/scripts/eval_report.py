@@ -52,7 +52,7 @@ def delta(pr_mean, ma_mean):
 def main():
     config = sys.argv[1]
     rows = parse(sys.argv[2])
-    out = [f"<details><summary><b>{config}</b></summary>\n"]
+    out = [f"<details open><summary><b>{config}</b></summary>\n"]
 
     if "master" not in rows or "pr" not in rows:
         out.append(f"> Note: could not parse results for `{config}` "
@@ -85,5 +85,5 @@ if __name__ == "__main__":
         main()
     except Exception as exc:  # never break the report job
         cfg = sys.argv[1] if len(sys.argv) > 1 else "?"
-        print(f"<details><summary><b>{cfg}</b></summary>\n\n"
+        print(f"<details open><summary><b>{cfg}</b></summary>\n\n"
               f"> Note: report parsing error: `{exc}`\n\n</details>")
