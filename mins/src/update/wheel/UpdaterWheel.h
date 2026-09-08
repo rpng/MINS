@@ -296,8 +296,6 @@ public:
   /**
    * \brief Runge-Kutta integration of one 2D preintegration step.
    *
-   * The lateral term falls back to its L'Hopital limit when the angular rate is near zero.
-   *
    * \param[in] dt Time interval for this step.
    * \param[in] vel0 Odometry velocities at the start of the step.
    * \param[in] vel1 Odometry velocities at the end of the step.
