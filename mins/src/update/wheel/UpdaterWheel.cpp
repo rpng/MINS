@@ -549,36 +549,35 @@ Vector3d UpdaterWheel::IntegrateMean2D(double dt, const OdometryVelocity &vel0, 
   double w = vel0.w;
   double v = vel0.v;
   double k1_th = -w * dt;
-  double k1_x = v * 1 * dt;
+  double k1_x = v * cos(th) * dt;
+  double k1_y = -v * sin(th) * dt;
 
   // k2 ================
-  double th2 = 0.5 * k1_th;
+  double th2 = th + 0.5 * k1_th;
   w += 0.5 * w_alpha * dt;
   v += 0.5 * v_jerk * dt;
   double k2_th = -w * dt;
   double k2_x = v * cos(th2) * dt;
+  double k2_y = -v * sin(th2) * dt;
 
   // k3 ================
-  double th3 = 0.5 * k2_th;
+  double th3 = th + 0.5 * k2_th;
   double k3_th = -w * dt;
   double k3_x = v * cos(th3) * dt;
+  double k3_y = -v * sin(th3) * dt;
 
   // k4 ================
-  double th4 = k3_th;
+  double th4 = th + k3_th;
   w += 0.5 * w_alpha * dt;
   v += 0.5 * v_jerk * dt;
   double k4_th = -w * dt;
   double k4_x = v * cos(th4) * dt;
+  double k4_y = -v * sin(th4) * dt;
 
   // integrated value
   double th_next = th + (1.0 / 6.0) * (k1_th + 2 * k2_th + 2 * k3_th + k4_th);
   double x_next = x + (1.0 / 6.0) * (k1_x + 2 * k2_x + 2 * k3_x + k4_x);
-  double y_next;
-
-  if (abs(vel0.w) < SMALL_ANGULAR_RATE) // In case w is too small, apply L'Hopital rule
-    y_next = y - vel0.v * sin(th - vel0.w * dt) * dt;
-  else // use discrete integration value for y because it is working better for some unknown reason...
-    y_next = y - (vel0.v * (cos(th - vel0.w * dt) - cos(th))) / vel0.w;
+  double y_next = y + (1.0 / 6.0) * (k1_y + 2 * k2_y + 2 * k3_y + k4_y);
 
   return {th_next, x_next, y_next};
 }
