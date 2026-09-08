@@ -3,6 +3,15 @@ import json, os, sys
 
 MARKER = '<!-- mins-coverage-report -->'
 
+# The gate only guards the one directory that has real unit tests. Gating the whole of
+# mins/src would fail any PR that adds a file to a directory with no tests at all, which
+# is most of them, so it would be turned off within a week.
+GATED_GROUP = 'update/wheel'
+
+# Percentage points a drop is allowed before the build fails. Small but not zero: line
+# attribution moves a little when unrelated code around it is rebuilt.
+GATE_TOLERANCE = 0.5
+
 # Directories we care about enough to give their own row. Order is the order shown, and the
 # first matching prefix wins, so the per-sensor rows have to come before the update catch-all.
 GROUPS = [
@@ -53,6 +62,19 @@ def cell(current, previous, covered, total):
     return '%s %+.1f' % (text, current - previous)
 
 
+def gate(totals, was):
+    """The reason to fail the build, or None when coverage held."""
+    if GATED_GROUP not in totals or GATED_GROUP not in was:
+        return None
+    current = pct(totals[GATED_GROUP][0], totals[GATED_GROUP][1])
+    previous = pct(was[GATED_GROUP][0], was[GATED_GROUP][1])
+    if current >= previous - GATE_TOLERANCE:
+        return None
+    return ('Line coverage on `%s` fell from %.1f%% to %.1f%%, past the %.1f point tolerance. '
+            'Cover the new lines, or say on the PR why the drop is the right call.'
+            % (GATED_GROUP, previous, current, GATE_TOLERANCE))
+
+
 def render(report, baseline):
     totals = summarize(report)
     was = summarize(baseline) if baseline else {}
@@ -80,8 +102,12 @@ def render(report, baseline):
         lines.append('No master baseline was available for this run. It fills in once a master '
                      'build has published a coverage report.')
         lines.append('')
+    failure = gate(totals, was)
+    if failure:
+        lines.append('**Coverage gate failed.** ' + failure)
+        lines.append('')
     lines.append('Full HTML report is in the `coverage-report` artifact of this run.')
-    return '\n'.join(lines)
+    return '\n'.join(lines), failure
 
 
 json_path = sys.argv[1]
@@ -92,8 +118,9 @@ baseline = None
 if baseline_path and os.path.exists(baseline_path):
     baseline = json.load(open(baseline_path))
 
+failure = None
 if os.path.exists(json_path):
-    summary = render(json.load(open(json_path)), baseline)
+    summary, failure = render(json.load(open(json_path)), baseline)
 else:
     summary = '\n'.join([MARKER, '## Unit Test Code Coverage', '',
                          '*Report not generated - check the CI log.*'])
@@ -107,3 +134,5 @@ if gss:
 if out_file:
     with open(out_file, 'w') as f:
         f.write(summary + '\n')
+if failure:
+    sys.exit(1)
