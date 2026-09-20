@@ -25,6 +25,8 @@
 #include <Eigen/Eigen>
 #include <cmath>
 #include <complex>
+#include <numeric>
+#include <random>
 
 using namespace std;
 using namespace Eigen;
@@ -143,12 +145,49 @@ public:
     if (!compute_4Dof(p_A, p_B, R_BtoA, p_BinA)) {
       return false;
     }
-    for (size_t i = 0; i < p_A.size(); i++) {
-      if ((p_A[i] - (R_BtoA * p_B[i] + p_BinA)).norm() <= inlierThresh) {
-        return true;
+    return count_inliers(p_A, p_B, R_BtoA, p_BinA, inlierThresh) > 0;
+  }
+
+  /**
+   * \brief Fits the 4-DOF transform over random subsets of the correspondences and keeps the
+   * hypothesis with the most inliers.
+   *
+   * \param[in] p_A Points expressed in frame A.
+   * \param[in] p_B The same points expressed in frame B.
+   * \param[out] R_BtoA Recovered rotation, about z only.
+   * \param[out] p_BinA Recovered translation.
+   * \param[in] numHypotheses How many subsets to fit.
+   * \param[in] inlierThresh Largest residual, in metres, that still counts as an inlier.
+   * \return False if no hypothesis produced an inlier. The outputs are only meaningful when
+   *         this returns true.
+   */
+  static bool Ransac_4Dof(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, Matrix3d &R_BtoA, Vector3d &p_BinA, size_t numHypotheses, double inlierThresh) {
+    // TODO: this is not RANSAC yet. The subset is the whole point set rather than a minimal
+    // one, the generator is reseeded on every call, and the winning hypothesis is never refit
+    // on its inliers, so outliers pull on every hypothesis equally. Fixing that needs outlier
+    // data to test against, which the simulator does not produce yet.
+    size_t sizeSubset = p_A.size();
+    vector<Vector3d> suBp_A, suBp_B;
+    size_t numInliers = 0;
+    Matrix3d R_BtoAhyp;
+    Vector3d p_BinAhyp;
+
+    for (size_t i = 0; i < numHypotheses; i++) {
+      suBp_A.clear();
+      suBp_B.clear();
+      get_random_subset(p_A, p_B, suBp_A, suBp_B, sizeSubset);
+      if (!compute_4Dof(suBp_A, suBp_B, R_BtoAhyp, p_BinAhyp)) {
+        continue;
+      }
+
+      size_t inliershyp = count_inliers(p_A, p_B, R_BtoAhyp, p_BinAhyp, inlierThresh);
+      if (inliershyp > numInliers) {
+        R_BtoA = R_BtoAhyp;
+        p_BinA = p_BinAhyp;
+        numInliers = inliershyp;
       }
     }
-    return false;
+    return numInliers > 0;
   }
 
   static inline Matrix4d Left_q(Vector4d q) {
@@ -176,6 +215,30 @@ private:
    * \return Angle converted into radians
    */
   static double DegreeToRadian(double angle) { return M_PI * angle / 180.0; }
+
+  // Get random subsets of given sets
+  static void get_random_subset(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, vector<Vector3d> &suBp_A, vector<Vector3d> &suBp_B, size_t sizeSubset) {
+
+    mt19937 rng(1337);
+    vector<unsigned int> indices(p_A.size());
+    iota(indices.begin(), indices.end(), 0);
+    shuffle(indices.begin(), indices.end(), rng);
+    for (size_t i = 0; i < sizeSubset; i++) {
+      suBp_A.push_back(p_A[indices[i]]);
+      suBp_B.push_back(p_B[indices[i]]);
+    }
+  }
+
+  // Count how many correspondences the given transform explains to within the threshold
+  static size_t count_inliers(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, const Matrix3d &R_BtoA, const Vector3d &p_BinA, double inlierThresh) {
+    size_t inliers = 0;
+    for (size_t i = 0; i < p_A.size(); i++) {
+      if ((p_A[i] - (R_BtoA * p_B[i] + p_BinA)).norm() <= inlierThresh) {
+        inliers++;
+      }
+    }
+    return inliers;
+  }
 
   // Get the full four dof transformation between z-aligned frames A and B based on point correspondences
   static bool compute_4Dof(const vector<Vector3d> &p_inA, const vector<Vector3d> &p_inB, Matrix3d &R_BtoA, Vector3d &p_BinA) {

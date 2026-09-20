@@ -308,8 +308,8 @@ bool UpdaterGPS::get_initial_guess(vector<GPSData> data_init, Matrix3d &RWtoE, V
     pWinE = pGPSinE_mean - RWtoE * pGPSinW_mean;
 
   } else {
-    // Directly compute the 4 dof solution from Chao's polynomial method
-    if (!MathGPS::Align_4Dof(vec_pGPSinE, vec_pGPSinW, RWtoE, pWinE, 100 * data_init.at(0).noise(0))) {
+    // Directly compute the 4 dof solution from Chao's polynomial method with ransac
+    if (!MathGPS::Ransac_4Dof(vec_pGPSinE, vec_pGPSinW, RWtoE, pWinE, 1, 100 * data_init.at(0).noise(0))) {
       PRINT2(REDPURPLE "[GPS]: Fail to find good solution for 4DOF initialization\n" RESET);
       return false;
     }
