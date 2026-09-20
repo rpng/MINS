@@ -277,7 +277,7 @@ bool UpdaterGPS::get_initial_guess(vector<GPSData> data_init, Matrix3d &RWtoE, V
     vec_pGPSinE.emplace_back(data_init.at(i).meas);
   }
 
-  // Directly compute the 4 dof solution from Chao's polynomial method with ransac
+  // Solve for the 4 dof transform between the world and ENU frames
   if (!state->op->gps->init_closed_form) {
     // Build up our J matrix with the left and right quaterions
     Matrix4d J = Matrix4d::Zero();
@@ -308,8 +308,8 @@ bool UpdaterGPS::get_initial_guess(vector<GPSData> data_init, Matrix3d &RWtoE, V
     pWinE = pGPSinE_mean - RWtoE * pGPSinW_mean;
 
   } else {
-    // Directly compute the 4 dof solution from Chao's polynomial method with ransac
-    if (!MathGPS::Ransac_4Dof(vec_pGPSinE, vec_pGPSinW, RWtoE, pWinE, 1, 100 * data_init.at(0).noise(0))) {
+    // Directly compute the 4 dof solution from Chao's polynomial method
+    if (!MathGPS::Align_4Dof(vec_pGPSinE, vec_pGPSinW, RWtoE, pWinE, 100 * data_init.at(0).noise(0))) {
       PRINT2(REDPURPLE "[GPS]: Fail to find good solution for 4DOF initialization\n" RESET);
       return false;
     }
