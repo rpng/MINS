@@ -91,6 +91,23 @@ jobs:
               gps_enabled:=true gps_do_calib_dt:=false gps_do_calib_ext:=true
               cam_enabled:=false wheel_enabled:=false lidar_enabled:=false
 
+          # ── GPS world-to-ENU init (one-shot, solved by the 4-DOF aligner) ──
+          # Every other GPS run starts from the ground-truth transform (init_use_gt_gnss
+          # defaults to true in sim). Stereo VIO keeps the world-frame trajectory the
+          # aligner sees accurate over the 30 m it waits for. The true T_WtoE is
+          # rotated and offset (sim_WtoE) since identity hides transpose/sign bugs.
+          - name:       gps_wtoe
+            title:      "GPS World-to-ENU Init (one-shot)"
+            prefix:     gps_WtoE
+            calib_type: wtoe
+            sim_WtoE:   rotated
+            args: >-
+              vicon_enabled:=false
+              gps_enabled:=true gps_do_calib_dt:=false gps_do_calib_ext:=false
+              init_use_gt_gnss:=false
+              cam_enabled:=true cam_max_n:=2 cam_use_stereo:=true
+              wheel_enabled:=false lidar_enabled:=false
+
           # ── Wheel intrinsics — Ang types only (Lin/Cen don't support do_calib_int) ──
           # 2D uses planar sim trajectory; 3D uses full 3D.
           # wheel_type is applied via sed on config_wheel.yaml inside docker.
@@ -222,6 +239,12 @@ jobs:
               export OMP_NUM_THREADS=1
               [ -n '${{ matrix.wheel_type }}' ] && sed -i 's/^  type:.*/  type: \"${{ matrix.wheel_type }}\"/' \
                 /catkin_ws/src/MINS/mins/config/simulation/config_wheel.yaml || true
+              # yaw 90 deg, p_WinE = [10, -5, 2]
+              [ -n '${{ matrix.sim_WtoE }}' ] && sed -i \
+                -e 's/^    - \[1.0, 0.0, 0.0, 0.0\]/    - [0.0,-1.0, 0.0, 10.0]/' \
+                -e 's/^    - \[0.0, 1.0, 0.0, 0.0\]/    - [1.0, 0.0, 0.0,-5.0]/' \
+                -e 's/^    - \[0.0, 0.0, 1.0, 0.0\]/    - [0.0, 0.0, 1.0, 2.0]/' \
+                /catkin_ws/src/MINS/mins/config/simulation/config_simulation.yaml || true
               for seed in \$(seq 0 $last); do
                 mkdir -p /outputs/\$seed
                 sed -i \"s/^  seed: .*/  seed: \$seed/\" \

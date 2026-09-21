@@ -239,6 +239,10 @@ bool UpdaterGPS::try_initialization() {
       ++i;
   }
 
+  // Keep the one-shot solution and its uncertainty for the logger, since the transform is marginalized below
+  init_WtoE = state->trans_WtoE->value();
+  init_WtoE_std = StateHelper::get_marginal_covariance(state, {state->trans_WtoE}).diagonal().cwiseSqrt();
+
   auto q = state->trans_WtoE->quat();
   auto p = state->trans_WtoE->pos();
   PRINT2(CYAN "[GPS]: ENUtoWorld transform initialized: " RESET);
@@ -422,6 +426,7 @@ void UpdaterGPS::construct_init_linsys(vector<GPSData> data_init, Matrix3d RWtoE
 
     //=========================================================================
     // Noise Covariance with inflation x10
+    // TODO: the x10 is unexplained and makes the init covariance ~10x too wide; use the real noise, but prove no KAIST eval regression first
     //=========================================================================
     for (int j = 0; j < 3; j++)
       Rinv(3 * i + j, 3 * i + j) = 1.0 / pow(noise(j) * 10, 2);

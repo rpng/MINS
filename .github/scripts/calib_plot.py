@@ -27,6 +27,7 @@ LABELS = {
     'ext':       ['φ_x (rad)', 'φ_y (rad)', 'φ_z (rad)', 'p_x (m)', 'p_y (m)', 'p_z (m)'],
     'int_wheel': ['left radius (m)', 'right radius (m)', 'baseline (m)'],
     'int_cam':   ['fu (px)', 'fv (px)', 'cu (px)', 'cv (px)', 'k₁', 'k₂', 'p₁', 'p₂'],
+    'wtoe':      ['yaw (rad)', 'p_x (m)', 'p_y (m)', 'p_z (m)'],
 }
 
 # Absolute error tolerance per calib_type (indexed by param order).
@@ -37,6 +38,7 @@ ABS_TOL = {
     'ext':       [0.005, 0.005, 0.005, 0.02, 0.02, 0.02],     # 5 mrad, 20 mm
     'int_wheel': [0.001, 0.001, 0.005],                        # 1 mm radii, 5 mm baseline
     'int_cam':   [2.0, 2.0, 2.0, 2.0, 0.002, 0.002, 0.002, 0.002],  # 2 px, 0.002 distortion
+    'wtoe':      [0.005, 0.02, 0.02, 0.02],                    # 5 mrad, 20 mm
 }
 
 
@@ -102,6 +104,13 @@ def process(calib_type, est, std_, gt):
                 err[i, 3:] = est[i, 5:8] - gt[i, 5:8]
                 s[i, :3]   = std_[i, 1:4]
                 s[i, 3:]   = std_[i, 4:7]
+    elif calib_type == 'wtoe':
+        # One-shot 4-DOF world-to-ENU init: cols = [t, q0, q1, q2, q3, p0, p1, p2], std = [t, yaw, p0, p1, p2]
+        err = np.zeros((n, 4))
+        for i in range(n):
+            err[i, 0] = rot_to_rotvec(jpl_to_rotmat(est[i, 1:5]) @ jpl_to_rotmat(gt[i, 1:5]).T)[2]
+            err[i, 1:] = est[i, 5:8] - gt[i, 5:8]
+        s = std_[:, 1:5]
     else:
         raise ValueError(f'Unknown calib_type: {calib_type}')
 
@@ -112,6 +121,8 @@ def make_figure(all_t, all_err, all_s, labels, title, output_png):
     n = len(labels)
     if n <= 3:
         ncols, nrows = n, 1
+    elif n == 4:
+        ncols, nrows = 2, 2
     elif n <= 6:
         ncols, nrows = 3, (n + 2) // 3
     else:
@@ -129,6 +140,13 @@ def make_figure(all_t, all_err, all_s, labels, title, output_png):
         for k, (t, err, s) in enumerate(zip(all_t, all_err, all_s)):
             e  = err[:, j]
             sv = s[:, j]
+            if len(t) == 1:
+                # One-shot parameter: one point per seed, with its ±3σ as an error bar
+                h = ax.errorbar(k, e[0], yerr=3 * sv[0], fmt='o', color=ERR_COLOR, ecolor=BLUE,
+                                capsize=3, label='error ±3σ (seed)')
+                if k == 0 and j == 0:
+                    first_handles = [h]
+                continue
             h1, = ax.plot(t, e, color=ERR_COLOR, alpha=0.8, linewidth=1.2,
                           label='error (seed)')
             h2  = ax.fill_between(t, -3*sv, 3*sv,
@@ -139,7 +157,11 @@ def make_figure(all_t, all_err, all_s, labels, title, output_png):
         if j == 0:
             first_handles.append(h3)
 
-        ax.set_xlabel('time (s)', fontsize=8)
+        if len(all_t[0]) == 1:
+            ax.set_xticks(range(len(all_t)))
+            ax.set_xlabel('seed', fontsize=8)
+        else:
+            ax.set_xlabel('time (s)', fontsize=8)
         ax.set_ylabel(lab, fontsize=8)
         ax.tick_params(labelsize=7)
         ax.grid(True, color=GRID_CLR, linewidth=0.5)
@@ -175,7 +197,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--prefix',     required=True)
     p.add_argument('--calib-type', required=True,
-                   choices=['dt', 'ext', 'int_wheel', 'int_cam'])
+                   choices=['dt', 'ext', 'int_wheel', 'int_cam', 'wtoe'])
     p.add_argument('--seeds-dir',  required=True)
     p.add_argument('--output-png', required=True)
     p.add_argument('--output-md',  required=True)
