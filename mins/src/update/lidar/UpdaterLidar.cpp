@@ -151,6 +151,14 @@ void UpdaterLidar::propagate_map_frame() {
     if (!ikd_data.at(i)->tree->initialized())
       continue;
 
+    // Drop the map if its anchor already left the clone window (e.g. the wide clone gap right after
+    // init got marginalized before we had enough clones to propagate). The next scan rebuilds it.
+    if (ikd_data.at(i)->time + state->lidar_dt.at(i)->value()(0) < state->oldest_clone_time()) {
+      PRINT3(YELLOW "[LiDAR] Map %d anchor left the clone window. Rebuilding.\n" RESET, i);
+      ikd_data.at(i)->tree->reset();
+      continue;
+    }
+
     // Skip if we do not have enough clones to perform propagation
     if (state->clones.size() < state->op->intr_order + 1)
       continue;
@@ -207,8 +215,10 @@ bool UpdaterLidar::update(std::shared_ptr<LiDARData> lidar, shared_ptr<iKDDATA> 
     if (ikd->time + dt > state->oldest_clone_time()) {
       cout << "ikd->time + dt > state->oldest_clone_time()" << endl;
       return false;
-    } else
-      std::exit(EXIT_FAILURE);
+    }
+    // Anchor left the clone window. propagate_map_frame drops such maps, so this is a backstop.
+    ikd->tree->initialized() ? ikd->tree->reset() : void();
+    return false;
   }
 
   // Add to state map
