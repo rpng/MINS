@@ -14,7 +14,7 @@ est:
   use_imu_res: true
   use_imu_cov: false
   use_pol_cov: true
-  dynamic_cloning: true
+  dynamic_cloning: false
 
 # Slope of the polynomial pose interpolation error based on acceleration
 # order: 1 3 5 7 9

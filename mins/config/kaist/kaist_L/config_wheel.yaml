@@ -7,7 +7,7 @@ wheel:
   do_calib_ext: false
   do_calib_int: false
   noise_w: 0.1
-  noise_v: 0.5
+  noise_v: 0.1
   noise_p: 0.1
   init_cov_dt: 1e-4
   init_cov_ex_o: 1e-4

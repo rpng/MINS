@@ -17,6 +17,7 @@ lidar:
   raw_remove_motion_blur: false # required to set v_angles and h_angles correctly
   raw_point_dt: 1e-6
   map_do_downsample: true
+  map_thread_rebuild_num: 1000000000 # rebuild the map on the main thread so runs are repeatable
   map_downsample_size: 0.5
   map_noise: 0.1
   map_ngbr_num: 5
