@@ -487,7 +487,7 @@ void UpdaterGPS::transform_state_to_ENU() {
     H.block(clone.second->id(), state->trans_WtoE->id(), 3, 1) = -(RWtoCl * RWtoE.transpose()).block(0, 2, 3, 1);
     H.block(clone.second->id() + 3, state->trans_WtoE->id(), 3, 1) = skew_x(RWtoE * pClinW).block(0, 2, 3, 1);
     H.block(clone.second->id() + 3, state->trans_WtoE->id() + 1, 3, 3).setIdentity();
-    H.block(clone.second->id() + 3, 3, 3, 3) = RWtoE;
+    H.block(clone.second->id() + 3, clone.second->id() + 3, 3, 3) = RWtoE;
   }
 
   // New Covariance
