@@ -84,16 +84,13 @@ def report(results_dir):
         paper = "%.2f" % (sum(PAPER[c][s] for s in done) / len(done)) if done else "-"
         print("| %s | %d | %s | %s |" % (c, len(done), paper, " | ".join(means)))
     print("\n- = no result in the paper (and none here), fail = no trajectory, (nn%) = run ended early.\n")
-    for half in (SEQS[:11], SEQS[11:]):
-        print("## Urban %d-%d\n" % (half[0], half[-1]))
-        print("| config | row | %s |" % " | ".join(str(s) for s in half))
-        print("|---|---|" + "---|" * len(half))
-        print("| | km | %s |" % " | ".join("%.1f" % rows[s]["km"] if s in rows else "-" for s in half))
-        for c in PAPER:
-            print("| %s | paper | %s |" % (c, " | ".join("-" if PAPER[c][s] is None else "%.2f" % PAPER[c][s] for s in half)))
-            for r in REFS:
-                print("| | %s | %s |" % (r, " | ".join(cell(s, r + "_" + c, PAPER[c][s]) for s in half)))
-        print()
+    print("| config | row | %s |" % " | ".join(str(s) for s in SEQS))
+    print("|---|---|" + "---|" * len(SEQS))
+    print("| | km | %s |" % " | ".join("%.1f" % rows[s]["km"] if s in rows else "-" for s in SEQS))
+    for c in PAPER:
+        print("| %s | paper | %s |" % (c, " | ".join("-" if PAPER[c][s] is None else "%.2f" % PAPER[c][s] for s in SEQS)))
+        for r in REFS:
+            print("| | %s | %s |" % (r, " | ".join(cell(s, r + "_" + c, PAPER[c][s]) for s in SEQS)))
 
 if __name__ == "__main__":
     if sys.argv[1] == "report":
