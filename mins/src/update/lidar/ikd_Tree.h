@@ -20,7 +20,6 @@
 
 #define EPSS 1e-6
 #define Minimal_Unbalanced_Tree_Size 10
-#define Multi_Thread_Rebuild_Point_Num 1500
 #define DOWNSAMPLE_SWITCH true
 #define ForceRebuildPercentage 0.2
 #define Q_LEN 1000000
@@ -204,6 +203,8 @@ private:
   float delete_criterion_param = 0.5f;
   float balance_criterion_param = 0.7f;
   float downsample_size = 0.2f;
+  /// Subtrees at least this big are rebuilt on a background thread (faster, not deterministic).
+  int multi_thread_rebuild_point_num = 1500;
   bool Delete_Storage_Disabled = false;
   KD_TREE_NODE *STATIC_ROOT_NODE = nullptr;
   PointVector Points_deleted;
@@ -238,6 +239,7 @@ public:
   void Set_delete_criterion_param(float delete_param);
   void Set_balance_criterion_param(float balance_param);
   void set_downsample_param(float box_length);
+  void set_multi_thread_rebuild_param(int point_num);
   void InitializeKDTree(float delete_param = 0.5, float balance_param = 0.7, float box_length = 0.2);
   int size();
   int validnum();

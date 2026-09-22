@@ -99,6 +99,7 @@ void LidarHelper::init_map_local(const shared_ptr<LiDARData> &lidar_inL, shared_
   ikd->time = lidar_inL->time;
   ikd->last_up_time = prop ? ikd->last_up_time : lidar_inL->time;
   ikd->tree->set_downsample_param(op->map_downsample_size);
+  ikd->tree->set_multi_thread_rebuild_param(op->map_thread_rebuild_num);
   ikd->tree->Build(lidar_inL->pointcloud->points);
 }
 

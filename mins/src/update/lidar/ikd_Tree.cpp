@@ -35,6 +35,8 @@ template <typename PointType> void KD_TREE<PointType>::Set_balance_criterion_par
 
 template <typename PointType> void KD_TREE<PointType>::set_downsample_param(float downsample_param) { downsample_size = downsample_param; }
 
+template <typename PointType> void KD_TREE<PointType>::set_multi_thread_rebuild_param(int point_num) { multi_thread_rebuild_point_num = point_num; }
+
 template <typename PointType> void KD_TREE<PointType>::InitializeKDTree(float delete_param, float balance_param, float box_length) {
   Set_delete_criterion_param(delete_param);
   Set_balance_criterion_param(balance_param);
@@ -592,7 +594,7 @@ template <typename PointType> void KD_TREE<PointType>::BuildTree(KD_TREE_NODE **
 
 template <typename PointType> void KD_TREE<PointType>::Rebuild(KD_TREE_NODE **root) {
   KD_TREE_NODE *father_ptr;
-  if ((*root)->TreeSize >= Multi_Thread_Rebuild_Point_Num) {
+  if ((*root)->TreeSize >= multi_thread_rebuild_point_num) {
     if (rebuild_ptr_mutex_lock.try_lock()) {
       if (Rebuild_Ptr == nullptr || ((*root)->TreeSize > (*Rebuild_Ptr)->TreeSize)) {
         Rebuild_Ptr = root;
@@ -683,7 +685,7 @@ int KD_TREE<PointType>::Delete_by_range(KD_TREE_NODE **root, BoxPointType boxpoi
     working_flag_mutex.unlock();
   }
   Update(*root);
-  if (Rebuild_Ptr != nullptr && *Rebuild_Ptr == *root && (*root)->TreeSize < Multi_Thread_Rebuild_Point_Num)
+  if (Rebuild_Ptr != nullptr && *Rebuild_Ptr == *root && (*root)->TreeSize < multi_thread_rebuild_point_num)
     Rebuild_Ptr = nullptr;
   bool need_rebuild = allow_rebuild & Criterion_Check((*root));
   if (need_rebuild)
@@ -738,7 +740,7 @@ template <typename PointType> void KD_TREE<PointType>::Delete_by_point(KD_TREE_N
     }
   }
   Update(*root);
-  if (Rebuild_Ptr != nullptr && *Rebuild_Ptr == *root && (*root)->TreeSize < Multi_Thread_Rebuild_Point_Num)
+  if (Rebuild_Ptr != nullptr && *Rebuild_Ptr == *root && (*root)->TreeSize < multi_thread_rebuild_point_num)
     Rebuild_Ptr = nullptr;
   bool need_rebuild = allow_rebuild & Criterion_Check((*root));
   if (need_rebuild)
@@ -803,7 +805,7 @@ template <typename PointType> void KD_TREE<PointType>::Add_by_range(KD_TREE_NODE
     working_flag_mutex.unlock();
   }
   Update(*root);
-  if (Rebuild_Ptr != nullptr && *Rebuild_Ptr == *root && (*root)->TreeSize < Multi_Thread_Rebuild_Point_Num)
+  if (Rebuild_Ptr != nullptr && *Rebuild_Ptr == *root && (*root)->TreeSize < multi_thread_rebuild_point_num)
     Rebuild_Ptr = nullptr;
   bool need_rebuild = allow_rebuild & Criterion_Check((*root));
   if (need_rebuild)
@@ -858,7 +860,7 @@ void KD_TREE<PointType>::Add_by_point(KD_TREE_NODE **root, PointType point, bool
     }
   }
   Update(*root);
-  if (Rebuild_Ptr != nullptr && *Rebuild_Ptr == *root && (*root)->TreeSize < Multi_Thread_Rebuild_Point_Num)
+  if (Rebuild_Ptr != nullptr && *Rebuild_Ptr == *root && (*root)->TreeSize < multi_thread_rebuild_point_num)
     Rebuild_Ptr = nullptr;
   bool need_rebuild = allow_rebuild & Criterion_Check((*root));
   if (need_rebuild)
