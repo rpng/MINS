@@ -90,6 +90,7 @@ struct OptionsLidar {
   double map_ngbr_max_d = 1;        // maximum distance of the most far neighbor (m)
   double map_downsample_size = 0.1; // ikd tree voxcel size (m)
   bool map_do_downsample = true;
+  int map_thread_rebuild_num = 1500; // ikd subtrees this big rebuild on a background thread. Huge = deterministic
   double map_noise = 1.0;
   double map_decay_time = 15;
   double map_decay_dist = 50;

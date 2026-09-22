@@ -50,6 +50,7 @@ void mins::OptionsLidar::load(const std::shared_ptr<ov_core::YamlParser> &parser
     parser->parse_external(f, "lidar", "map_ngbr_max_d", map_ngbr_max_d);
     parser->parse_external(f, "lidar", "map_downsample_size", map_downsample_size);
     parser->parse_external(f, "lidar", "map_do_downsample", map_do_downsample);
+    parser->parse_external(f, "lidar", "map_thread_rebuild_num", map_thread_rebuild_num, false);
     parser->parse_external(f, "lidar", "map_decay_time", map_decay_time);
     parser->parse_external(f, "lidar", "map_decay_dist", map_decay_dist);
     parser->parse_external(f, "lidar", "map_use_icp", map_use_icp);
