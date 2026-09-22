@@ -14,6 +14,10 @@ concurrency:
   group: kaist-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write   # to post / update the PR comment
+
 jobs:
   build:
     name: "Build image (${{ matrix.ref }})"
@@ -128,4 +132,29 @@ jobs:
           pattern: urban*
           path: results
       - name: Table
-        run: python3 .github/scripts/kaist_ate.py report results | tee -a $GITHUB_STEP_SUMMARY
+        run: |
+          { echo "<!-- mins-kaist-report -->"; python3 .github/scripts/kaist_ate.py report results; } > report.md
+          cat report.md >> $GITHUB_STEP_SUMMARY
+      - name: Post / update PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = require('fs').readFileSync('report.md', 'utf8');
+            const marker = '<!-- mins-kaist-report -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body,
+              });
+            }
