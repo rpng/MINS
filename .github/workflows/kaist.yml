@@ -2,7 +2,8 @@ name: KAIST Urban
 
 # Runs every Table 6 sensor set of the MINS paper (arXiv 2309.15390) on all 22 KAIST Urban
 # sequences (HF mirror) and reports SE3 ATE per GT km next to the paper values.
-# One run is 22 jobs streaming ~400 GB of bags and takes about 3 h; a new push cancels the old run.
+# Master and the PR run side by side: 22 jobs streaming ~400 GB of bags, a few hours per run.
+# A new push cancels the old run.
 
 on:
   pull_request:
@@ -15,25 +16,35 @@ concurrency:
 
 jobs:
   build:
-    name: "Build image"
+    name: "Build image (${{ matrix.ref }})"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ref: pr
+            checkout: ""                                   # PR merge ref (default)
+          - ref: master
+            checkout: ${{ github.base_ref || 'master' }}  # master baseline
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.checkout }}
       - name: Build Docker image
-        run: docker build . --file Dockerfile_noetic_20_04 --tag mins
+        run: docker build . --file Dockerfile_noetic_20_04 --tag mins:${{ matrix.ref }}
       - name: Export image
-        run: docker save mins | gzip > image.tar.gz
+        run: docker save mins:${{ matrix.ref }} | gzip > image-${{ matrix.ref }}.tar.gz
       - uses: actions/upload-artifact@v4
         with:
-          name: image
-          path: image.tar.gz
+          name: image-${{ matrix.ref }}
+          path: image-${{ matrix.ref }}.tar.gz
           retention-days: 1
 
   run:
     name: "urban${{ matrix.seq }}"
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
@@ -49,9 +60,10 @@ jobs:
           df -h / /mnt
       - uses: actions/download-artifact@v4
         with:
-          name: image
-      - name: Load image
-        run: docker load < image.tar.gz && rm image.tar.gz
+          pattern: image-*
+          merge-multiple: true
+      - name: Load images
+        run: for f in image-*.tar.gz; do docker load < $f && rm $f; done
       - name: Download bag
         run: |
           dir=/mnt/bag
@@ -67,10 +79,11 @@ jobs:
           mkdir -p out
           # Table 6 sensor sets (I = IMU, C = camera, G = GPS, L = lidar, W = wheel) with the config the
           # paper used for each; unused sensors are switched off
+          for ref in master pr; do
           for combo in ICGLW:kaist_LC ICW:kaist_C ILW:kaist_L IC:kaist_C IL:kaist_L; do
             config=${combo#*:}
             combo=${combo%:*}
-            docker run --rm -v $DATA:/data -v $PWD/out:/out -e COMBO=$combo -e CONFIG=$config mins -c '
+            docker run --rm -v $DATA:/data -v $PWD/out:/out -e NAME=${ref}_$combo -e COMBO=$combo -e CONFIG=$config mins:$ref -c '
               source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
               has() { case $COMBO in *$1*) echo true ;; *) echo false ;; esac; }
               cat > /tmp/run.launch <<EOF
@@ -78,8 +91,8 @@ jobs:
             <node name="mins_bag" pkg="mins" type="bag" output="screen" required="true">
               <param name="config_path"         type="str"  value="/catkin_ws/src/MINS/mins/config/kaist/$CONFIG/config.yaml" />
               <param name="sys_path_bag"        type="str"  value="/data/run.bag" />
-              <param name="sys_path_trajectory" type="str"  value="/out/$COMBO.txt" />
-              <param name="sys_path_timing"     type="str"  value="/out/$COMBO.time" />
+              <param name="sys_path_trajectory" type="str"  value="/out/$NAME.txt" />
+              <param name="sys_path_timing"     type="str"  value="/out/$NAME.time" />
               <param name="sys_verbosity"       type="int"  value="3" />
               <param name="cam_enabled"         type="bool" value="$(has C)" />
               <param name="gps_enabled"         type="bool" value="$(has G)" />
@@ -88,8 +101,9 @@ jobs:
             </node>
           </launch>
           EOF
-              timeout 3000 roslaunch /tmp/run.launch > /out/$COMBO.log 2>&1
-              echo "$COMBO exit $?"' || true
+              timeout 3000 roslaunch /tmp/run.launch > /out/$NAME.log 2>&1
+              echo "$NAME exit $?"' || true
+          done
           done
       - name: Score
         run: |

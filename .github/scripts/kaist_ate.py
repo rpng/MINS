@@ -21,6 +21,7 @@ _PAPER = {
     "IL": "- - - - - - - - 2.69 2.97 2.53 3.96 6.21 5.11 5.68 9.18 5.30 - - - 3.50 2.17",
 }
 PAPER = {c: dict(zip(SEQS, [None if x == "-" else float(x) for x in v.split()])) for c, v in _PAPER.items()}
+REFS = ("master", "pr")
 
 
 def ate_se3(gt, est):
@@ -41,15 +42,15 @@ def score(seq, gt_path, out_dir):
     gt = np.loadtxt(gt_path, usecols=range(4))
     km = float(np.linalg.norm(np.diff(gt[:, 1:4], axis=0), axis=1).sum() / 1000)
     res = {"seq": seq, "km": km}
-    for c in PAPER:
+    for name in ("%s_%s" % (r, c) for r in REFS for c in PAPER):
         try:
-            est = np.loadtxt(os.path.join(out_dir, c + ".txt"), usecols=range(4), ndmin=2)
+            est = np.loadtxt(os.path.join(out_dir, name + ".txt"), usecols=range(4), ndmin=2)
             ate, n = ate_se3(gt, est)
             # A run that died early scores well on its short prefix, so report coverage too
             cover = float((est[-1, 0] - gt[0, 0]) / (gt[-1, 0] - gt[0, 0]))
-            res[c] = {"ate": ate, "m_km": ate / km, "poses": n, "cover": cover}
+            res[name] = {"ate": ate, "m_km": ate / km, "poses": n, "cover": cover}
         except Exception as e:
-            res[c] = {"error": str(e)[:80]}
+            res[name] = {"error": str(e)[:80]}
     print(json.dumps(res))
 
 
@@ -62,30 +63,39 @@ def report(results_dir):
         except (IndexError, ValueError, KeyError):
             print("skipping unreadable %s\n" % path)
 
-    def cell(seq, c):
-        x = rows.get(seq, {}).get(c, {})
+    def val(seq, name):
+        x = rows.get(seq, {}).get(name, {})
+        return x["m_km"] if x.get("cover", 0) > 0.98 else None
+
+    def cell(seq, name):
+        x = rows.get(seq, {}).get(name, {})
         if "m_km" not in x:
             return "fail"
         s = "%.2f" % x["m_km"]
         return s if x["cover"] > 0.98 else s + " (%d%%)" % (100 * x["cover"])
 
     print("# KAIST Urban vs MINS paper Table 6 (SE3 ATE per GT km)\n")
-    print("(nn%) = run ended early, value covers only that fraction.\n")
+    print("(nn%) = run ended early, value covers only that fraction. Means use sequences where the paper,")
+    print("master and PR all have a full-length result.\n")
     for c in PAPER:
-        full = {s: rows[s][c]["m_km"] for s in SEQS
-                if PAPER[c][s] is not None and rows.get(s, {}).get(c, {}).get("cover", 0) > 0.98}
-        close = sum(abs(v / PAPER[c][s] - 1) <= 0.2 for s, v in full.items())
-        total = sum(p is not None for p in PAPER[c].values())
-        print("## %s: %d/%d within 20%% of paper\n" % (c, close, total))
-        print("| seq | km | paper | this run |")
-        print("|---|---|---|---|")
+        paper = [s for s in SEQS if PAPER[c][s] is not None]
+        close = []
+        for r in REFS:
+            v = [val(s, r + "_" + c) for s in paper]
+            close.append("%s %d/%d" % (r, sum(x is not None and abs(x / PAPER[c][s] - 1) <= 0.2 for s, x in zip(paper, v)), len(paper)))
+        print("## %s (within 20%% of paper: %s)\n" % (c, ", ".join(close)))
+        print("| seq | km | paper | %s |" % " | ".join(REFS))
+        print("|---|---|---|" + "---|" * len(REFS))
         for seq in SEQS:
             p = PAPER[c][seq]
             km = "%.2f" % rows[seq]["km"] if seq in rows else "-"
-            print("| urban%d | %s | %s | %s |" % (seq, km, "-" if p is None else "%.2f" % p, cell(seq, c)))
-        if full:
-            print("| **mean (%d seq)** | | %.2f | %.2f |" % (len(full), sum(PAPER[c][s] for s in full) / len(full),
-                                                          sum(full.values()) / len(full)))
+            print("| urban%d | %s | %s | %s |" % (seq, km, "-" if p is None else "%.2f" % p,
+                                                 " | ".join(cell(seq, r + "_" + c) for r in REFS)))
+        done = [s for s in paper if all(val(s, r + "_" + c) is not None for r in REFS)]
+        if done:
+            means = ["%.2f" % (sum(val(s, r + "_" + c) for s in done) / len(done)) for r in REFS]
+            print("| **mean (%d seq)** | | %.2f | %s |" % (len(done), sum(PAPER[c][s] for s in done) / len(done),
+                                                        " | ".join(means)))
         print()
 
 
