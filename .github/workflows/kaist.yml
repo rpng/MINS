@@ -86,9 +86,29 @@ jobs:
           sudo mkdir -p $dir && sudo chown $USER $dir
           echo "DATA=$dir" >> $GITHUB_ENV
           base=https://huggingface.co/datasets/gladiator7737/kaist-urban-dataset/resolve/main/urban${{ matrix.seq }}
-          curl -sSfL --retry 5 -o $dir/gt.txt $base.txt
-          # urban28 and urban38 are split in two parts on the mirror
-          { curl -sSfL --retry 5 $base.bag || { curl -sSfL --retry 5 $base.bag.part_00 && curl -sSfL --retry 5 $base.bag.part_01; }; } > $dir/run.bag
+          size() { curl -sfIL $1 | grep -i "^content-length" | tail -1 | tr -dc 0-9; }
+          # pulling 50 GB over a few hours drops often enough that --retry is not enough: it restarts
+          # from byte 0 and appends, quietly corrupting the bag. Resume by range from what landed, and
+          # only call it done once the file is the length the mirror advertises.
+          fetch() {
+            want=$(size $1); [ -n "$want" ] || { echo "no content-length for $1"; return 1; }
+            from=$(stat -c%s $2 2>/dev/null || echo 0)
+            for try in 1 2 3 4 5 6; do
+              have=$(( $(stat -c%s $2 2>/dev/null || echo 0) - from ))
+              [ $have -eq $want ] && return 0
+              curl -sSfL --range $have- $1 >> $2 && continue
+              echo "$1 stalled at $have/$want, retry $try"; sleep 15
+            done
+            echo "gave up on $1"; return 1
+          }
+          rm -f $dir/gt.txt $dir/run.bag
+          fetch $base.txt $dir/gt.txt
+          # most sequences are one file, urban28 and urban38 are split in two parts on the mirror
+          if curl -sfIL -o /dev/null $base.bag; then
+            fetch $base.bag $dir/run.bag
+          else
+            fetch $base.bag.part_00 $dir/run.bag && fetch $base.bag.part_01 $dir/run.bag
+          fi
       - name: Run MINS
         run: |
           mkdir -p out out-master
