@@ -3,11 +3,15 @@ name: KAIST Urban
 # Runs every Table 6 sensor set of the MINS paper (arXiv 2309.15390) on all 22 KAIST Urban
 # sequences (HF mirror) and reports SE3 ATE per GT km next to the paper values.
 # Master and the PR run side by side: 22 jobs streaming ~400 GB of bags, a few hours per run.
-# Master's numbers are cached per master commit, so only the first PR on a given master pays for them.
+# Nothing is ever computed twice for the same master commit: a merged PR already ran every sequence
+# against the tree that became master, so the push job just files that run's results as master's
+# numbers and every later PR restores them and runs its own half only.
 # A new push cancels the old run.
 
 on:
   pull_request:
+    branches: [ "master" ]
+  push:
     branches: [ "master" ]
   workflow_dispatch:
 
@@ -17,11 +21,13 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read          # to read the merged PR's run artifacts
   pull-requests: write   # to post / update the PR comment
 
 jobs:
   build:
     name: "Build image (${{ matrix.ref }})"
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -134,7 +140,7 @@ jobs:
   report:
     name: "Report"
     needs: run
-    if: always()
+    if: always() && github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -169,3 +175,61 @@ jobs:
                 issue_number: context.issue.number, body,
               });
             }
+
+  # A merged PR ran every sequence against refs/pull/N/merge, whose tree is what just landed on
+  # master, so its pr results are master's results for this commit. Find that run instead of
+  # spending another few hours reproducing it.
+  source:
+    name: "Find the merged PR's run"
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.find.outputs.run_id }}
+    steps:
+      - uses: actions/github-script@v7
+        id: find
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner, repo, commit_sha: context.sha,
+            });
+            const pr = prs.data.find(p => p.merged_at);
+            if (!pr) return core.info('no merged PR for this commit, nothing to promote');
+            if (pr.base.sha !== context.payload.before) {
+              return core.info('PR was built on ' + pr.base.sha + ', master moved since, skipping');
+            }
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner, repo, workflow_id: 'kaist.yml', head_sha: pr.head.sha, status: 'success',
+            });
+            const run = runs.data.workflow_runs[0];
+            if (!run) return core.info('no finished KAIST run for PR #' + pr.number + ', next PR pays');
+            core.info('promoting run ' + run.id + ' from PR #' + pr.number);
+            core.setOutput('run_id', String(run.id));
+
+  promote:
+    name: "Cache master urban${{ matrix.seq }}"
+    needs: source
+    if: needs.source.outputs.run_id != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        seq: [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: urban${{ matrix.seq }}
+          path: out-master
+          run-id: ${{ needs.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Rename the PR's results to master's
+        run: |
+          cd out-master
+          rm -f master_* score.json
+          for f in pr_*; do mv "$f" "master_${f#pr_}"; done
+          ls
+      - uses: actions/cache/save@v4
+        with:
+          path: out-master
+          key: kaist-master-${{ github.sha }}-urban${{ matrix.seq }}
