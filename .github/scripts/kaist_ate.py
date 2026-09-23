@@ -12,6 +12,9 @@ import sys
 
 # Table 6 (m/km), from the paper's stored trajectories scored with this script (matches the printed
 # table to +-0.01). "-" = the paper has no result (camera/lidar-only on highways).
+# HTML collapses runs of plain spaces, so the padding that keeps the columns equal has to be hard spaces.
+NBSP = "\u00a0"
+
 SEQS = list(range(18, 40))
 _PAPER = {
     "IC": "- - - - - - - - 2.04 2.86 1.45 3.43 3.50 5.39 4.69 1.98 1.47 - - - 1.13 1.17",
@@ -67,30 +70,75 @@ def report(results_dir):
         x = rows.get(seq, {}).get(name, {})
         return x["m_km"] if x.get("cover", 0) > 0.98 else None
 
+    def fmt(v):
+        return "%.2f" % v if v < 1000 else ">1000"
+
     def cell(seq, name, paper):
         x = rows.get(seq, {}).get(name, {})
         if "m_km" not in x:
             return "-" if paper is None else "fail"
-        s = ("%.2f" if x["m_km"] < 1000 else "%.0f") % x["m_km"]
-        return s if x["cover"] > 0.98 else s + " (%d%%)" % (100 * x["cover"])
+        # a diverged run's exact error means nothing, and printing it widens every column
+        s = "%.2f" % x["m_km"] if x["m_km"] < 1000 else ">1000"
+        return s if x["cover"] > 0.98 else s + "*"
+
+    def badge(v, color):
+        return '<img src="https://img.shields.io/badge/%s-%s?style=flat-square" width="48" height="20" alt="%s">' % (
+            v.replace("-", "--").replace(">", "%3E"), color, v)
+
+    def num(x):
+        if x == ">1000":
+            return float("inf")
+        try:
+            return float(x)
+        except ValueError:
+            return None  # fail, missing or partial coverage: no call to make
+
+    def tint(pr, master):
+        a, b = num(pr), num(master)
+        if a is None or b is None:
+            return pr
+        return ("badge", pr, "9f9f9f" if pr == master else "e05d44" if a > b else "4c1")
+
+    def emit(table, lead=2):
+        """Print a table of cells, padding every value to one width so all columns match.
+
+        GitHub's mobile app scales a cell image to the width of its column, and a column is
+        as wide as its widest text, so without this the badges come out different sizes.
+        The first lead columns are labels and stay plain text.
+        """
+        width = max(len(c) for row in table[1:] for c in row[lead:] if isinstance(c, str))
+
+        def render(c, n, i):
+            if n == 0 or i < lead:
+                return c
+            return "`%s`" % c.rjust(width, NBSP) if isinstance(c, str) else badge(c[1], c[2])
+
+        for n, row in enumerate(table):
+            print("| %s |" % " | ".join(render(c, n, i) for i, c in enumerate(row)))
+            if n == 0:
+                print("|" + "---|" * len(row))
 
     print("# KAIST Urban vs MINS paper Table 6 (SE3 ATE per GT km)\n")
     print("Mean m/km over the sequences where the paper, master and PR all have a full-length result.\n")
-    print("| config | seq | paper | %s |" % " | ".join(REFS))
-    print("|---|---|---|" + "---|" * len(REFS))
+    table = [["config", "seq", "paper"] + list(REFS)]
     for c in PAPER:
         done = [s for s in SEQS if PAPER[c][s] is not None and all(val(s, r + "_" + c) is not None for r in REFS)]
-        means = ["%.2f" % (sum(val(s, r + "_" + c) for s in done) / len(done)) if done else "-" for r in REFS]
+        means = [fmt(sum(val(s, r + "_" + c) for s in done) / len(done)) if done else "-" for r in REFS]
         paper = "%.2f" % (sum(PAPER[c][s] for s in done) / len(done)) if done else "-"
-        print("| %s | %d | %s | %s |" % (c, len(done), paper, " | ".join(means)))
-    print("\n- = no result in the paper (and none here), fail = no trajectory, (nn%) = run ended early.\n")
-    print("| config | row | %s |" % " | ".join(str(s) for s in SEQS))
-    print("|---|---|" + "---|" * len(SEQS))
-    print("| | km | %s |" % " | ".join("%.1f" % rows[s]["km"] if s in rows else "-" for s in SEQS))
+        means[-1] = tint(means[-1], means[0])
+        table.append([c, str(len(done)), paper] + means)
+    emit(table)
+    print("\n- = no result in the paper (and none here), fail = no trajectory, * = run ended early, >1000 = diverged. Green = PR better than master, grey = same, red = worse.\n")
+    table = [["config", "row"] + [str(s) for s in SEQS]]
+    table.append(["", "km"] + ["%.1f" % rows[s]["km"] if s in rows else "-" for s in SEQS])
     for c in PAPER:
-        print("| %s | paper | %s |" % (c, " | ".join("-" if PAPER[c][s] is None else "%.2f" % PAPER[c][s] for s in SEQS)))
+        table.append([c, "paper"] + ["-" if PAPER[c][s] is None else "%.2f" % PAPER[c][s] for s in SEQS])
         for r in REFS:
-            print("| | %s | %s |" % (r, " | ".join(cell(s, r + "_" + c, PAPER[c][s]) for s in SEQS)))
+            row = [cell(s, r + "_" + c, PAPER[c][s]) for s in SEQS]
+            if r == "pr":
+                row = [tint(x, cell(s, "master_" + c, PAPER[c][s])) for s, x in zip(SEQS, row)]
+            table.append(["", r] + row)
+    emit(table)
 
 if __name__ == "__main__":
     if sys.argv[1] == "report":
