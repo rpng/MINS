@@ -3,6 +3,7 @@ name: KAIST Urban
 # Runs every Table 6 sensor set of the MINS paper (arXiv 2309.15390) on all 22 KAIST Urban
 # sequences (HF mirror) and reports SE3 ATE per GT km next to the paper values.
 # Master and the PR run side by side: 22 jobs streaming ~400 GB of bags, a few hours per run.
+# Master's numbers are cached per master commit, so only the first PR on a given master pays for them.
 # A new push cancels the old run.
 
 on:
@@ -55,6 +56,12 @@ jobs:
         seq: [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
     steps:
       - uses: actions/checkout@v4
+      - name: Restore master results
+        id: master_cache
+        uses: actions/cache@v4
+        with:
+          path: out-master
+          key: kaist-master-${{ github.event.pull_request.base.sha || github.sha }}-urban${{ matrix.seq }}
       - name: Free disk
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
@@ -80,14 +87,17 @@ jobs:
           { curl -sSfL --retry 5 $base.bag || { curl -sSfL --retry 5 $base.bag.part_00 && curl -sSfL --retry 5 $base.bag.part_01; }; } > $dir/run.bag
       - name: Run MINS
         run: |
-          mkdir -p out
+          mkdir -p out out-master
+          refs="master pr"
+          if [ "${{ steps.master_cache.outputs.cache-hit }}" = "true" ]; then refs=pr; fi
           # Table 6 sensor sets (I = IMU, C = camera, G = GPS, L = lidar, W = wheel) with the config the
           # paper used for each; unused sensors are switched off
-          for ref in master pr; do
+          for ref in $refs; do
           for combo in ICGLW:kaist_LC ICW:kaist_C ILW:kaist_L IC:kaist_C IL:kaist_L; do
             config=${combo#*:}
             combo=${combo%:*}
-            docker run --rm -v $DATA:/data -v $PWD/out:/out -e NAME=${ref}_$combo -e COMBO=$combo -e CONFIG=$config mins:$ref -c '
+            if [ $ref = master ]; then outdir=out-master; else outdir=out; fi
+            docker run --rm -v $DATA:/data -v $PWD/$outdir:/out -e NAME=${ref}_$combo -e COMBO=$combo -e CONFIG=$config mins:$ref -c '
               source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
               has() { case $COMBO in *$1*) echo true ;; *) echo false ;; esac; }
               cat > /tmp/run.launch <<EOF
@@ -112,6 +122,7 @@ jobs:
       - name: Score
         run: |
           pip install -q numpy
+          cp out-master/* out/ 2>/dev/null || true
           python3 .github/scripts/kaist_ate.py ${{ matrix.seq }} $DATA/gt.txt out | tee out/score.json
       - uses: actions/upload-artifact@v4
         if: always()
