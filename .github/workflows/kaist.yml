@@ -3,7 +3,9 @@ name: KAIST Urban
 # Runs every Table 6 sensor set of the MINS paper (arXiv 2309.15390) on all 22 KAIST Urban
 # sequences (HF mirror) and reports SE3 ATE per GT km next to the paper values.
 # Master and the PR run side by side: 22 jobs streaming ~400 GB of bags, a few hours per run.
-# Master's numbers are cached per master commit, so only the first PR on a given master pays for them.
+# Nothing is ever computed twice for the same master commit: a merged PR already ran every sequence
+# against the tree that became master, so a push to master just files that run as master's
+# numbers (kaist-promote.yml) and every later PR restores them and runs its own half only.
 # A new push cancels the old run.
 
 on:
@@ -61,9 +63,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: out-master
-          key: kaist-master-${{ github.event.pull_request.base.sha || github.sha }}-urban${{ matrix.seq }}
+          key: kaist-master-v3-${{ github.event.pull_request.base.sha || github.sha }}-urban${{ matrix.seq }}
       - name: Free disk
         run: |
+          grep -m1 "model name" /proc/cpuinfo
+          grep -m1 flags /proc/cpuinfo | tr " " "\n" | grep -E "^(avx|avx2|avx512f|fma)$" | paste -sd, || true
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
             /opt/hostedtoolcache /usr/local/share/boost /usr/share/swift /usr/local/share/powershell \
             /usr/local/share/chromium /usr/local/lib/node_modules
@@ -82,9 +86,29 @@ jobs:
           sudo mkdir -p $dir && sudo chown $USER $dir
           echo "DATA=$dir" >> $GITHUB_ENV
           base=https://huggingface.co/datasets/gladiator7737/kaist-urban-dataset/resolve/main/urban${{ matrix.seq }}
-          curl -sSfL --retry 5 -o $dir/gt.txt $base.txt
-          # urban28 and urban38 are split in two parts on the mirror
-          { curl -sSfL --retry 5 $base.bag || { curl -sSfL --retry 5 $base.bag.part_00 && curl -sSfL --retry 5 $base.bag.part_01; }; } > $dir/run.bag
+          size() { curl -sfIL $1 | grep -i "^content-length" | tail -1 | tr -dc 0-9; }
+          # pulling 50 GB over a few hours drops often enough that --retry is not enough: it restarts
+          # from byte 0 and appends, quietly corrupting the bag. Resume by range from what landed, and
+          # only call it done once the file is the length the mirror advertises.
+          fetch() {
+            want=$(size $1); [ -n "$want" ] || { echo "no content-length for $1"; return 1; }
+            from=$(stat -c%s $2 2>/dev/null || echo 0)
+            for try in 1 2 3 4 5 6; do
+              have=$(( $(stat -c%s $2 2>/dev/null || echo 0) - from ))
+              [ $have -eq $want ] && return 0
+              curl -sSfL --range $have- $1 >> $2 && continue
+              echo "$1 stalled at $have/$want, retry $try"; sleep 15
+            done
+            echo "gave up on $1"; return 1
+          }
+          rm -f $dir/gt.txt $dir/run.bag
+          fetch $base.txt $dir/gt.txt
+          # most sequences are one file, urban28 and urban38 are split in two parts on the mirror
+          if curl -sfIL -o /dev/null $base.bag; then
+            fetch $base.bag $dir/run.bag
+          else
+            fetch $base.bag.part_00 $dir/run.bag && fetch $base.bag.part_01 $dir/run.bag
+          fi
       - name: Run MINS
         run: |
           mkdir -p out out-master
@@ -97,7 +121,11 @@ jobs:
             config=${combo#*:}
             combo=${combo%:*}
             if [ $ref = master ]; then outdir=out-master; else outdir=out; fi
-            docker run --rm -v $DATA:/data -v $PWD/$outdir:/out -e NAME=${ref}_$combo -e COMBO=$combo -e CONFIG=$config mins:$ref -c '
+            # glibc picks vector kernels for sin/cos/exp from what the cpu advertises and they differ a ulp
+            # from the SSE2 ones, which is enough to move ICW by metres. Pin the baseline kernels so a result
+            # cached on one runner is comparable to a result computed on another.
+            docker run --rm -v $DATA:/data -v $PWD/$outdir:/out -e NAME=${ref}_$combo -e COMBO=$combo -e CONFIG=$config \
+              -e GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA_Usable,-AVX2_Usable,-AVX_Usable,-AVX512F_Usable mins:$ref -c '
               source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
               has() { case $COMBO in *$1*) echo true ;; *) echo false ;; esac; }
               cat > /tmp/run.launch <<EOF
@@ -169,3 +197,4 @@ jobs:
                 issue_number: context.issue.number, body,
               });
             }
+
