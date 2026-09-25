@@ -346,7 +346,7 @@ void ROS2Publisher::publish_gps(GPSData gps, bool isGeodetic) {
 
   // Convert from a geodetic WGS-84 coordinated to East-North-Up
   if (isGeodetic)
-    gps.meas = MathGPS::GeodeticToEnu(gps.meas, sys->gps_datum);
+    gps.meas = gps_math::GeodeticToEnu(gps.meas, sys->gps_datum);
 
   // Now put the measurement in publisher
   geometry_msgs::msg::PoseStamped poseGPSinENU;

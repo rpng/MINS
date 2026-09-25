@@ -191,7 +191,7 @@ void SystemManager::feed_measurement_gps(GPSData gps, bool isGeodetic) {
   }
 
   // Convert from a geodetic WGS-84 coordinated to East-North-Up
-  gps.meas = isGeodetic ? MathGPS::GeodeticToEnu(gps.meas, gps_datum) : gps.meas;
+  gps.meas = isGeodetic ? gps_math::GeodeticToEnu(gps.meas, gps_datum) : gps.meas;
 
   // Add keyframe if not initialized.
   !up_gps->initialized ? up_gps->add_keyframes(gps) : void();
