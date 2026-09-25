@@ -60,6 +60,13 @@ SystemManager::SystemManager(shared_ptr<OptionsEstimator> op, shared_ptr<Simulat
 }
 
 void SystemManager::init() {
+  // Eigen reads the cpu cache sizes at runtime and picks its matrix-product blocking from them, so the same binary
+  // sums a product in a different order on a different machine and the estimate moves by an ulp. Pin the blocking
+  // when a run has to be comparable across machines, which is what the KAIST CI needs.
+  if (getenv("MINS_EIGEN_CACHE") != nullptr) {
+    Eigen::setCpuCacheSizes(32 * 1024, 512 * 1024, 32 * 1024 * 1024);
+  }
+
   // Create "THE MOST IMPORTANT" state
   state = std::make_shared<State>(op, sim);
   tc_sensors = std::make_shared<TimeChecker>();

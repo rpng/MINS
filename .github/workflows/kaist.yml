@@ -63,7 +63,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: out-master
-          key: kaist-master-v3-${{ github.event.pull_request.base.sha || github.sha }}-urban${{ matrix.seq }}
+          key: kaist-master-v4-${{ github.event.pull_request.base.sha || github.sha }}-urban${{ matrix.seq }}
       - name: Free disk
         run: |
           grep -m1 "model name" /proc/cpuinfo
@@ -121,10 +121,11 @@ jobs:
             config=${combo#*:}
             combo=${combo%:*}
             if [ $ref = master ]; then outdir=out-master; else outdir=out; fi
-            # glibc picks vector kernels for sin/cos/exp from what the cpu advertises and they differ a ulp
-            # from the SSE2 ones, which is enough to move ICW by metres. Pin the baseline kernels so a result
-            # cached on one runner is comparable to a result computed on another.
+            # two things in here read the cpu at runtime and a cached master result has to stay comparable to a pr
+            # result computed on another runner: glibc picks vector kernels for sin/cos/exp from the advertised
+            # features, and eigen blocks its matrix products by the cache sizes. Either one moves ICW by metres.
             docker run --rm -v $DATA:/data -v $PWD/$outdir:/out -e NAME=${ref}_$combo -e COMBO=$combo -e CONFIG=$config \
+              -e MINS_EIGEN_CACHE=1 \
               -e GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA_Usable,-AVX2_Usable,-AVX_Usable,-AVX512F_Usable mins:$ref -c '
               source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
               has() { case $COMBO in *$1*) echo true ;; *) echo false ;; esac; }
