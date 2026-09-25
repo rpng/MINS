@@ -24,7 +24,7 @@ Exemplary use case of MINS:
 ![alt text](thirdparty/frames.png)
 ![alt text](thirdparty/kaist38.gif)
 
-* Publication reference - [https://arxiv.org/pdf/2309.15390.pdf](https://arxiv.org/pdf/2309.15390.pdf)
+* Publication reference - [https://doi.org/10.1002/rob.22546](https://doi.org/10.1002/rob.22546) (preprint: [arXiv:2309.15390](https://arxiv.org/pdf/2309.15390.pdf))
   
 ## Key Features
 * Inertial(IMU)-based multi-sensor fusion including wheel odometry and arbitrary numbers of cameras, LiDARs, and GNSSs (+ VICON or loop-closure) for localization.
@@ -112,14 +112,16 @@ University of Delaware. If you have any issues with the code please open an issu
 implementation details and references. For researchers that have leveraged or compared to this work, please cite the
 following:
 
-The publication reference will be updated soon.
-
 ```bibtex
-@article{Lee2023arxiv,
+@article{Lee2025jfr,
     title        = {MINS: Efficient and Robust Multisensor-aided Inertial Navigation System},
     author       = {Woosik Lee and Patrick Geneva and Chuchu Chen and Guoquan Huang},
-    year         = 2023,
-    journal      = {arXiv preprint arXiv:2309.15390},
+    year         = 2025,
+    journal      = {Journal of Field Robotics},
+    volume       = 42,
+    number       = 7,
+    pages        = {3252--3284},
+    doi          = {10.1002/rob.22546},
     url          = {https://github.com/rpng/MINS},
 }
 ```
