@@ -1,4 +1,13 @@
 /*
+ * MINS: Efficient and Robust Multisensor-aided Inertial Navigation System
+ * Copyright (C) 2019-2026 Woosik Lee
+ * Copyright (C) 2019-2026 Guoquan Huang
+ * Copyright (C) 2019-2026 MINS Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/*
  * Direct conversion between our mins::PointCloud and sensor_msgs PointCloud2, with no PCL
  * in between (saves a full cloud copy per lidar frame). The ROS1 and ROS2 PointCloud2 /
  * PointField messages are field-for-field identical, so one set of templates serves both.

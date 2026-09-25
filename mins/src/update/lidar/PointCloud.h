@@ -1,4 +1,13 @@
 /*
+ * MINS: Efficient and Robust Multisensor-aided Inertial Navigation System
+ * Copyright (C) 2019-2026 Woosik Lee
+ * Copyright (C) 2019-2026 Guoquan Huang
+ * Copyright (C) 2019-2026 MINS Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/*
  * Minimal in-house replacement for the small slice of PCL that MINS used:
  * two point types, a vector-backed cloud, a rigid transform, and a centroid
  * voxel-grid downsample. This drops PCL (and its boost/flann/vtk transitive

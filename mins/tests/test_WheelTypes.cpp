@@ -1,3 +1,12 @@
+/*
+ * MINS: Efficient and Robust Multisensor-aided Inertial Navigation System
+ * Copyright (C) 2019-2026 Woosik Lee
+ * Copyright (C) 2019-2026 Guoquan Huang
+ * Copyright (C) 2019-2026 MINS Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 // Covers the wheel type enum helpers: name round-trip, 2D/3D flavor, and measurement modality.
 #include <gtest/gtest.h>
 #include <string>

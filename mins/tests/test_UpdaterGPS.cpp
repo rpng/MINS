@@ -1,3 +1,12 @@
+/*
+ * MINS: Efficient and Robust Multisensor-aided Inertial Navigation System
+ * Copyright (C) 2019-2026 Woosik Lee
+ * Copyright (C) 2019-2026 Guoquan Huang
+ * Copyright (C) 2019-2026 MINS Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 // Checks the covariance that UpdaterGPS::transform_state_to_ENU hands over to the ENU frame.
 #include <gtest/gtest.h>
 #include <Eigen/Core>
