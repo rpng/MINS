@@ -4,13 +4,6 @@
  * Copyright (C) 2019-2026 Guoquan Huang
  * Copyright (C) 2019-2026 MINS Contributors
  *
- * This code is implemented based on:
- * OpenVINS: An Open Platform for Visual-Inertial Research
- * Copyright (C) 2018-2023 Patrick Geneva
- * Copyright (C) 2018-2023 Guoquan Huang
- * Copyright (C) 2018-2023 OpenVINS Contributors
- * Copyright (C) 2018-2019 Kevin Eckenhoff
- *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
