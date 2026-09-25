@@ -67,4 +67,4 @@ jobs:
       - uses: actions/cache/save@v4
         with:
           path: out-master
-          key: kaist-master-v3-${{ github.sha }}-urban${{ matrix.seq }}
+          key: kaist-master-v4-${{ github.sha }}-urban${{ matrix.seq }}

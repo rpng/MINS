@@ -126,37 +126,68 @@ public:
     return EcefToEnu(xyz_ecef, datum);
   }
 
-  /// compute 4Dof ransac
-  static bool Ransac_4Dof(vector<Vector3d> &p_A, vector<Vector3d> &p_B, Matrix3d &R_BtoA, Vector3d &p_BinA, size_t numHypotheses, double inlierThresh) {
+  /**
+   * \brief Fits the 4-DOF transform between two z-aligned frames to point correspondences.
+   *
+   * The two frames share their z axis, so the fit has one rotational degree of freedom. The
+   * yaw comes from a norm-constrained least squares over all of the correspondences and the
+   * translation is the mean of what that rotation leaves over.
+   *
+   * \param[in] p_A Points expressed in frame A.
+   * \param[in] p_B The same points expressed in frame B.
+   * \param[out] R_BtoA Recovered rotation, about z only.
+   * \param[out] p_BinA Recovered translation.
+   * \param[in] inlierThresh Largest residual, in metres, that still counts as a fit.
+   * \return False if no yaw could be solved for, or if the fit leaves every point beyond the
+   *         threshold. The outputs are only meaningful when this returns true.
+   */
+  static bool Align_4Dof(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, Matrix3d &R_BtoA, Vector3d &p_BinA, double inlierThresh) {
+    if (!compute_4Dof(p_A, p_B, R_BtoA, p_BinA)) {
+      return false;
+    }
+    return count_inliers(p_A, p_B, R_BtoA, p_BinA, inlierThresh) > 0;
+  }
+
+  /**
+   * \brief Fits the 4-DOF transform over random subsets of the correspondences and keeps the
+   * hypothesis with the most inliers.
+   *
+   * \param[in] p_A Points expressed in frame A.
+   * \param[in] p_B The same points expressed in frame B.
+   * \param[out] R_BtoA Recovered rotation, about z only.
+   * \param[out] p_BinA Recovered translation.
+   * \param[in] numHypotheses How many subsets to fit.
+   * \param[in] inlierThresh Largest residual, in metres, that still counts as an inlier.
+   * \return False if no hypothesis produced an inlier. The outputs are only meaningful when
+   *         this returns true.
+   */
+  static bool Ransac_4Dof(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, Matrix3d &R_BtoA, Vector3d &p_BinA, size_t numHypotheses, double inlierThresh) {
+    // TODO: this is not RANSAC yet. The subset is the whole point set rather than a minimal
+    // one, the generator is reseeded on every call, and the winning hypothesis is never refit
+    // on its inliers, so outliers pull on every hypothesis equally. Fixing that needs outlier
+    // data to test against, which the simulator does not produce yet.
     size_t sizeSubset = p_A.size();
     vector<Vector3d> suBp_A, suBp_B;
     size_t numInliers = 0;
     Matrix3d R_BtoAhyp;
     Vector3d p_BinAhyp;
-    vector<unsigned int> inliershyp;
 
-    bool found_solution = false;
     for (size_t i = 0; i < numHypotheses; i++) {
-      // Generate hypothesis
       suBp_A.clear();
       suBp_B.clear();
-      inliershyp.clear();
-      // Get minimal solution
       get_random_subset(p_A, p_B, suBp_A, suBp_B, sizeSubset);
-      found_solution = compute_4Dof(suBp_A, suBp_B, R_BtoAhyp, p_BinAhyp);
-      for (size_t m = 0; m < p_A.size(); m++) {
-        Vector3d p_err = p_A[m] - (R_BtoAhyp * p_B[m] + p_BinAhyp);
-        if (p_err.norm() <= inlierThresh) {
-          inliershyp.push_back(m);
-        }
+      if (!compute_4Dof(suBp_A, suBp_B, R_BtoAhyp, p_BinAhyp)) {
+        continue;
       }
-      if (inliershyp.size() > numInliers) {
+
+      size_t inliershyp = count_inliers(p_A, p_B, R_BtoAhyp, p_BinAhyp, inlierThresh);
+      if (inliershyp > numInliers) {
         R_BtoA = R_BtoAhyp;
         p_BinA = p_BinAhyp;
-        numInliers = inliershyp.size();
+        numInliers = inliershyp;
       }
     }
-    return found_solution;
+    return numInliers > 0;
   }
 
   static inline Matrix4d Left_q(Vector4d q) {
@@ -186,7 +217,7 @@ private:
   static double DegreeToRadian(double angle) { return M_PI * angle / 180.0; }
 
   // Get random subsets of given sets
-  static void get_random_subset(vector<Vector3d> &p_A, vector<Vector3d> &p_B, vector<Vector3d> &suBp_A, vector<Vector3d> &suBp_B, size_t sizeSubset) {
+  static void get_random_subset(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, vector<Vector3d> &suBp_A, vector<Vector3d> &suBp_B, size_t sizeSubset) {
 
     mt19937 rng(1337);
     vector<unsigned int> indices(p_A.size());
@@ -198,8 +229,19 @@ private:
     }
   }
 
+  // Count how many correspondences the given transform explains to within the threshold
+  static size_t count_inliers(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, const Matrix3d &R_BtoA, const Vector3d &p_BinA, double inlierThresh) {
+    size_t inliers = 0;
+    for (size_t i = 0; i < p_A.size(); i++) {
+      if ((p_A[i] - (R_BtoA * p_B[i] + p_BinA)).norm() <= inlierThresh) {
+        inliers++;
+      }
+    }
+    return inliers;
+  }
+
   // Get the full four dof transformation between z-aligned frames A and B based on point correspondences
-  static bool compute_4Dof(vector<Vector3d> &p_inA, vector<Vector3d> &p_inB, Matrix3d &R_BtoA, Vector3d &p_BinA) {
+  static bool compute_4Dof(const vector<Vector3d> &p_inA, const vector<Vector3d> &p_inB, Matrix3d &R_BtoA, Vector3d &p_BinA) {
     bool found_solution = compute_RBtoA1Dof(R_BtoA, p_inA, p_inB);
 
     p_BinA.setZero();
@@ -213,7 +255,7 @@ private:
   }
 
   // Get the 1 dof yaw rotation between z-aligned frames A and B based on point correspondences
-  static bool compute_RBtoA1Dof(Matrix3d &R_BtoA, vector<Vector3d> &p_inA, vector<Vector3d> &p_inB) {
+  static bool compute_RBtoA1Dof(Matrix3d &R_BtoA, const vector<Vector3d> &p_inA, const vector<Vector3d> &p_inB) {
 
     assert(p_inA.size() == p_inB.size());
     assert(p_inA.size() > 1);
@@ -234,7 +276,7 @@ private:
     }
 
     Vector2d w;
-    bool found_solution = solve_QCQP(A, b, w, p_inA, p_inB);
+    bool found_solution = solve_QCQP(A, b, w);
 
     R_BtoA.setIdentity();
     R_BtoA.block(0, 0, 2, 1) = w;
@@ -244,7 +286,7 @@ private:
   }
 
   // Solve a 2-D quadratically constrained quadratic program
-  static bool solve_QCQP(Matrix<double, -1, 2> &A, Matrix<double, -1, 1> &b, Vector2d &w, vector<Vector3d> &p_inA, vector<Vector3d> &p_inB) {
+  static bool solve_QCQP(const Matrix<double, -1, 2> &A, const Matrix<double, -1, 1> &b, Vector2d &w) {
 
     // Compute the coefficients for the quartic polynomial
     Matrix2d ATA = A.transpose() * A;
@@ -279,44 +321,30 @@ private:
     // Based on these quartic coeffs, find each of the possible 4 roots
     solve_quartic(coefficients, roots);
 
-    double optimal_lam = roots[0].real();
-    bool found_good_lam = false;
-
+    bool solved_w = false;
     double Best_cost = INFINITY;
-    double err = 0;
-    // Find the purely real root
+    w << 1, 0;
+
+    // Find the purely real roots, and keep whichever one leaves the smallest residual. The test
+    // is written this way round rather than as a skip on complex roots so that the NaN roots a
+    // degenerate input produces are not mistaken for real ones.
     for (auto &root : roots) {
       if (abs(root.imag()) <= 1e-6) {
-        optimal_lam = root.real();
-        found_good_lam = true;
-      }
-      Matrix2d ATAl = ATA;
-      ATAl(0, 0) += optimal_lam;
-      ATAl(1, 1) += optimal_lam;
+        Matrix2d ATAl = ATA;
+        ATAl(0, 0) += root.real();
+        ATAl(1, 1) += root.real();
 
-      Vector2d w_hyp = ATAl.llt().solve(bA.transpose());
-
-      Matrix3d R_BtoA;
-      R_BtoA.setIdentity();
-      R_BtoA.block(0, 0, 2, 1) = w_hyp;
-      R_BtoA(0, 1) = -w_hyp(1);
-      R_BtoA(1, 1) = w_hyp(0);
-
-      double M = p_inA.size();
-      Vector3d p_BinA;
-      p_BinA.setZero();
-      for (size_t i = 0; i < p_inA.size(); i++) {
-        p_BinA += (1.0 / M) * (p_inA[i] - R_BtoA * p_inB[i]);
-      }
-
-      err = (A * w_hyp - b).norm();
-      if (err < Best_cost) {
-        w = w_hyp;
-        Best_cost = err;
+        Vector2d w_hyp = ATAl.llt().solve(bA.transpose());
+        double err = (A * w_hyp - b).norm();
+        if (err < Best_cost) {
+          w = w_hyp;
+          Best_cost = err;
+          solved_w = true;
+        }
       }
     }
     // We have to have found the proper root
-    return found_good_lam;
+    return solved_w;
   }
 
   static void solve_quartic(const complex<double> coefficients[5], complex<double> roots[4]) {

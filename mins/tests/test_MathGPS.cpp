@@ -2,7 +2,6 @@
 // alignment that fits a yaw and a translation to point correspondences, and the quaternion
 // product matrices. Every expectation is an analytic property of the ellipsoid or of the
 // least-squares problem rather than a number copied out of a previous run.
-#include <algorithm>
 #include <gtest/gtest.h>
 
 #include "update/gps/MathGPS.h"
@@ -130,7 +129,7 @@ TEST(MathGPS, FourDofRecoversAPureYawAndTranslation) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    ASSERT_TRUE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1.0));
+    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
     EXPECT_LT((R_solved - R_BtoA).norm(), TOL_SOLVER);
     EXPECT_LT((p_solved - p_BinA).norm(), TOL_SOLVER);
 }
@@ -144,7 +143,7 @@ TEST(MathGPS, FourDofYawIsRecoveredAllTheWayAroundTheCircle) {
 
         Eigen::Matrix3d R_solved;
         Eigen::Vector3d p_solved;
-        ASSERT_TRUE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1.0)) << yaw_deg;
+        ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0)) << yaw_deg;
         EXPECT_NEAR(YawOf(R_solved), yaw_deg * M_PI / 180.0, TOL_SOLVER) << yaw_deg;
 
         // The solve is unconstrained apart from the yaw, so the shape of what comes back is
@@ -163,7 +162,7 @@ TEST(MathGPS, FourDofNeedsOnlyTwoCorrespondences) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    ASSERT_TRUE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1.0));
+    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
     EXPECT_LT((R_solved - R_BtoA).norm(), TOL_SOLVER);
     EXPECT_LT((p_solved - p_BinA).norm(), TOL_SOLVER);
 }
@@ -174,21 +173,17 @@ TEST(MathGPS, FourDofRecoversTheIdentityWhenTheFramesAlreadyAlign) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    ASSERT_TRUE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1.0));
+    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
     EXPECT_LT((R_solved - Eigen::Matrix3d::Identity()).norm(), TOL_SOLVER);
     EXPECT_LT(p_solved.norm(), TOL_SOLVER);
 }
 
 TEST(MathGPS, FourDofMatchesTheClosedFormProcrustesYaw) {
-    // Data no single yaw can fit, so the solver has to return a least-squares angle rather than
+    // Data no single yaw can fit, so the solve has to return a least-squares angle rather than
     // an exact one. Every block of A is a scaled 2-D rotation, which makes A^T A a multiple of
-    // the identity, and the constrained optimum then collapses to the classic Procrustes angle:
-    // atan2 of the summed cross products over the summed dot products.
-    //
-    // The fit takes its differences against one of the correspondences rather than against the
-    // centroid, so that angle depends on which correspondence lands first, and Ransac_4Dof
-    // shuffles the input before solving. Checking every candidate pivot pins the solver against
-    // theory without the test having to know the shuffle.
+    // the identity, and the norm-constrained optimum then collapses to the classic Procrustes
+    // angle: atan2 of the summed cross products over the summed dot products. Differences are
+    // taken against the first correspondence, which is now the one the caller passed first.
     const Eigen::Matrix3d R_BtoA = YawRotation(20.0 * M_PI / 180.0);
     const Eigen::Vector3d p_BinA(0.5, -1.5, 4.0);
     std::vector<Eigen::Vector3d> p_inB = SamplePoints();
@@ -196,41 +191,39 @@ TEST(MathGPS, FourDofMatchesTheClosedFormProcrustesYaw) {
     p_inA[2] += Eigen::Vector3d(0.05, -0.03, 0.0);
     p_inA[4] += Eigen::Vector3d(-0.02, 0.04, 0.0);
 
-    std::vector<double> yaw_per_pivot;
-    for (size_t pivot = 0; pivot < p_inB.size(); pivot++) {
-        double dot_sum = 0.0, cross_sum = 0.0;
-        for (size_t i = 0; i < p_inB.size(); i++) {
-            if (i == pivot) {
-                continue;
-            }
-            Eigen::Vector2d u = (p_inB[i] - p_inB[pivot]).head<2>();
-            Eigen::Vector2d v = (p_inA[i] - p_inA[pivot]).head<2>();
-            dot_sum += u.dot(v);
-            cross_sum += u(0) * v(1) - u(1) * v(0);
-        }
-        yaw_per_pivot.push_back(atan2(cross_sum, dot_sum));
+    double dot_sum = 0.0, cross_sum = 0.0;
+    for (size_t i = 1; i < p_inB.size(); i++) {
+        Eigen::Vector2d u = (p_inB[i] - p_inB[0]).head<2>();
+        Eigen::Vector2d v = (p_inA[i] - p_inA[0]).head<2>();
+        dot_sum += u.dot(v);
+        cross_sum += u(0) * v(1) - u(1) * v(0);
     }
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    ASSERT_TRUE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1.0));
-
-    double solved_yaw = YawOf(R_solved);
-    double closest = std::abs(yaw_per_pivot[0] - solved_yaw);
-    for (double yaw : yaw_per_pivot) {
-        closest = std::min(closest, std::abs(yaw - solved_yaw));
-    }
-    EXPECT_LT(closest, TOL_SOLVER);
-
-    // The pivot has to actually move the answer, or the check above proves nothing. The
-    // measured spread is about 1.2e-2 rad, seven orders above the tolerance it is compared to.
-    double spread = *std::max_element(yaw_per_pivot.begin(), yaw_per_pivot.end()) -
-                    *std::min_element(yaw_per_pivot.begin(), yaw_per_pivot.end());
-    EXPECT_GT(spread, 1e-3);
+    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
+    EXPECT_NEAR(YawOf(R_solved), atan2(cross_sum, dot_sum), TOL_SOLVER);
 
     // This is the only case where no yaw fits, so it is the only one where the unit-norm
     // constraint on w does any work. What comes back still has to be a rotation.
     EXPECT_LT((R_solved.transpose() * R_solved - Eigen::Matrix3d::Identity()).norm(), TOL_SOLVER);
+}
+
+TEST(MathGPS, FourDofReportsFailureWhenNothingFitsWithinTheThreshold) {
+    // A fit is still found here, but it leaves every correspondence metres away, which is the
+    // case that used to return true with the outputs never written.
+    const Eigen::Matrix3d R_BtoA = YawRotation(10.0 * M_PI / 180.0);
+    std::vector<Eigen::Vector3d> p_inB = SamplePoints();
+    std::vector<Eigen::Vector3d> p_inA = Transformed(p_inB, R_BtoA, Eigen::Vector3d(1.0, 2.0, 3.0));
+    p_inA[1] += Eigen::Vector3d(30.0, -20.0, 0.0);
+    p_inA[3] += Eigen::Vector3d(-25.0, 40.0, 0.0);
+
+    // The closest correspondence lands 3.79 m out, so the loose threshold pins that a fit was
+    // found and only the threshold sends the tight call away empty.
+    Eigen::Matrix3d R_solved;
+    Eigen::Vector3d p_solved;
+    EXPECT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 10.0));
+    EXPECT_FALSE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1e-3));
 }
 
 TEST(MathGPS, FourDofReportsFailureWhenEveryCorrespondenceIsTheSamePoint) {
@@ -241,7 +234,44 @@ TEST(MathGPS, FourDofReportsFailureWhenEveryCorrespondenceIsTheSamePoint) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    EXPECT_FALSE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1.0));
+    EXPECT_FALSE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
+
+    // The same through the hypothesis loop, where the failed solve has to be skipped rather
+    // than counted as a hypothesis with every point an inlier.
+    EXPECT_FALSE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 3, 1.0));
+}
+
+TEST(MathGPS, RansacReturnsTheSameFitAsASingleAlignWhenEveryPointIsAnInlier) {
+    // One hypothesis over the whole point set is what the GPS initialisation asks for, so this
+    // is the path that actually runs. With no outliers the subset shuffle cannot change the
+    // answer, so it has to agree with the plain fit.
+    const Eigen::Matrix3d R_BtoA = YawRotation(-40.0 * M_PI / 180.0);
+    const Eigen::Vector3d p_BinA(3.0, -2.0, 1.0);
+    std::vector<Eigen::Vector3d> p_inB = SamplePoints();
+    std::vector<Eigen::Vector3d> p_inA = Transformed(p_inB, R_BtoA, p_BinA);
+
+    Eigen::Matrix3d R_ransac, R_align;
+    Eigen::Vector3d p_ransac, p_align;
+    ASSERT_TRUE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_ransac, p_ransac, 1, 1.0));
+    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_align, p_align, 1.0));
+    EXPECT_LT((R_ransac - R_align).norm(), TOL_SOLVER);
+    EXPECT_LT((p_ransac - p_align).norm(), TOL_SOLVER);
+    EXPECT_NEAR(YawOf(R_ransac), -40.0 * M_PI / 180.0, TOL_SOLVER);
+}
+
+TEST(MathGPS, RansacReportsFailureWhenNoHypothesisFindsAnInlier) {
+    // The contract this pins is the one the GPS initialisation depends on: UpdaterGPS hands in
+    // an uninitialised rotation, so a true return with nothing written is a garbage read.
+    const Eigen::Matrix3d R_BtoA = YawRotation(10.0 * M_PI / 180.0);
+    std::vector<Eigen::Vector3d> p_inB = SamplePoints();
+    std::vector<Eigen::Vector3d> p_inA = Transformed(p_inB, R_BtoA, Eigen::Vector3d(1.0, 2.0, 3.0));
+    p_inA[1] += Eigen::Vector3d(30.0, -20.0, 0.0);
+    p_inA[3] += Eigen::Vector3d(-25.0, 40.0, 0.0);
+
+    Eigen::Matrix3d R_solved;
+    Eigen::Vector3d p_solved;
+    EXPECT_TRUE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 10.0));
+    EXPECT_FALSE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1e-3));
 }
 
 TEST(MathGPS, QuaternionLeftAndRightMatricesBothGiveTheJplProduct) {

@@ -54,6 +54,12 @@ public:
   /// status of GPS being initialized
   bool initialized = false;
 
+  /// T_WtoE (JPL quaternion, then position) as initialized, before any update refines it
+  Matrix<double, 7, 1> init_WtoE = Matrix<double, 7, 1>::Zero();
+
+  /// Standard deviation of init_WtoE (yaw, then position). Empty unless the solver initialized it.
+  VectorXd init_WtoE_std;
+
   /// chi status
   vector<shared_ptr<UpdaterStatistics>> Chi;
 

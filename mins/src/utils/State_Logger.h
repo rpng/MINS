@@ -96,6 +96,9 @@ public:
 
       // gps
       if (op->est->gps->enabled) {
+        filepath_est.insert({"gpsWtoE", path_state + "gps_WtoE_est.txt"});
+        filepath_std.insert({"gpsWtoE", path_state + "gps_WtoE_std.txt"});
+        filepath_gth.insert({"gpsWtoE", path_state + "gps_WtoE_gt.txt"});
         for (int i = 0; i < op->est->gps->max_n; i++) {
           string id = to_string(i);
           if (op->est->gps->do_calib_dt) {
@@ -264,6 +267,11 @@ public:
 
     // save gps
     if (op->est->gps->enabled) {
+      // T_WtoE is solved once and then marginalized, so it gets a single row
+      if (!saved_init_WtoE && sys->up_gps->init_WtoE_std.size() > 0) {
+        saved_init_WtoE = true;
+        save_init_WtoE(ss, sys->up_gps, of_est.at("gpsWtoE"), of_std.at("gpsWtoE"), of_gt.at("gpsWtoE"));
+      }
       for (int i = 0; i < op->est->gps->max_n; i++) {
         string sid = "gps" + to_string(i);
         if (op->est->gps->do_calib_dt) {
@@ -408,6 +416,13 @@ private:
     *of_std << endl;
   }
 
+  /// Save the one-shot GNSS world-to-ENU initialization (qWtoE, pWinE) and its yaw/position std to file
+  void save_init_WtoE(State_ptr state, shared_ptr<UpdaterGPS> up_gps, shared_ptr<ofstream> of_est, shared_ptr<ofstream> of_std, shared_ptr<ofstream> of_gt) {
+    *of_gt << state->time << " " << op->sim->WtoE_trans.transpose() << endl;
+    *of_est << state->time << " " << up_gps->init_WtoE.transpose() << endl;
+    *of_std << state->time << " " << up_gps->init_WtoE_std.transpose() << endl;
+  }
+
   /// Save general vector type state to file. Need to specify the size of the vector.
   void save_vec(State_ptr state, shared_ptr<Vec> est_vec, MatrixXd true_vec, int sz, shared_ptr<ofstream> of_est, shared_ptr<ofstream> of_std, shared_ptr<ofstream> of_gt) {
     // ground truth
@@ -467,6 +482,9 @@ private:
 
   /// Saved timing
   double total_t = -1;
+
+  /// whether the one-shot GNSS world-to-ENU initialization has been written
+  bool saved_init_WtoE = false;
 };
 
 } // namespace mins
