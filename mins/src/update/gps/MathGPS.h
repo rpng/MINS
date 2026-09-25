@@ -24,7 +24,6 @@
 #include "utils/quat_ops.h"
 #include <Eigen/Eigen>
 #include <cmath>
-#include <complex>
 #include <numeric>
 #include <random>
 
@@ -285,95 +284,24 @@ private:
     return found_solution;
   }
 
-  // Solve a 2-D quadratically constrained quadratic program
+  // Solve the 2-D quadratically constrained least squares min ||A w - b|| subject to ||w|| = 1.
+  //
+  // Every 2x2 block of A is a scaled rotation, so A^T A is a multiple of the identity and on the
+  // unit circle the residual reduces to a constant minus 2 (A^T b) . w. The minimizer is then the
+  // direction of A^T b, with no multiplier to search for.
   static bool solve_QCQP(const Matrix<double, -1, 2> &A, const Matrix<double, -1, 1> &b, Vector2d &w) {
 
-    // Compute the coefficients for the quartic polynomial
-    Matrix2d ATA = A.transpose() * A;
+    Vector2d ATb = A.transpose() * b;
 
-    double a_11 = ATA(0, 0);
-    double a_12 = ATA(0, 1);
-    double a_22 = ATA(1, 1);
-
-    Matrix<double, 1, 2> bA = b.transpose() * A;
-
-    double bA_1 = bA(0);
-    double bA_2 = bA(1);
-
-    double c_0 = -pow(-a_12 * a_12 + a_11 * a_22, 2) - bA_2 * (bA_1 * (a_11 * a_12 + a_12 * a_22) - bA_2 * (a_11 * a_11 + a_12 * a_12)) -
-                 bA_1 * (bA_2 * (a_11 * a_12 + a_12 * a_22) - bA_1 * (a_11 * a_11 + a_12 * a_12));
-    double c_1 = bA_2 * (2 * a_11 * bA_2 - 2 * a_12 * bA_1) - 2 * (a_11 + a_22) * (-a_12 * a_12 + a_11 * a_22) - bA_1 * (2 * a_12 * bA_2 - 2 * a_22 * bA_1);
-
-    double c_2 = 2 * a_12 * a_12 - (a_11 + a_22) * (a_11 + a_22) - 2 * a_11 * a_22 + bA_1 * bA_1 + bA_2 * bA_2;
-
-    double c_3 = -2 * a_11 - 2 * a_22;
-    double c_4 = -1;
-
-    complex<double> coefficients[5];
-    coefficients[0] = complex<double>(c_0);
-    coefficients[1] = complex<double>(c_1);
-    coefficients[2] = complex<double>(c_2);
-    coefficients[3] = complex<double>(c_3);
-    coefficients[4] = complex<double>(c_4);
-
-    complex<double> roots[4];
-
-    // Based on these quartic coeffs, find each of the possible 4 roots
-    solve_quartic(coefficients, roots);
-
-    bool solved_w = false;
-    double Best_cost = INFINITY;
+    // Degenerate input leaves every direction equally good, and a NaN norm fails this test too
     w << 1, 0;
-
-    // Find the purely real roots, and keep whichever one leaves the smallest residual. The test
-    // is written this way round rather than as a skip on complex roots so that the NaN roots a
-    // degenerate input produces are not mistaken for real ones.
-    for (auto &root : roots) {
-      if (abs(root.imag()) <= 1e-6) {
-        Matrix2d ATAl = ATA;
-        ATAl(0, 0) += root.real();
-        ATAl(1, 1) += root.real();
-
-        Vector2d w_hyp = ATAl.llt().solve(bA.transpose());
-        double err = (A * w_hyp - b).norm();
-        if (err < Best_cost) {
-          w = w_hyp;
-          Best_cost = err;
-          solved_w = true;
-        }
-      }
+    if (!(ATb.norm() > 1e-12)) {
+      return false;
     }
-    // We have to have found the proper root
-    return solved_w;
+
+    w = ATb.normalized();
+    return true;
   }
-
-  static void solve_quartic(const complex<double> coefficients[5], complex<double> roots[4]) {
-    // The algorithm below was derived by solving the quartic in Mathematica, and simplifying the resulting expression by hand.
-    // Quartic solver from https://github.com/sidneycadot/quartic
-
-    const complex<double> a = coefficients[4];
-    const complex<double> b = coefficients[3] / a;
-    const complex<double> c = coefficients[2] / a;
-    const complex<double> d = coefficients[1] / a;
-    const complex<double> e = coefficients[0] / a;
-
-    const complex<double> Q1 = c * c - 3. * b * d + 12. * e;
-    const complex<double> Q2 = 2. * c * c * c - 9. * b * c * d + 27. * d * d + 27. * b * b * e - 72. * c * e;
-    const complex<double> Q3 = 8. * b * c - 16. * d - 2. * b * b * b;
-    const complex<double> Q4 = 3. * b * b - 8. * c;
-    const complex<double> Q5 = complex_cbrt(Q2 / 2. + complex_sqrt(Q2 * Q2 / 4. - Q1 * Q1 * Q1));
-    const complex<double> Q6 = (Q1 / Q5 + Q5) / 3.;
-    const complex<double> Q7 = 2. * complex_sqrt(Q4 / 12. + Q6);
-
-    roots[0] = (-b - Q7 - complex_sqrt(4. * Q4 / 6. - 4. * Q6 - Q3 / Q7)) / 4.;
-    roots[1] = (-b - Q7 + complex_sqrt(4. * Q4 / 6. - 4. * Q6 - Q3 / Q7)) / 4.;
-    roots[2] = (-b + Q7 - complex_sqrt(4. * Q4 / 6. - 4. * Q6 + Q3 / Q7)) / 4.;
-    roots[3] = (-b + Q7 + complex_sqrt(4. * Q4 / 6. - 4. * Q6 + Q3 / Q7)) / 4.;
-  }
-
-  static inline complex<double> complex_sqrt(const complex<double> &z) { return pow(z, 1. / 2.); }
-
-  static inline complex<double> complex_cbrt(const complex<double> &z) { return pow(z, 1. / 3.); }
 };
 
 #endif // GPSCONVERSION_H
