@@ -24,8 +24,9 @@ const Eigen::Vector3d DATUM = Eigen::Vector3d(39.6837, -75.7497, 20.0);
 /// already several orders below the double precision floor of the intermediate products.
 const double TOL_M = 1e-6;
 
-/// The 4-DOF solver runs a quartic through complex arithmetic and so keeps fewer digits than
-/// the conversions do. Still nine orders below any residual a real GPS receiver produces.
+/// The 4-DOF solver normalises a vector built from sums over the correspondences, so it keeps
+/// fewer digits than the conversions do. Still nine orders below any residual a real GPS
+/// receiver produces.
 const double TOL_SOLVER = 1e-9;
 
 /// The only rotation the 4-DOF solver can represent: the two frames share their z axis.
@@ -237,7 +238,7 @@ TEST(MathGPS, FourDofReportsFailureWhenNothingFitsWithinTheThreshold) {
 
 TEST(MathGPS, FourDofReportsFailureWhenEveryCorrespondenceIsTheSamePoint) {
     // What a stationary receiver looks like: the yaw is unobservable, there is no direction to
-    // fit, and the solve has to say so rather than hand back whatever fell out of the quartic.
+    // fit, and the solve has to say so rather than hand back an arbitrary direction.
     std::vector<Eigen::Vector3d> p_inB(4, Eigen::Vector3d(2.0, -1.0, 0.5));
     std::vector<Eigen::Vector3d> p_inA(4, Eigen::Vector3d(7.0, 7.0, 7.0));
 
@@ -300,4 +301,36 @@ TEST(MathGPS, QuaternionMatricesOfTheIdentityRotationAreTheIdentity) {
     Eigen::Vector4d identity(0.0, 0.0, 0.0, 1.0);
     EXPECT_LT((MathGPS::Left_q(identity) - Eigen::Matrix4d::Identity()).norm(), TOL_SOLVER);
     EXPECT_LT((MathGPS::Right_q(identity) - Eigen::Matrix4d::Identity()).norm(), TOL_SOLVER);
+}
+
+TEST(MathGPS, FourDofYawBeatsEveryOtherYawOnNoisyCorrespondences) {
+    // FourDofMatchesTheClosedFormProcrustesYaw pins the yaw against atan2(cross, dot), which
+    // says the code agrees with the formula. This says the formula is right: sweep the circle
+    // and confirm no other yaw fits the data better. Resolution is the 0.1 degree grid.
+    const Eigen::Matrix3d R_BtoA = YawRotation(25.0 * M_PI / 180.0);
+    std::vector<Eigen::Vector3d> p_inB = SamplePoints();
+    std::vector<Eigen::Vector3d> p_inA = Transformed(p_inB, R_BtoA, Eigen::Vector3d(4.0, -1.0, 2.0));
+    p_inA[1] += Eigen::Vector3d(0.35, -0.20, 0.0);
+    p_inA[2] += Eigen::Vector3d(-0.15, 0.30, 0.0);
+
+    Eigen::Matrix3d R_solved;
+    Eigen::Vector3d p_solved;
+    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 10.0));
+
+    // Same objective the solver minimises: the xy residual of the differences to the first point
+    auto residual = [&](double yaw) {
+        const Eigen::Matrix3d R = YawRotation(yaw);
+        double sum = 0.0;
+        for (size_t i = 1; i < p_inA.size(); i++) {
+            const Eigen::Vector3d r = (p_inA[i] - p_inA[0]) - R * (p_inB[i] - p_inB[0]);
+            sum += r.head<2>().squaredNorm();
+        }
+        return sum;
+    };
+
+    double sweep_best = INFINITY;
+    for (int i = 0; i < 3600; i++) {
+        sweep_best = std::min(sweep_best, residual(i * M_PI / 1800.0));
+    }
+    EXPECT_LE(residual(YawOf(R_solved)), sweep_best);
 }
