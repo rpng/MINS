@@ -1,3 +1,12 @@
+/*
+ * MINS: Efficient and Robust Multisensor-aided Inertial Navigation System
+ * Copyright (C) 2019-2026 Woosik Lee
+ * Copyright (C) 2019-2026 Guoquan Huang
+ * Copyright (C) 2019-2026 MINS Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 // Unit tests for mins/src/update/wheel/UpdaterWheel: the OptionsWheel defaults it relies on,
 // its measurement stack, its preintegration steps, and its analytical Jacobians.
 #include <gtest/gtest.h>

@@ -1,10 +1,20 @@
 /*
- * Description: ikd-Tree: an incremental k-d tree for robotic applications
- * Author: Yixi Cai
- * email: yixicai@connect.hku.hk
- * Repo: https://github.com/hku-mars/ikd-Tree/commits/main
- * Commit: c0e36a16b6e4d557d3783b16911207f6398dd478
-*/
+ * ikd-Tree: an incremental k-d tree for robotic applications
+ * Author: Yixi Cai <yixicai@connect.hku.hk>
+ * Upstream: https://github.com/hku-mars/ikd-Tree
+ * Vendored from commit c0e36a16b6e4d557d3783b16911207f6398dd478, 2022-03-04
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+ * Upstream releases ikd-Tree under GPLv2 and asserts no per-file copyright
+ * notice, so none is reproduced here. For commercial use contact Yixi Cai
+ * <yixicai@connect.hku.hk> or Fu Zhang <fuzhang@hku.hk>.
+ *
+ * Modified for MINS: the PCL point types are replaced with mins::PointCloud,
+ * pthread is replaced with std::thread and std::mutex, the
+ * Multi_Thread_Rebuild_Point_Num threshold is dropped, and the source is
+ * reformatted to the project style.
+ */
 
 #include "ikd_Tree.h"
 

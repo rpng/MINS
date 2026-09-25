@@ -1,3 +1,12 @@
+/*
+ * MINS: Efficient and Robust Multisensor-aided Inertial Navigation System
+ * Copyright (C) 2019-2026 Woosik Lee
+ * Copyright (C) 2019-2026 Guoquan Huang
+ * Copyright (C) 2019-2026 MINS Contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 // Covers MathGPS: the WGS-84 conversions from geodetic to ECEF to local ENU, the 4-DOF
 // alignment that fits a yaw and a translation to point correspondences, and the quaternion
 // product matrices. Every expectation is an analytic property of the ellipsoid or of the
