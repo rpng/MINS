@@ -279,7 +279,7 @@ bool UpdaterGPS::get_initial_guess(vector<GPSData> data_init, Matrix3d &RWtoE, V
       Matrix<double, 4, 1> v_iq = Matrix<double, 4, 1>::Zero();
       u_iq.block(0, 0, 3, 1) = vec_pGPSinE[f] - pGPSinE_mean;
       v_iq.block(0, 0, 3, 1) = vec_pGPSinW[f] - pGPSinW_mean;
-      J += MathGPS::Left_q(u_iq).transpose() * MathGPS::Right_q(v_iq);
+      J += gps_math::Left_q(u_iq).transpose() * gps_math::Right_q(v_iq);
     }
     // Solve for the best fit solution
     EigenSolver<MatrixXd> es(J);
@@ -302,7 +302,7 @@ bool UpdaterGPS::get_initial_guess(vector<GPSData> data_init, Matrix3d &RWtoE, V
 
   } else {
     // Directly compute the 4 dof solution from Chao's polynomial method with ransac
-    if (!MathGPS::Ransac_4Dof(vec_pGPSinE, vec_pGPSinW, RWtoE, pWinE, 1, 100 * data_init.at(0).noise(0))) {
+    if (!gps_math::Ransac_4Dof(vec_pGPSinE, vec_pGPSinW, RWtoE, pWinE, 1, 100 * data_init.at(0).noise(0))) {
       PRINT2(REDPURPLE "[GPS]: Fail to find good solution for 4DOF initialization\n" RESET);
       return false;
     }

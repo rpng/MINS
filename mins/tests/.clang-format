@@ -1,0 +1,5 @@
+# Tests are 4-space indented and stay that way. clang-format 10 has no InheritParentConfig,
+# so this file replaces the root config rather than extending it; SortIncludes is listed
+# because include sorting runs even under DisableFormat.
+DisableFormat: true
+SortIncludes: false

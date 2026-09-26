@@ -57,25 +57,25 @@ double YawOf(const Eigen::Matrix3d &R) { return atan2(R(1, 0), R(0, 0)); }
 } // namespace
 
 TEST(MathGPS, EcefAtTheEquatorOnThePrimeMeridianIsTheSemimajorAxis) {
-    Eigen::Vector3d ecef = MathGPS::GeodeticToEcef(Eigen::Vector3d(0, 0, 0));
-    EXPECT_NEAR(ecef(0), MathGPS::a, TOL_M);
+    Eigen::Vector3d ecef = mins::gps_math::GeodeticToEcef(Eigen::Vector3d(0, 0, 0));
+    EXPECT_NEAR(ecef(0), mins::gps_math::a, TOL_M);
     EXPECT_NEAR(ecef(1), 0.0, TOL_M);
     EXPECT_NEAR(ecef(2), 0.0, TOL_M);
 }
 
 TEST(MathGPS, EcefAtTheNorthPoleIsTheSemiminorAxis) {
-    Eigen::Vector3d ecef = MathGPS::GeodeticToEcef(Eigen::Vector3d(90, 0, 0));
+    Eigen::Vector3d ecef = mins::gps_math::GeodeticToEcef(Eigen::Vector3d(90, 0, 0));
     EXPECT_NEAR(ecef(0), 0.0, TOL_M);
     EXPECT_NEAR(ecef(1), 0.0, TOL_M);
-    EXPECT_NEAR(ecef(2), MathGPS::b, TOL_M);
+    EXPECT_NEAR(ecef(2), mins::gps_math::b, TOL_M);
 }
 
 TEST(MathGPS, EcefLongitudeSweepsTheEquatorialCircle) {
     for (double lon : {-180.0, -90.0, 0.0, 45.0, 90.0, 179.0}) {
-        Eigen::Vector3d ecef = MathGPS::GeodeticToEcef(Eigen::Vector3d(0, lon, 0));
+        Eigen::Vector3d ecef = mins::gps_math::GeodeticToEcef(Eigen::Vector3d(0, lon, 0));
         double lon_rad = lon * M_PI / 180.0;
-        EXPECT_NEAR(ecef(0), MathGPS::a * cos(lon_rad), TOL_M) << lon;
-        EXPECT_NEAR(ecef(1), MathGPS::a * sin(lon_rad), TOL_M) << lon;
+        EXPECT_NEAR(ecef(0), mins::gps_math::a * cos(lon_rad), TOL_M) << lon;
+        EXPECT_NEAR(ecef(1), mins::gps_math::a * sin(lon_rad), TOL_M) << lon;
         EXPECT_NEAR(ecef(2), 0.0, TOL_M) << lon;
     }
 }
@@ -85,41 +85,41 @@ TEST(MathGPS, EcefHeightMovesAlongTheEllipsoidNormal) {
     // points on the same vertical differ by exactly the height difference.
     const double height = 1234.5;
     for (double lat : {-60.0, 0.0, 12.5, 39.6837, 89.0}) {
-        Eigen::Vector3d at_surface = MathGPS::GeodeticToEcef(Eigen::Vector3d(lat, -75.7497, 0));
-        Eigen::Vector3d at_height = MathGPS::GeodeticToEcef(Eigen::Vector3d(lat, -75.7497, height));
+        Eigen::Vector3d at_surface = mins::gps_math::GeodeticToEcef(Eigen::Vector3d(lat, -75.7497, 0));
+        Eigen::Vector3d at_height = mins::gps_math::GeodeticToEcef(Eigen::Vector3d(lat, -75.7497, height));
         EXPECT_NEAR((at_height - at_surface).norm(), height, TOL_M) << lat;
     }
 }
 
 TEST(MathGPS, EnuIsZeroAtTheDatum) {
-    Eigen::Vector3d enu = MathGPS::EcefToEnu(MathGPS::GeodeticToEcef(DATUM), DATUM);
+    Eigen::Vector3d enu = mins::gps_math::EcefToEnu(mins::gps_math::GeodeticToEcef(DATUM), DATUM);
     EXPECT_NEAR(enu.norm(), 0.0, TOL_M);
 }
 
 TEST(MathGPS, EnuAxesPointEastNorthAndUp) {
     const double step_deg = 1e-3; // about 100 m, small enough that the axes stay nearly straight
 
-    Eigen::Vector3d east = MathGPS::GeodeticToEnu(DATUM + Eigen::Vector3d(0, step_deg, 0), DATUM);
+    Eigen::Vector3d east = mins::gps_math::GeodeticToEnu(DATUM + Eigen::Vector3d(0, step_deg, 0), DATUM);
     EXPECT_GT(east(0), 0.0);
     EXPECT_GT(std::abs(east(0)), std::abs(east(1)));
 
-    Eigen::Vector3d north = MathGPS::GeodeticToEnu(DATUM + Eigen::Vector3d(step_deg, 0, 0), DATUM);
+    Eigen::Vector3d north = mins::gps_math::GeodeticToEnu(DATUM + Eigen::Vector3d(step_deg, 0, 0), DATUM);
     EXPECT_GT(north(1), 0.0);
     EXPECT_GT(std::abs(north(1)), std::abs(north(0)));
 
-    Eigen::Vector3d up = MathGPS::GeodeticToEnu(DATUM + Eigen::Vector3d(0, 0, 500), DATUM);
+    Eigen::Vector3d up = mins::gps_math::GeodeticToEnu(DATUM + Eigen::Vector3d(0, 0, 500), DATUM);
     EXPECT_NEAR(up(0), 0.0, TOL_M);
     EXPECT_NEAR(up(1), 0.0, TOL_M);
     EXPECT_NEAR(up(2), 500.0, TOL_M);
 }
 
 TEST(MathGPS, EnuIsARotationSoItPreservesDistanceFromTheDatum) {
-    Eigen::Vector3d datum_ecef = MathGPS::GeodeticToEcef(DATUM);
+    Eigen::Vector3d datum_ecef = mins::gps_math::GeodeticToEcef(DATUM);
     for (const Eigen::Vector3d &point : {Eigen::Vector3d(39.7, -75.7, 100.0),
                                          Eigen::Vector3d(-33.9, 151.2, 58.0),
                                          Eigen::Vector3d(0.0, 0.0, 0.0)}) {
-        Eigen::Vector3d point_ecef = MathGPS::GeodeticToEcef(point);
-        EXPECT_NEAR(MathGPS::EcefToEnu(point_ecef, DATUM).norm(), (point_ecef - datum_ecef).norm(),
+        Eigen::Vector3d point_ecef = mins::gps_math::GeodeticToEcef(point);
+        EXPECT_NEAR(mins::gps_math::EcefToEnu(point_ecef, DATUM).norm(), (point_ecef - datum_ecef).norm(),
                     TOL_M)
             << point.transpose();
     }
@@ -127,8 +127,8 @@ TEST(MathGPS, EnuIsARotationSoItPreservesDistanceFromTheDatum) {
 
 TEST(MathGPS, GeodeticToEnuIsTheTwoStepsComposed) {
     Eigen::Vector3d point(39.7000, -75.7000, 55.0);
-    Eigen::Vector3d composed = MathGPS::EcefToEnu(MathGPS::GeodeticToEcef(point), DATUM);
-    EXPECT_TRUE(MathGPS::GeodeticToEnu(point, DATUM).isApprox(composed));
+    Eigen::Vector3d composed = mins::gps_math::EcefToEnu(mins::gps_math::GeodeticToEcef(point), DATUM);
+    EXPECT_TRUE(mins::gps_math::GeodeticToEnu(point, DATUM).isApprox(composed));
 }
 
 TEST(MathGPS, FourDofRecoversAPureYawAndTranslation) {
@@ -139,7 +139,7 @@ TEST(MathGPS, FourDofRecoversAPureYawAndTranslation) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
+    ASSERT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
     EXPECT_LT((R_solved - R_BtoA).norm(), TOL_SOLVER);
     EXPECT_LT((p_solved - p_BinA).norm(), TOL_SOLVER);
 }
@@ -153,7 +153,7 @@ TEST(MathGPS, FourDofYawIsRecoveredAllTheWayAroundTheCircle) {
 
         Eigen::Matrix3d R_solved;
         Eigen::Vector3d p_solved;
-        ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0)) << yaw_deg;
+        ASSERT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0)) << yaw_deg;
         EXPECT_NEAR(YawOf(R_solved), yaw_deg * M_PI / 180.0, TOL_SOLVER) << yaw_deg;
 
         // The solve is unconstrained apart from the yaw, so the shape of what comes back is
@@ -172,7 +172,7 @@ TEST(MathGPS, FourDofNeedsOnlyTwoCorrespondences) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
+    ASSERT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
     EXPECT_LT((R_solved - R_BtoA).norm(), TOL_SOLVER);
     EXPECT_LT((p_solved - p_BinA).norm(), TOL_SOLVER);
 }
@@ -183,7 +183,7 @@ TEST(MathGPS, FourDofRecoversTheIdentityWhenTheFramesAlreadyAlign) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
+    ASSERT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
     EXPECT_LT((R_solved - Eigen::Matrix3d::Identity()).norm(), TOL_SOLVER);
     EXPECT_LT(p_solved.norm(), TOL_SOLVER);
 }
@@ -211,7 +211,7 @@ TEST(MathGPS, FourDofMatchesTheClosedFormProcrustesYaw) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
+    ASSERT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
     EXPECT_NEAR(YawOf(R_solved), atan2(cross_sum, dot_sum), TOL_SOLVER);
 
     // This is the only case where no yaw fits, so it is the only one where the unit-norm
@@ -232,8 +232,8 @@ TEST(MathGPS, FourDofReportsFailureWhenNothingFitsWithinTheThreshold) {
     // found and only the threshold sends the tight call away empty.
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    EXPECT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 10.0));
-    EXPECT_FALSE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1e-3));
+    EXPECT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 10.0));
+    EXPECT_FALSE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1e-3));
 }
 
 TEST(MathGPS, FourDofReportsFailureWhenEveryCorrespondenceIsTheSamePoint) {
@@ -244,11 +244,11 @@ TEST(MathGPS, FourDofReportsFailureWhenEveryCorrespondenceIsTheSamePoint) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    EXPECT_FALSE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
+    EXPECT_FALSE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 1.0));
 
     // The same through the hypothesis loop, where the failed solve has to be skipped rather
     // than counted as a hypothesis with every point an inlier.
-    EXPECT_FALSE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 3, 1.0));
+    EXPECT_FALSE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 3, 1.0));
 }
 
 TEST(MathGPS, RansacReturnsTheSameFitAsASingleAlignWhenEveryPointIsAnInlier) {
@@ -262,8 +262,8 @@ TEST(MathGPS, RansacReturnsTheSameFitAsASingleAlignWhenEveryPointIsAnInlier) {
 
     Eigen::Matrix3d R_ransac, R_align;
     Eigen::Vector3d p_ransac, p_align;
-    ASSERT_TRUE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_ransac, p_ransac, 1, 1.0));
-    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_align, p_align, 1.0));
+    ASSERT_TRUE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_ransac, p_ransac, 1, 1.0));
+    ASSERT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_align, p_align, 1.0));
     EXPECT_LT((R_ransac - R_align).norm(), TOL_SOLVER);
     EXPECT_LT((p_ransac - p_align).norm(), TOL_SOLVER);
     EXPECT_NEAR(YawOf(R_ransac), -40.0 * M_PI / 180.0, TOL_SOLVER);
@@ -280,8 +280,8 @@ TEST(MathGPS, RansacReportsFailureWhenNoHypothesisFindsAnInlier) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    EXPECT_TRUE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 10.0));
-    EXPECT_FALSE(MathGPS::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1e-3));
+    EXPECT_TRUE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 10.0));
+    EXPECT_FALSE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1e-3));
 }
 
 TEST(MathGPS, QuaternionLeftAndRightMatricesBothGiveTheJplProduct) {
@@ -293,14 +293,14 @@ TEST(MathGPS, QuaternionLeftAndRightMatricesBothGiveTheJplProduct) {
     expected.head<3>() = q(3) * p.head<3>() + p(3) * q.head<3>() - q.head<3>().cross(p.head<3>());
     expected(3) = q(3) * p(3) - q.head<3>().dot(p.head<3>());
 
-    EXPECT_LT((MathGPS::Left_q(q) * p - expected).norm(), TOL_SOLVER);
-    EXPECT_LT((MathGPS::Right_q(p) * q - expected).norm(), TOL_SOLVER);
+    EXPECT_LT((mins::gps_math::Left_q(q) * p - expected).norm(), TOL_SOLVER);
+    EXPECT_LT((mins::gps_math::Right_q(p) * q - expected).norm(), TOL_SOLVER);
 }
 
 TEST(MathGPS, QuaternionMatricesOfTheIdentityRotationAreTheIdentity) {
     Eigen::Vector4d identity(0.0, 0.0, 0.0, 1.0);
-    EXPECT_LT((MathGPS::Left_q(identity) - Eigen::Matrix4d::Identity()).norm(), TOL_SOLVER);
-    EXPECT_LT((MathGPS::Right_q(identity) - Eigen::Matrix4d::Identity()).norm(), TOL_SOLVER);
+    EXPECT_LT((mins::gps_math::Left_q(identity) - Eigen::Matrix4d::Identity()).norm(), TOL_SOLVER);
+    EXPECT_LT((mins::gps_math::Right_q(identity) - Eigen::Matrix4d::Identity()).norm(), TOL_SOLVER);
 }
 
 TEST(MathGPS, FourDofYawBeatsEveryOtherYawOnNoisyCorrespondences) {
@@ -315,7 +315,7 @@ TEST(MathGPS, FourDofYawBeatsEveryOtherYawOnNoisyCorrespondences) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    ASSERT_TRUE(MathGPS::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 10.0));
+    ASSERT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_solved, p_solved, 10.0));
 
     // Same objective the solver minimises: the xy residual of the differences to the first point
     auto residual = [&](double yaw) {
