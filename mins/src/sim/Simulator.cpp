@@ -624,13 +624,13 @@ bool Simulator::get_next_gps(GPSData &gps) {
     gps.meas(2) += op->sim->est_true->gps->noise * noise(seed_gps.at(gps.id));
   }
 
-  // Multipath-like outlier: a fixed-size bias in a random direction, while gps.noise below still reports the nominal sigma
-  if (op->sim->gps_outlier_rate > 0) {
+  // gps.noise below still reports the nominal sigma, so the estimator is not told
+  if (op->sim->gps_outlier.enabled) {
     std::mt19937 &rng = seed_gps_outliers.at(gps.id);
-    if (std::uniform_real_distribution<double>(0, 1)(rng) < op->sim->gps_outlier_rate) {
+    if (std::uniform_real_distribution<double>(0, 1)(rng) < op->sim->gps_outlier.rate) {
       std::normal_distribution<double> dir(0, 1);
       Vector3d bias(dir(rng), dir(rng), dir(rng));
-      gps.meas += op->sim->gps_outlier_dist * bias.normalized();
+      gps.meas += op->sim->gps_outlier.magnitude * bias.normalized();
       PRINT1("[SIM] GPS outlier: %.3f|%d\n", gps.time, gps.id);
     }
   }
