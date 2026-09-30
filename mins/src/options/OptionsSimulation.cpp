@@ -36,6 +36,8 @@ void mins::OptionsSimulation::load_print(const std::shared_ptr<ov_core::YamlPars
     parser->parse_external(f, "sim", "freq_wheel", freq_wheel);
     parser->parse_external(f, "sim", "freq_vicon", freq_vicon);
     parser->parse_external(f, "sim", "freq_lidar", freq_lidar);
+    parser->parse_external(f, "sim", "gps_outlier_rate", gps_outlier_rate, false);
+    parser->parse_external(f, "sim", "gps_outlier_dist", gps_outlier_dist, false);
     parser->parse_external(f, "sim", "min_feature_gen_dist", min_feature_gen_distance);
     parser->parse_external(f, "sim", "max_feature_gen_dist", max_feature_gen_distance);
     Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
@@ -66,6 +68,8 @@ void mins::OptionsSimulation::load_print(const std::shared_ptr<ov_core::YamlPars
   PRINT1("\t- freq_wheel: %.2f\n", freq_wheel);
   PRINT1("\t- freq_vicon: %.2f\n", freq_vicon);
   PRINT1("\t- freq_lidar: %.2f\n", freq_lidar);
+  PRINT1("\t- gps_outlier_rate: %.2f\n", gps_outlier_rate);
+  PRINT1("\t- gps_outlier_dist: %.2f\n", gps_outlier_dist);
   PRINT1("\t- min_feature_gen_distance: %.2f\n", min_feature_gen_distance);
   PRINT1("\t- max_feature_gen_distance: %.2f\n", max_feature_gen_distance);
   PRINT1("\t- T_WtoE:\n");
