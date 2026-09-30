@@ -27,3 +27,8 @@ sim:
     - [0.0, 1.0, 0.0, 0.0]
     - [0.0, 0.0, 1.0, 0.0]
     - [0.0, 0.0, 0.0, 1.0]
+
+gps_outlier:
+  enabled: false
+  rate: 0.1       # probability that a fix is an outlier
+  magnitude: 50.0 # m, bias added in a random direction
