@@ -77,6 +77,7 @@ include_directories(
 # Set link libraries used by all binaries
 list(APPEND thirdparty_libraries
         ${OpenCV_LIBRARIES}
+        ${BAG_IO_LIBRARIES}
         )
 
 ##################################################
@@ -104,6 +105,8 @@ list(APPEND LIBRARY_SOURCES
         src/utils/PackagePath.cpp
         src/utils/Print_Logger.cpp
         src/utils/Jabdongsani.cpp
+        src/io/RosbagReader.cpp
+        src/io/RosMsgs.cpp
         src/state/State.cpp
         src/state/StateHelper.cpp
         src/state/Propagator.cpp

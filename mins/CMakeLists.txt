@@ -56,6 +56,28 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_
     list(APPEND thirdparty_libraries stdc++fs)
 endif ()
 
+# Optional: lets the ROS-free bag reader (src/io) open bags with bz2 / lz4 compressed chunks.
+# Without them it still reads uncompressed bags and names the missing library for the rest.
+find_package(BZip2 QUIET)
+find_path(LZ4_INCLUDE_DIR lz4frame.h)
+find_library(LZ4_LIBRARY NAMES lz4 liblz4)
+set(BAG_IO_LIBRARIES "")
+set(BAG_BZ2 OFF)
+set(BAG_LZ4 OFF)
+if (BZIP2_FOUND)
+    set(BAG_BZ2 ON)
+    add_definitions(-DMINS_HAVE_BZ2)
+    include_directories(${BZIP2_INCLUDE_DIR})
+    list(APPEND BAG_IO_LIBRARIES ${BZIP2_LIBRARIES})
+endif ()
+if (LZ4_INCLUDE_DIR AND LZ4_LIBRARY)
+    set(BAG_LZ4 ON)
+    add_definitions(-DMINS_HAVE_LZ4)
+    include_directories(${LZ4_INCLUDE_DIR})
+    list(APPEND BAG_IO_LIBRARIES ${LZ4_LIBRARY})
+endif ()
+message(STATUS "MINS: bag reader can open bz2 chunks: ${BAG_BZ2}, lz4 chunks: ${BAG_LZ4}")
+
 find_package(catkin QUIET COMPONENTS roscpp)
 find_package(ament_cmake QUIET)
 if (catkin_FOUND)
