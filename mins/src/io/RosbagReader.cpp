@@ -97,7 +97,7 @@ struct RecordCursor {
 #ifdef MINS_HAVE_LZ4
 std::vector<std::uint8_t> decompress_lz4(const std::vector<std::uint8_t> &in, std::size_t size) {
   std::vector<std::uint8_t> out(size);
-  LZ4F_dctx *ctx = nullptr;
+  LZ4F_decompressionContext_t ctx = nullptr; // LZ4F_dctx is missing from 18.04 liblz4 r131
   if (LZ4F_isError(LZ4F_createDecompressionContext(&ctx, LZ4F_VERSION)))
     throw std::runtime_error("bag: cannot create lz4 context");
   std::size_t src_pos = 0, dst_pos = 0, ret = 1;
