@@ -163,8 +163,12 @@ target_link_libraries(simulation mins_lib)
 add_executable(subscribe src/run_subscribe.cpp)
 target_link_libraries(subscribe mins_lib)
 
+# Plays a ROS1 bag through the estimator without ROS (src/io reads the bag)
+add_executable(mins_bag src/run_bag_cli.cpp)
+target_link_libraries(mins_bag mins_lib)
+
 # Install executables
-install(TARGETS subscribe simulation DESTINATION lib/${PROJECT_NAME})
+install(TARGETS subscribe simulation mins_bag DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch/)
 install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config/)
