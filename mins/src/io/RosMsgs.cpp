@@ -11,6 +11,7 @@
 
 #include "utils/sensor_data.h"
 #include <cstring>
+#include <map>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <stdexcept>
@@ -127,37 +128,61 @@ cv::Mat rosmsg::image(const std::string &type, const std::vector<std::uint8_t> &
   stamp = r.header();
   std::uint32_t height = r.get<std::uint32_t>(), width = r.get<std::uint32_t>();
   std::string encoding = r.str();
-  r.get<std::uint8_t>(); // is_bigendian
+  bool big_endian = r.get<std::uint8_t>() != 0;
   std::uint32_t step = r.get<std::uint32_t>();
   std::vector<std::uint8_t> bytes = r.bytes();
   r.done();
   if (bytes.size() < static_cast<std::size_t>(step) * height)
     throw std::runtime_error("rosmsg: sensor_msgs/Image data is smaller than step * height");
 
-  auto wrap = [&](int cv_type) { return cv::Mat(static_cast<int>(height), static_cast<int>(width), cv_type, bytes.data(), step); };
-  cv::Mat gray;
-  if (encoding == "mono8" || encoding == "8UC1")
-    gray = wrap(CV_8UC1).clone();
-  else if (encoding == "mono16" || encoding == "16UC1")
-    wrap(CV_16UC1).convertTo(gray, CV_8U, 255.0 / 65535.0); // same scaling as cv_bridge
-  else if (encoding == "bgr8")
-    cv::cvtColor(wrap(CV_8UC3), gray, cv::COLOR_BGR2GRAY);
-  else if (encoding == "rgb8")
-    cv::cvtColor(wrap(CV_8UC3), gray, cv::COLOR_RGB2GRAY);
-  else if (encoding == "bgra8")
-    cv::cvtColor(wrap(CV_8UC4), gray, cv::COLOR_BGRA2GRAY);
-  else if (encoding == "rgba8")
-    cv::cvtColor(wrap(CV_8UC4), gray, cv::COLOR_RGBA2GRAY);
-  else if (encoding == "bayer_rggb8")
-    cv::cvtColor(wrap(CV_8UC1), gray, cv::COLOR_BayerBG2GRAY);
-  else if (encoding == "bayer_bggr8")
-    cv::cvtColor(wrap(CV_8UC1), gray, cv::COLOR_BayerRG2GRAY);
-  else if (encoding == "bayer_gbrg8")
-    cv::cvtColor(wrap(CV_8UC1), gray, cv::COLOR_BayerGR2GRAY);
-  else if (encoding == "bayer_grbg8")
-    cv::cvtColor(wrap(CV_8UC1), gray, cv::COLOR_BayerGB2GRAY);
-  else
+  // cv_bridge's mono8 conversion: the color conversion below at the source depth, then 16-bit scaled down to 8-bit.
+  // Code -1 is already gray.
+  struct Color {
+    int code;
+    int channels;
+  };
+  static const std::map<std::string, Color> colors = {
+      {"mono", {-1, 1}},
+      {"bgr", {cv::COLOR_BGR2GRAY, 3}},
+      {"rgb", {cv::COLOR_RGB2GRAY, 3}},
+      {"bgra", {cv::COLOR_BGRA2GRAY, 4}},
+      {"rgba", {cv::COLOR_RGBA2GRAY, 4}},
+      {"bayer_rggb", {cv::COLOR_BayerBG2GRAY, 1}},
+      {"bayer_bggr", {cv::COLOR_BayerRG2GRAY, 1}},
+      {"bayer_gbrg", {cv::COLOR_BayerGR2GRAY, 1}},
+      {"bayer_grbg", {cv::COLOR_BayerGB2GRAY, 1}},
+      {"yuv422", {cv::COLOR_YUV2GRAY_UYVY, 2}},
+  };
+  std::string base = encoding == "8UC1" ? "mono8" : encoding == "16UC1" ? "mono16" : encoding;
+  int depth = CV_8U;
+  if (base.size() > 2 && base.compare(base.size() - 2, 2, "16") == 0) {
+    depth = CV_16U;
+    base.resize(base.size() - 2);
+  } else if (base.size() > 1 && base.back() == '8') {
+    base.pop_back();
+  }
+  auto it = colors.find(base);
+  if (it == colors.end() || (depth == CV_16U && base.compare(0, 3, "yuv") == 0))
     throw std::runtime_error("rosmsg: unsupported image encoding " + encoding);
+
+  cv::Mat raw(static_cast<int>(height), static_cast<int>(width), CV_MAKETYPE(depth, it->second.channels), bytes.data(), step);
+  if (depth == CV_16U && big_endian) {
+    raw = raw.clone();
+    for (int y = 0; y < raw.rows; y++) {
+      auto *p = raw.ptr<std::uint16_t>(y);
+      for (int i = 0; i < raw.cols * raw.channels(); i++)
+        p[i] = static_cast<std::uint16_t>((p[i] >> 8) | (p[i] << 8));
+    }
+  }
+  cv::Mat gray;
+  if (it->second.code < 0)
+    gray = raw;
+  else
+    cv::cvtColor(raw, gray, it->second.code);
+  if (depth == CV_16U)
+    gray.convertTo(gray, CV_8U, 255.0 / 65535.0);
+  else if (it->second.code < 0)
+    gray = gray.clone();
   return gray;
 }
 
