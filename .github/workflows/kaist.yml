@@ -39,6 +39,15 @@ jobs:
           ref: ${{ matrix.checkout }}
       - name: Build Docker image
         run: docker build . --file Dockerfile_noetic_20_04 --tag mins:${{ matrix.ref }}
+      - name: Add the ROS-free bag player
+        # built in the same image so it gets the same compiler and libraries as the ROS build,
+        # trees from before mins_bag existed keep playing through roslaunch
+        run: |
+          docker run --name rf mins:${{ matrix.ref }} -c '
+            [ -f src/MINS/mins/src/run_bag_cli.cpp ] || exit 0
+            apt-get update -qq && apt-get install -y -qq libbz2-dev liblz4-dev > /dev/null
+            cmake -S src/MINS/mins -B /rosfree -DENABLE_ROS=OFF > /dev/null && make -C /rosfree -j$(nproc) mins_bag'
+          docker commit rf mins:${{ matrix.ref }}
       - name: Export image
         run: docker save mins:${{ matrix.ref }} | gzip > image-${{ matrix.ref }}.tar.gz
       - uses: actions/upload-artifact@v4
@@ -144,7 +153,18 @@ jobs:
             </node>
           </launch>
           EOF
-              timeout 3000 roslaunch /tmp/run.launch > /out/$NAME.log 2>&1
+              if [ -x /rosfree/mins_bag ]; then
+                # same settings as the launch params, written into a copy of the config
+                cp -r /catkin_ws/src/MINS/mins/config/kaist/$CONFIG /tmp/cfg
+                sed -i "s|path_bag:.*|path_bag: \"/data/run.bag\"|; s|path_trajectory:.*|path_trajectory: \"/out/$NAME.txt\"|; s|path_timing:.*|path_timing: \"/out/$NAME.time\"|; s|verbosity:.*|verbosity: 3|" /tmp/cfg/config_system.yaml
+                for s in C:camera G:gps L:lidar W:wheel; do
+                  sed -i "0,/enabled:/s|enabled:.*|enabled: $(has ${s%:*})|" /tmp/cfg/config_${s#*:}.yaml
+                done
+                # the ROS setup puts the ROS build of mins_lib on LD_LIBRARY_PATH, which would shadow ours
+                env -u LD_LIBRARY_PATH timeout 3000 /rosfree/mins_bag /tmp/cfg/config.yaml > /out/$NAME.log 2>&1
+              else
+                timeout 3000 roslaunch /tmp/run.launch > /out/$NAME.log 2>&1
+              fi
               echo "$NAME exit $?"' || true
           done
           done
@@ -152,6 +172,10 @@ jobs:
         run: |
           pip install -q numpy
           cp out-master/* out/ 2>/dev/null || true
+          for f in out/pr_*.txt; do
+            m=out/master_${f#out/pr_}; [ -f $m ] || continue
+            if cmp -s $f $m; then echo "urban${{ matrix.seq }} $(basename $f .txt) identical"; else echo "urban${{ matrix.seq }} $(basename $f .txt) differs"; fi
+          done | tee out/bitexact.txt
           python3 .github/scripts/kaist_ate.py ${{ matrix.seq }} $DATA/gt.txt out | tee out/score.json
       - uses: actions/upload-artifact@v4
         if: always()
@@ -173,7 +197,10 @@ jobs:
           path: results
       - name: Table
         run: |
-          { echo "<!-- mins-kaist-report -->"; python3 .github/scripts/kaist_ate.py report results; } > report.md
+          { echo "<!-- mins-kaist-report -->"; python3 .github/scripts/kaist_ate.py report results
+            cat results/*/bitexact.txt > bitexact.txt 2>/dev/null || true
+            echo; echo "Trajectories bit-identical to master: $(grep -c identical bitexact.txt) of $(wc -l < bitexact.txt)"
+            grep differs bitexact.txt | sed 's/^/- /'; } > report.md
           cat report.md >> $GITHUB_STEP_SUMMARY
       - name: Post / update PR comment
         if: github.event_name == 'pull_request'

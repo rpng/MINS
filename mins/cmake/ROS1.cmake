@@ -22,6 +22,7 @@ include_directories(
 list(APPEND thirdparty_libraries
         ${OpenCV_LIBRARIES}
         Eigen3::Eigen
+        ${BAG_IO_LIBRARIES}
         )
 
 # Core (ROS-free) library sources
@@ -40,6 +41,8 @@ list(APPEND LIBRARY_SOURCES
         src/utils/PackagePath.cpp
         src/utils/Print_Logger.cpp
         src/utils/Jabdongsani.cpp
+        src/io/RosbagReader.cpp
+        src/io/RosMsgs.cpp
         src/sim/Simulator.cpp
         src/sim/ConstBsplineSE3.cpp
         src/state/State.cpp
@@ -154,6 +157,13 @@ else ()
             )
 
 endif ()
+
+# Plays a ROS1 bag through the estimator without ROS (src/io reads the bag), so it builds either way
+add_executable(mins_bag src/run_bag_cli.cpp)
+target_link_libraries(mins_bag mins_lib)
+install(TARGETS mins_bag
+        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+        )
 
 ##################################################
 # Unit tests (opt-in: cmake -DBUILD_TESTS=ON)
