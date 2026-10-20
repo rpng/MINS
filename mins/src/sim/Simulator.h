@@ -194,6 +194,7 @@ protected:
   std::vector<std::mt19937> seed_vicons;
   std::vector<std::mt19937> seed_lidars;
   std::vector<std::mt19937> seed_gps;
+  std::vector<std::mt19937> seed_gps_outliers;
 
   /// Mersenne twister PRNG for state perturbations
   std::mt19937 seed_ptrb;
