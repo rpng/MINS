@@ -81,10 +81,12 @@ std::string write_bag(const std::vector<std::string> &topics, const std::vector<
                               per_conn);
     }
     std::uint64_t index_pos = start + body.size();
+    std::string conn_records;
     for (std::uint32_t c = 0; c < topics.size(); c++)
-        body += record(field("op", "\x07") + field("conn", u32(c)) + field("topic", topics[c]),
-                       field("topic", topics[c]) + field("type", "std_msgs/String") + field("md5sum", "992ce8a1687cec8c8bd883ec73ca41d1"));
-    body += chunk_infos;
+        conn_records += record(field("op", "\x07") + field("conn", u32(c)) + field("topic", topics[c]),
+                               field("topic", topics[c]) + field("type", "std_msgs/String") + field("md5sum", "992ce8a1687cec8c8bd883ec73ca41d1"));
+    // without an index, connections go first, as a writer streaming the bag puts them
+    body = indexed ? body + conn_records + chunk_infos : conn_records + body;
 
     std::string header = field("op", "\x03") + field("index_pos", u64(indexed ? index_pos : 0)) +
                          field("conn_count", u32(static_cast<std::uint32_t>(topics.size()))) +
@@ -189,7 +191,16 @@ TEST(RosbagReader, StopsWhenTheCallbackReturnsFalse) {
     EXPECT_EQ(n, 2);
 }
 
-TEST(RosbagReader, RejectsAnUnindexedBag) { EXPECT_THROW(RosbagReader(write_bag({"/imu"}, {{{0, 1, "a"}}}, "none", false)), std::runtime_error); }
+TEST(RosbagReader, PlaysABagWithoutIndexInFileOrder) {
+    // A bag read while it is written (e.g. through a pipe) has no index; it plays as written, filtered by topic
+    RosbagReader bag(write_bag({"/imu", "/cam"}, {{{0, 5, "a"}, {1, 3, "b"}}, {{0, 7, "c"}, {1, 6, "d"}}}, "none", false));
+    EXPECT_EQ(bag.start_time(), 3u);
+    EXPECT_EQ(bag.end_time(), UINT64_MAX);
+    std::string order;
+    for (const auto &m : read_all(bag, {"/imu"}))
+        order += m.data.substr(0, 1);
+    EXPECT_EQ(order, "ac");
+}
 
 TEST(RosbagReader, RejectsAFileThatIsNotABag) {
     std::string path = testing::TempDir() + "test_rosbag_not_a_bag.bag";

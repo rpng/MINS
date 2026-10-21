@@ -20,7 +20,8 @@
 
 namespace mins {
 
-/// Reads ROS1 bag files (format 2.0) without ROS. Chunks may be uncompressed, bz2 or lz4.
+/// Reads ROS1 bag files (format 2.0) without ROS. Chunks may be uncompressed, bz2 or lz4. A bag without an index (one
+/// still being written, e.g. read from /dev/stdin) is played once, in file order.
 class RosbagReader {
 public:
   struct Connection {
@@ -40,7 +41,8 @@ public:
 
   const std::map<std::uint32_t, Connection> &connections() const { return conns; }
 
-  /// First and last record time in ns over the whole bag, what rosbag::View reports as begin / end
+  /// First and last record time in ns over the whole bag, what rosbag::View reports as begin / end. Without an index the
+  /// start is the first chunk's and the end is UINT64_MAX.
   std::uint64_t start_time() const { return start; }
   std::uint64_t end_time() const { return end; }
 
@@ -57,11 +59,14 @@ private:
   };
 
   std::vector<std::uint8_t> load_chunk(std::uint64_t pos);
+  void read_stream(const std::function<bool(std::uint32_t)> &wanted, const std::function<bool(const Message &)> &f);
 
   std::ifstream file;
   std::map<std::uint32_t, Connection> conns;
   std::vector<ChunkInfo> chunks;
   std::uint64_t start = 0, end = 0;
+  bool stream = false;                   // no index: read records in file order
+  std::vector<std::uint8_t> first_chunk; // without an index, the first chunk, read ahead for the start time
 };
 
 } // namespace mins
