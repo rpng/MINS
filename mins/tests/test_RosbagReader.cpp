@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <map>
 #ifdef MINS_HAVE_BZ2
 #include <bzlib.h>
@@ -156,6 +157,22 @@ TEST(RosbagReader, LoadsAheadForASparseTopic) {
     for (const auto &m : read_all(bag))
         order += m.data.substr(0, 1);
     EXPECT_EQ(order, "gabchd");
+}
+
+TEST(RosbagReader, LeavesChunksPastThePlayTimeUnread) {
+    // /gps starts in the last chunk. Playing the first messages must not read that far ahead (a late or gappy topic
+    // would hold everything before it in memory), so the last chunk is made unreadable to see whether it was read.
+    std::string path = write_bag({"/imu", "/gps"}, {{{0, 1, "a"}}, {{0, 2, "b"}}, {{0, 3, "c"}, {1, 4, "g"}}}, "none");
+    std::ifstream in(path, std::ios::binary);
+    std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    in.close();
+    bytes.replace(bytes.rfind("compression=none") + 12, 4, "nope");
+    std::ofstream(path, std::ios::binary) << bytes;
+    RosbagReader bag(path);
+    int n = 0;
+    EXPECT_NO_THROW(bag.read({}, [&](const RosbagReader::Message &) { return ++n < 2; }));
+    EXPECT_EQ(n, 2);
+    EXPECT_THROW(read_all(bag), std::runtime_error);
 }
 
 TEST(RosbagReader, FiltersByTopic) {

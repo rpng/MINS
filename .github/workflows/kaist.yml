@@ -38,16 +38,19 @@ jobs:
         with:
           ref: ${{ matrix.checkout }}
       - name: Build Docker image
-        run: docker build . --file Dockerfile_noetic_20_04 --tag mins:${{ matrix.ref }}
-      - name: Add the ROS-free bag player
-        # built in the same image so it gets the same compiler and libraries as the ROS build,
-        # trees from before mins_bag existed keep playing through roslaunch
+        # No ROS, just the bag player. Ubuntu 20.04 like the Noetic image the cached master results came from,
+        # so compiler, Eigen, OpenCV and glibc match. Written here, not in the tree, so master builds the same way.
         run: |
-          docker run --name rf mins:${{ matrix.ref }} -c '
-            [ -f src/MINS/mins/src/run_bag_cli.cpp ] || exit 0
-            apt-get update -qq && apt-get install -y -qq libbz2-dev liblz4-dev > /dev/null
-            cmake -S src/MINS/mins -B /rosfree -DENABLE_ROS=OFF > /dev/null && make -C /rosfree -j$(nproc) mins_bag'
-          docker commit rf mins:${{ matrix.ref }}
+          docker build . --tag mins:${{ matrix.ref }} --file - <<'EOF'
+          FROM ubuntu:20.04
+          ENV DEBIAN_FRONTEND=noninteractive
+          RUN apt-get update && apt-get install --no-install-recommends -y build-essential cmake ca-certificates \
+              libeigen3-dev libopencv-dev libbz2-dev liblz4-dev && rm -rf /var/lib/apt/lists/*
+          COPY . /work/src/MINS
+          RUN cmake -S /work/src/MINS/mins -B /work/build -DENABLE_ROS=OFF -DENABLE_ARUCO_TAGS=OFF \
+              && cmake --build /work/build -j"$(nproc)" --target mins_bag
+          ENTRYPOINT ["/bin/bash"]
+          EOF
       - name: Export image
         run: docker save mins:${{ matrix.ref }} | gzip > image-${{ matrix.ref }}.tar.gz
       - uses: actions/upload-artifact@v4
@@ -136,35 +139,14 @@ jobs:
             docker run --rm -v $DATA:/data -v $PWD/$outdir:/out -e NAME=${ref}_$combo -e COMBO=$combo -e CONFIG=$config \
               -e MINS_EIGEN_CACHE=1 \
               -e GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA_Usable,-AVX2_Usable,-AVX_Usable,-AVX512F_Usable mins:$ref -c '
-              source /opt/ros/noetic/setup.bash && source /catkin_ws/devel/setup.bash
               has() { case $COMBO in *$1*) echo true ;; *) echo false ;; esac; }
-              cat > /tmp/run.launch <<EOF
-          <launch>
-            <node name="mins_bag" pkg="mins" type="bag" output="screen" required="true">
-              <param name="config_path"         type="str"  value="/catkin_ws/src/MINS/mins/config/kaist/$CONFIG/config.yaml" />
-              <param name="sys_path_bag"        type="str"  value="/data/run.bag" />
-              <param name="sys_path_trajectory" type="str"  value="/out/$NAME.txt" />
-              <param name="sys_path_timing"     type="str"  value="/out/$NAME.time" />
-              <param name="sys_verbosity"       type="int"  value="3" />
-              <param name="cam_enabled"         type="bool" value="$(has C)" />
-              <param name="gps_enabled"         type="bool" value="$(has G)" />
-              <param name="lidar_enabled"       type="bool" value="$(has L)" />
-              <param name="wheel_enabled"       type="bool" value="$(has W)" />
-            </node>
-          </launch>
-          EOF
-              if [ -x /rosfree/mins_bag ]; then
-                # same settings as the launch params, written into a copy of the config
-                cp -r /catkin_ws/src/MINS/mins/config/kaist/$CONFIG /tmp/cfg
-                sed -i "s|path_bag:.*|path_bag: \"/data/run.bag\"|; s|path_trajectory:.*|path_trajectory: \"/out/$NAME.txt\"|; s|path_timing:.*|path_timing: \"/out/$NAME.time\"|; s|verbosity:.*|verbosity: 3|" /tmp/cfg/config_system.yaml
-                for s in C:camera G:gps L:lidar W:wheel; do
-                  sed -i "0,/enabled:/s|enabled:.*|enabled: $(has ${s%:*})|" /tmp/cfg/config_${s#*:}.yaml
-                done
-                # the ROS setup puts the ROS build of mins_lib on LD_LIBRARY_PATH, which would shadow ours
-                env -u LD_LIBRARY_PATH timeout 3000 /rosfree/mins_bag /tmp/cfg/config.yaml > /out/$NAME.log 2>&1
-              else
-                timeout 3000 roslaunch /tmp/run.launch > /out/$NAME.log 2>&1
-              fi
+              # outputs and sensor switches written into a copy of the config
+              cp -r /work/src/MINS/mins/config/kaist/$CONFIG /tmp/cfg
+              sed -i "s|path_trajectory:.*|path_trajectory: \"/out/$NAME.txt\"|; s|path_timing:.*|path_timing: \"/out/$NAME.time\"|; s|verbosity:.*|verbosity: 3|" /tmp/cfg/config_system.yaml
+              for s in C:camera G:gps L:lidar W:wheel; do
+                sed -i "0,/enabled:/s|enabled:.*|enabled: $(has ${s%:*})|" /tmp/cfg/config_${s#*:}.yaml
+              done
+              timeout 3000 /work/build/mins_bag /tmp/cfg/config.yaml /data/run.bag > /out/$NAME.log 2>&1
               echo "$NAME exit $?"' || true
           done
           done

@@ -227,29 +227,27 @@ std::vector<std::uint8_t> RosbagReader::load_chunk(std::uint64_t pos) {
 }
 
 void RosbagReader::read(const std::set<std::string> &topics, const std::function<bool(const Message &)> &f) {
-  // rosbag::View keeps one cursor per connection, and after every message re-sorts them by next time (descending) and
-  // plays the last one. Equal record times are common (e.g. stereo images), so its tie-break is part of the play order;
-  // a stable sort over cursors that start in connection id order reproduces it (View's std::sort is an insertion sort,
-  // hence stable, for up to 16 connections in the bag; with more, View's order on equal times is unspecified and may
-  // differ from ours).
+  // rosbag::View keeps one cursor per connection, and after every message stable-sorts them by next time (descending)
+  // and plays the last one. Equal record times are common (e.g. stereo images), so its tie-break is part of the play
+  // order. Followed through, the stable sort comes down to: on equal times, the connection whose next message became
+  // its next most recently plays first, and connections that have not played yet go highest id first. (View's
+  // std::sort is an insertion sort, hence stable, for up to 16 connections in the bag; with more, View's order on
+  // equal times is unspecified and may differ from ours.)
   using Key = std::tuple<std::uint64_t, std::uint64_t, std::uint32_t>; // time, chunk position, offset: View's index order
   std::map<std::uint32_t, std::map<Key, std::vector<std::uint8_t>>> pending;
-  std::map<std::uint32_t, std::uint64_t> unloaded; // messages per connection still in chunks not read yet
+  std::map<std::uint32_t, std::uint64_t> played_at; // step at which each connection last played, 0 before its first
   auto wanted = [&](std::uint32_t c) {
     auto it = conns.find(c);
     return it != conns.end() && (topics.empty() || topics.count(it->second.topic) > 0);
   };
+  std::vector<const ChunkInfo *> todo; // chunks holding a wanted message, by start time
   for (const auto &ci : chunks)
-    for (const auto &kv : ci.counts)
-      if (wanted(kv.first))
-        unloaded[kv.first] += kv.second;
-  std::vector<std::uint32_t> cursors;
-  for (const auto &kv : unloaded)
-    cursors.push_back(kv.first);
+    if (std::any_of(ci.counts.begin(), ci.counts.end(), [&](const std::pair<const std::uint32_t, std::uint32_t> &kv) { return wanted(kv.first); }))
+      todo.push_back(&ci);
 
   std::size_t next_chunk = 0;
   auto load_next = [&]() {
-    const ChunkInfo &ci = chunks[next_chunk++];
+    const ChunkInfo &ci = *todo[next_chunk++];
     std::vector<std::uint8_t> buf = load_chunk(ci.pos);
     RecordCursor rc(buf.data(), buf.data() + buf.size());
     while (rc.next()) {
@@ -260,37 +258,38 @@ void RosbagReader::read(const std::set<std::string> &topics, const std::function
         continue;
       std::uint32_t offset = static_cast<std::uint32_t>(rc.data - buf.data());
       pending[conn].emplace(Key{to_ns(reinterpret_cast<const std::uint8_t *>(rc.field("time").data())), ci.pos, offset}, std::vector<std::uint8_t>(rc.data, rc.data + rc.data_len));
-      if (unloaded[conn] > 0)
-        unloaded[conn]--;
     }
   };
-  auto next_time = [&](std::uint32_t c) { return std::get<0>(pending[c].begin()->first); };
 
-  while (true) {
-    // Every cursor needs its true next message: load until each live one has a message, and until no unread chunk
-    // starts before the latest of those (it could hold an earlier message for that connection)
-    while (next_chunk < chunks.size()) {
-      bool missing = false;
-      std::uint64_t latest = 0;
-      for (std::uint32_t c : cursors) {
-        if (pending[c].empty())
-          missing = missing || unloaded[c] > 0;
-        else
-          latest = std::max(latest, next_time(c));
+  for (std::uint64_t step = 1;; step++) {
+    // Pick the next message among the loaded ones, and load on only while an unread chunk starts no later than it: a
+    // chunk starting later cannot hold an earlier message, so a topic that starts late or has a gap holds nothing back
+    std::uint32_t best = 0;
+    std::uint64_t best_time = 0;
+    bool found = false;
+    while (true) {
+      for (const auto &kv : pending) {
+        if (kv.second.empty())
+          continue;
+        std::uint64_t t = std::get<0>(kv.second.begin()->first);
+        if (!found || t < best_time || (t == best_time && (played_at[kv.first] > played_at[best] || (played_at[kv.first] == played_at[best] && kv.first > best)))) {
+          best = kv.first;
+          best_time = t;
+          found = true;
+        }
       }
-      if (!missing && chunks[next_chunk].start > latest)
+      if (next_chunk == todo.size() || (found && todo[next_chunk]->start > best_time))
         break;
       load_next();
+      found = false;
     }
-    cursors.erase(std::remove_if(cursors.begin(), cursors.end(), [&](std::uint32_t c) { return pending[c].empty() && (unloaded[c] == 0 || next_chunk == chunks.size()); }),
-                  cursors.end());
-    if (cursors.empty())
+    if (!found)
       return;
-    std::stable_sort(cursors.begin(), cursors.end(), [&](std::uint32_t a, std::uint32_t b) { return next_time(a) > next_time(b); });
-    auto &queue = pending[cursors.back()];
+    auto &queue = pending[best];
     auto first = queue.begin();
-    Message msg{&conns.at(cursors.back()), std::get<0>(first->first), std::move(first->second)};
+    Message msg{&conns.at(best), best_time, std::move(first->second)};
     queue.erase(first);
+    played_at[best] = step;
     if (!f(msg))
       return;
   }

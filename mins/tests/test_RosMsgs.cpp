@@ -102,7 +102,17 @@ TEST(RosMsgs, Mono16ImageIsScaledLikeCvBridge) {
 
 TEST(RosMsgs, RejectsAnUnknownImageEncoding) {
     double stamp;
-    EXPECT_THROW(rosmsg::image("sensor_msgs/Image", image_msg("yuv422", 1, 1, 2, {0, 0}), stamp), std::runtime_error);
+    EXPECT_THROW(rosmsg::image("sensor_msgs/Image", image_msg("32FC1", 1, 1, 4, {0, 0, 0, 0}), stamp), std::runtime_error);
+}
+
+TEST(RosMsgs, BigEndian16BitImageIsByteSwapped) {
+    // The same pixels as little-endian {255, 65280} must give the same gray values
+    std::vector<std::uint8_t> msg = image_msg("mono16", 1, 2, 4, {0x00, 0xff, 0xff, 0x00});
+    msg[msg.size() - 4 - 4 - 4 - 1] = 1; // is_bigendian sits before step, the data length and the 4 data bytes
+    double stamp;
+    cv::Mat img = rosmsg::image("sensor_msgs/Image", msg, stamp);
+    std::vector<int> out(img.begin<std::uint8_t>(), img.end<std::uint8_t>());
+    EXPECT_EQ(out, (std::vector<int>{1, 254}));
 }
 
 TEST(RosMsgs, PointCloud2FeedsFromPC2) {
