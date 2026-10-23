@@ -239,7 +239,7 @@ uint64_t add_seconds(uint64_t t, double sec) {
 
 int run(int argc, char **argv) {
   if (argc < 2) {
-    PRINT4(RED "usage: %s <config.yaml> [bag, overrides the config's path_bag]\n" RESET, argv[0]);
+    PRINT4(RED "usage: %s <config.yaml> [bag, overrides the config's path_bag; /dev/stdin plays an unindexed bag from a pipe]\n" RESET, argv[0]);
     return EXIT_FAILURE;
   }
   auto parser = make_shared<ov_core::YamlParser>(argv[1]);

@@ -141,6 +141,47 @@ std::vector<std::uint8_t> decompress_bz2(std::vector<std::uint8_t> &, std::size_
 }
 #endif
 
+/// Reads one whole record (length fields included) from the current position; empty at the end of the file
+std::vector<std::uint8_t> read_record(std::istream &in) {
+  std::vector<std::uint8_t> rec;
+  auto more = [&](std::size_t n) {
+    std::size_t at = rec.size();
+    rec.resize(at + n);
+    in.read(reinterpret_cast<char *>(rec.data() + at), static_cast<std::streamsize>(n));
+    return static_cast<std::size_t>(in.gcount());
+  };
+  std::size_t got = more(4);
+  if (got == 0)
+    return {};
+  if (got != 4)
+    throw std::runtime_error("bag: truncated record");
+  std::uint32_t hl = get<std::uint32_t>(rec.data());
+  if (more(hl + 4ull) != hl + 4ull)
+    throw std::runtime_error("bag: truncated record");
+  std::uint32_t dl = get<std::uint32_t>(rec.data() + 4 + hl);
+  if (more(dl) != dl)
+    throw std::runtime_error("bag: truncated record");
+  return rec;
+}
+
+std::vector<std::uint8_t> unpack_chunk(const RecordCursor &rc) {
+  std::vector<std::uint8_t> data(rc.data, rc.data + rc.data_len);
+  const std::string &compression = rc.field("compression");
+  std::size_t size = get<std::uint32_t>(reinterpret_cast<const std::uint8_t *>(rc.field("size").data()));
+  if (compression == "none")
+    return data;
+  if (compression == "lz4")
+    return decompress_lz4(data, size);
+  if (compression == "bz2")
+    return decompress_bz2(data, size);
+  throw std::runtime_error("bag: unsupported chunk compression " + compression);
+}
+
+std::pair<std::uint32_t, RosbagReader::Connection> connection(const RecordCursor &rc) {
+  auto def = parse_fields(rc.data, rc.data_len);
+  return {get<std::uint32_t>(reinterpret_cast<const std::uint8_t *>(rc.field("conn").data())), {rc.field("topic"), def["type"], def["md5sum"]}};
+}
+
 } // namespace
 
 RosbagReader::RosbagReader(const std::string &path) : file(path, std::ios::binary) {
@@ -163,8 +204,31 @@ RosbagReader::RosbagReader(const std::string &path) : file(path, std::ios::binar
   if (bh["op"].empty() || static_cast<std::uint8_t>(bh["op"][0]) != OP_BAG_HEADER || bh["index_pos"].size() != 8)
     throw std::runtime_error("bag: missing bag header record");
   std::uint64_t index_pos = get<std::uint64_t>(reinterpret_cast<const std::uint8_t *>(bh["index_pos"].data()));
-  if (index_pos == 0)
-    throw std::runtime_error("bag: " + path + " has no index (unclosed bag?), run 'rosbag reindex' first");
+  if (index_pos == 0) {
+    // No index: a bag still being written, e.g. one coming through a pipe. It plays in file order, so its writer must
+    // write in time order and put each connection record before that connection's first message. The start is the
+    // first chunk's earliest message; the end is not known.
+    stream = true;
+    end = UINT64_MAX;
+    std::uint32_t pad = 0;
+    file.read(reinterpret_cast<char *>(&pad), 4);
+    file.ignore(pad);
+    for (std::vector<std::uint8_t> rec; first_chunk.empty() && !(rec = read_record(file)).empty();) {
+      RecordCursor rc(rec.data(), rec.data() + rec.size());
+      rc.next();
+      if (rc.op() == OP_CONNECTION)
+        conns.insert(connection(rc));
+      else if (rc.op() == OP_CHUNK)
+        first_chunk = unpack_chunk(rc);
+    }
+    RecordCursor rc(first_chunk.data(), first_chunk.data() + first_chunk.size());
+    while (rc.next())
+      if (rc.op() == OP_MSG_DATA) {
+        std::uint64_t t = to_ns(reinterpret_cast<const std::uint8_t *>(rc.field("time").data()));
+        start = (start == 0 || t < start) ? t : start;
+      }
+    return;
+  }
 
   file.clear();
   file.seekg(0, std::ios::end);
@@ -178,9 +242,7 @@ RosbagReader::RosbagReader(const std::string &path) : file(path, std::ios::binar
   RecordCursor rc(index.data(), index.data() + index.size());
   while (rc.next()) {
     if (rc.op() == OP_CONNECTION) {
-      auto def = parse_fields(rc.data, rc.data_len);
-      Connection c{rc.field("topic"), def["type"], def["md5sum"]};
-      conns[get<std::uint32_t>(reinterpret_cast<const std::uint8_t *>(rc.field("conn").data()))] = c;
+      conns.insert(connection(rc));
     } else if (rc.op() == OP_CHUNK_INFO) {
       ChunkInfo ci{get<std::uint64_t>(reinterpret_cast<const std::uint8_t *>(rc.field("chunk_pos").data())),
                    to_ns(reinterpret_cast<const std::uint8_t *>(rc.field("start_time").data())),
@@ -201,29 +263,11 @@ RosbagReader::RosbagReader(const std::string &path) : file(path, std::ios::binar
 std::vector<std::uint8_t> RosbagReader::load_chunk(std::uint64_t pos) {
   file.clear();
   file.seekg(static_cast<std::streamoff>(pos));
-  std::uint32_t hl;
-  file.read(reinterpret_cast<char *>(&hl), 4);
-  std::vector<std::uint8_t> h(hl);
-  file.read(reinterpret_cast<char *>(h.data()), hl);
-  auto header = parse_fields(h.data(), hl);
-  if (header["op"].empty() || static_cast<std::uint8_t>(header["op"][0]) != OP_CHUNK)
+  std::vector<std::uint8_t> rec = read_record(file);
+  RecordCursor rc(rec.data(), rec.data() + rec.size());
+  if (!rc.next() || rc.op() != OP_CHUNK)
     throw std::runtime_error("bag: chunk info points at a record that is not a chunk");
-  std::uint32_t data_len;
-  file.read(reinterpret_cast<char *>(&data_len), 4);
-  std::vector<std::uint8_t> data(data_len);
-  file.read(reinterpret_cast<char *>(data.data()), data_len);
-  if (!file)
-    throw std::runtime_error("bag: truncated chunk");
-
-  const std::string &compression = header["compression"];
-  std::size_t size = get<std::uint32_t>(reinterpret_cast<const std::uint8_t *>(header["size"].data()));
-  if (compression == "none")
-    return data;
-  if (compression == "lz4")
-    return decompress_lz4(data, size);
-  if (compression == "bz2")
-    return decompress_bz2(data, size);
-  throw std::runtime_error("bag: unsupported chunk compression " + compression);
+  return unpack_chunk(rc);
 }
 
 void RosbagReader::read(const std::set<std::string> &topics, const std::function<bool(const Message &)> &f) {
@@ -240,6 +284,11 @@ void RosbagReader::read(const std::set<std::string> &topics, const std::function
     auto it = conns.find(c);
     return it != conns.end() && (topics.empty() || topics.count(it->second.topic) > 0);
   };
+  if (stream) {
+    read_stream(wanted, f);
+    return;
+  }
+
   std::vector<const ChunkInfo *> todo; // chunks holding a wanted message, by start time
   for (const auto &ci : chunks)
     if (std::any_of(ci.counts.begin(), ci.counts.end(), [&](const std::pair<const std::uint32_t, std::uint32_t> &kv) { return wanted(kv.first); }))
@@ -292,5 +341,37 @@ void RosbagReader::read(const std::set<std::string> &topics, const std::function
     played_at[best] = step;
     if (!f(msg))
       return;
+  }
+}
+
+void RosbagReader::read_stream(const std::function<bool(std::uint32_t)> &wanted, const std::function<bool(const Message &)> &f) {
+  std::vector<std::uint8_t> chunk = std::move(first_chunk);
+  for (bool have = !chunk.empty(); have;) {
+    RecordCursor rc(chunk.data(), chunk.data() + chunk.size());
+    while (rc.next()) {
+      if (rc.op() == OP_CONNECTION) {
+        conns.insert(connection(rc));
+      } else if (rc.op() == OP_MSG_DATA) {
+        std::uint32_t conn = get<std::uint32_t>(reinterpret_cast<const std::uint8_t *>(rc.field("conn").data()));
+        if (conns.count(conn) == 0)
+          throw std::runtime_error("bag: message before its connection record");
+        if (!wanted(conn))
+          continue;
+        Message msg{&conns.at(conn), to_ns(reinterpret_cast<const std::uint8_t *>(rc.field("time").data())), std::vector<std::uint8_t>(rc.data, rc.data + rc.data_len)};
+        if (!f(msg))
+          return;
+      }
+    }
+    have = false;
+    for (std::vector<std::uint8_t> rec; !have && !(rec = read_record(file)).empty();) {
+      RecordCursor top(rec.data(), rec.data() + rec.size());
+      top.next();
+      if (top.op() == OP_CONNECTION) {
+        conns.insert(connection(top));
+      } else if (top.op() == OP_CHUNK) {
+        chunk = unpack_chunk(top);
+        have = true;
+      }
+    }
   }
 }
