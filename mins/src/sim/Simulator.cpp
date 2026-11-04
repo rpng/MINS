@@ -53,8 +53,12 @@ Simulator::Simulator(shared_ptr<Options> op) : op(op) {
     seed_vicons.emplace_back(op->sim->seed + i); // vicon measurement
   for (int i = 0; i < op->sim->est_true->lidar->max_n; i++)
     seed_lidars.emplace_back(op->sim->seed + i); // lidar measurement
-  for (int i = 0; i < op->sim->est_true->gps->max_n; i++)
+  for (int i = 0; i < op->sim->est_true->gps->max_n; i++) {
     seed_gps.emplace_back(op->sim->seed + i); // gps measurement
+    // Own stream, so turning outliers on leaves the gaussian noise of every other fix unchanged
+    std::seed_seq outlier_seq{op->sim->seed, i, 1};
+    seed_gps_outliers.emplace_back(outlier_seq);
+  }
 
   //===============================================================
   //===============================================================
@@ -618,6 +622,17 @@ bool Simulator::get_next_gps(GPSData &gps) {
     gps.meas(0) += op->sim->est_true->gps->noise * noise(seed_gps.at(gps.id));
     gps.meas(1) += op->sim->est_true->gps->noise * noise(seed_gps.at(gps.id));
     gps.meas(2) += op->sim->est_true->gps->noise * noise(seed_gps.at(gps.id));
+  }
+
+  // gps.noise below still reports the nominal sigma, so the estimator is not told
+  if (op->sim->gps_outlier.enabled) {
+    std::mt19937 &rng = seed_gps_outliers.at(gps.id);
+    if (std::uniform_real_distribution<double>(0, 1)(rng) < op->sim->gps_outlier.rate) {
+      std::normal_distribution<double> dir(0, 1);
+      Vector3d bias(dir(rng), dir(rng), dir(rng));
+      gps.meas += op->sim->gps_outlier.magnitude * bias.normalized();
+      PRINT1("[SIM] GPS outlier: %.3f|%d\n", gps.time, gps.id);
+    }
   }
 
   gps.noise << op->sim->est_true->gps->noise, op->sim->est_true->gps->noise, op->sim->est_true->gps->noise;
