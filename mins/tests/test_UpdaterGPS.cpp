@@ -284,7 +284,7 @@ TEST(GPSInitLinearSystem, ResidualVanishesAtTheTrueTransform) {
 }
 
 TEST(GPSInitLinearSystem, StateJacobianMatchesNumerical) {
-    std::shared_ptr<State> state = MakeCloneState(true, false);
+    std::shared_ptr<State> state = MakeCloneState(true, true);
     UpdaterGPSAccess updater(state);
     MatrixXd Hx, Hi, R;
     Eigen::VectorXd res;
