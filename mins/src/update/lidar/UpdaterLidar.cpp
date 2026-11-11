@@ -332,7 +332,7 @@ bool UpdaterLidar::update(std::shared_ptr<LiDARData> lidar, shared_ptr<iKDDATA> 
         double intr_std = 0.0;
         if (!at_clone_m || !at_clone_a) {
           MatrixXd dpfinM_dIntr = (at_clone_m ? MatrixXd::Zero(3, 6) : dpfinM_dI) + (at_clone_a ? MatrixXd::Zero(3, 6) : dpfinM_dA);
-          MatrixXd HI = dz_dpfinM_bottom_row * dpfinM_dI;
+          MatrixXd HI = dz_dpfinM_bottom_row * dpfinM_dIntr;
           intr_std += sqrt(ie_o * (pow(HI(0), 2) + pow(HI(1), 2) + pow(HI(2), 2)) + ie_p * (pow(HI(3), 2) + pow(HI(4), 2) + pow(HI(5), 2)));
         }
 
