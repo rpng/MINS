@@ -36,10 +36,10 @@ bool LidarHelper::remove_motion_blur(shared_ptr<State> state, shared_ptr<LiDARDa
 
   // Make sure we can undistort all the points
   auto D = Dummy();
-  if (state->get_interpolated_pose(lidar_inL->time + dt, D.R, D.p))
+  if (!state->get_interpolated_pose(lidar_inL->time + dt, D.R, D.p))
     return false;
   int total = op->v_angles.at(lidar_inL->id).size() * op->h_angles.at(lidar_inL->id).size();
-  if (state->get_interpolated_pose(lidar_inL->time + dt - total * op->raw_point_dt, D.R, D.p))
+  if (!state->get_interpolated_pose(lidar_inL->time + dt - total * op->raw_point_dt, D.R, D.p))
     return false;
 
   // Get IMU pose at the measurement time
