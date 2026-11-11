@@ -102,13 +102,14 @@ std::vector<Vector3d> RoomInWorld() {
     return points;
 }
 
-/// The room as the lidar sees it with the IMU at the given world position, unrotated.
-std::shared_ptr<PointCloud<PointXYZ>> ScanFrom(const std::shared_ptr<State> &state, const Vector3d &p_IinG, double time) {
+/// The room (or other world points) as the lidar sees it with the IMU at the given world position, unrotated.
+std::shared_ptr<PointCloud<PointXYZ>> ScanFrom(const std::shared_ptr<State> &state, const Vector3d &p_IinG, double time,
+                                               const std::vector<Vector3d> &points_inG = RoomInWorld()) {
     const Matrix3d R_ItoL = state->lidar_extrinsic.at(0)->Rot();
     const Vector3d p_IinL = state->lidar_extrinsic.at(0)->pos();
     const Vector3d p_LinG = p_IinG - R_ItoL.transpose() * p_IinL;
     std::shared_ptr<PointCloud<PointXYZ>> cloud = std::make_shared<PointCloud<PointXYZ>>();
-    for (const Vector3d &p_inG : RoomInWorld()) {
+    for (const Vector3d &p_inG : points_inG) {
         const Vector3d p_inL = R_ItoL * (p_inG - p_LinG);
         PointXYZ point;
         point.x = p_inL(0);
@@ -340,4 +341,32 @@ TEST(UpdaterLidar, DropsAMapWhoseAnchorLeftTheCloneWindow) {
     updater.ikd_data.at(0)->time = -1.0;
     updater.propagate_map_frame();
     EXPECT_FALSE(updater.ikd_data.at(0)->tree->initialized());
+}
+
+// ---- Bad match gate ----
+
+TEST(UpdaterLidar, IgnoresPointsFarOffThePlaneOnEitherSide) {
+    // Clone covariance and position after matching a scan, with or without stray points 0.4 m
+    // above and below the floor, past the 3 * plane_max_p2pd gate.
+    auto run = [](bool with_strays) {
+        std::shared_ptr<State> state = MakeCloneState();
+        UpdaterLidar updater(state);
+        updater.feed_measurement(ScanAt(state, 0.1));
+        std::vector<Vector3d> points = RoomInWorld();
+        if (with_strays) {
+            for (double a = 0.0; a <= 3.0; a += 0.5) {
+                for (double b = -2.0; b <= 2.0; b += 0.5) {
+                    points.emplace_back(a + 0.125, b + 0.125, -1.5 + 0.4);
+                    points.emplace_back(a + 0.125, b + 0.125, -1.5 - 0.4);
+                }
+            }
+        }
+        updater.feed_measurement(ScanFrom(state, TrajectoryPosition(0.3), 0.3, points));
+        updater.try_update();
+        return std::make_pair(MatrixXd(state->cov), Vector3d(state->clones.at(0.3)->pos()));
+    };
+    const std::pair<MatrixXd, Vector3d> clean = run(false);
+    const std::pair<MatrixXd, Vector3d> strays = run(true);
+    EXPECT_TRUE(strays.first.isApprox(clean.first, 1e-9));
+    EXPECT_TRUE(strays.second.isApprox(clean.second, 1e-9)) << (strays.second - clean.second).transpose();
 }

@@ -293,7 +293,7 @@ bool UpdaterLidar::update(std::shared_ptr<LiDARData> lidar, shared_ptr<iKDDATA> 
           continue;
 
         // Discard bad match
-        if (-plane_abcd.head(3).transpose() * pfinM_est - plane_abcd(3) > state->op->lidar->plane_max_p2pd * 3)
+        if (fabs(plane_abcd.head(3).dot(pfinM_est) + plane_abcd(3)) > state->op->lidar->plane_max_p2pd * 3)
           continue;
 
         // Compute residual and dz_dplane_abc with neighboring map points
