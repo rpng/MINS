@@ -341,3 +341,18 @@ TEST(UpdaterLidar, DropsAMapWhoseAnchorLeftTheCloneWindow) {
     updater.propagate_map_frame();
     EXPECT_FALSE(updater.ikd_data.at(0)->tree->initialized());
 }
+
+// ---- Motion blur ----
+
+TEST(LidarMotionBlur, UndistortsAScanTheClonesCoverAndHoldsOneTheyDoNot) {
+    std::shared_ptr<State> state = MakeCloneState();
+    state->op->lidar->raw_remove_motion_blur = true;
+    std::shared_ptr<LiDARData> covered = std::make_shared<LiDARData>(0.2, 0.0, 0, ScanAt(state, 0.2), 100.0, 0.0);
+    const Vector3d first_before = covered->p(0);
+    EXPECT_TRUE(LidarHelper::remove_motion_blur(state, covered, state->op->lidar));
+    // The first point was taken earliest, so the IMU moved most since then.
+    EXPECT_GT((covered->p(0) - first_before).norm(), 1e-3);
+
+    std::shared_ptr<LiDARData> ahead = std::make_shared<LiDARData>(0.5, 0.0, 0, ScanAt(state, 0.5), 100.0, 0.0);
+    EXPECT_FALSE(LidarHelper::remove_motion_blur(state, ahead, state->op->lidar));
+}
