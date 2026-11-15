@@ -346,10 +346,11 @@ TEST(UpdaterLidar, DropsAMapWhoseAnchorLeftTheCloneWindow) {
 
 // ---- Interpolation noise ----
 
-TEST(UpdaterLidar, InterpolationErrorSharedByScanAndAnchorDoesNotInflateTheNoise) {
-    // Both the anchor and the scan fall between clones. Their interpolation errors are modeled as
-    // one, so on a scan close to the anchor the position part cancels and little noise is added.
-    auto trace_drop = [](bool interpolation_error) {
+TEST(UpdaterLidar, AnInterpolatedAnchorAddsItsOwnInterpolationNoise) {
+    // The same interpolated scan against a map anchored on a clone and against one anchored between
+    // clones. Only the second anchor carries interpolation error, so interpolation error should cost
+    // that update more of its information.
+    auto trace_drop = [](double anchor_time, bool interpolation_error) {
         std::shared_ptr<State> state = MakeCloneState();
         if (interpolation_error) {
             const int hz = state->op->clone_freq, order = state->op->intr_order;
@@ -357,7 +358,7 @@ TEST(UpdaterLidar, InterpolationErrorSharedByScanAndAnchorDoesNotInflateTheNoise
             state->est_a->add_stat((float)(1.0 / state->op->intr_err.pos_std(hz, order, 1.0)));
         }
         UpdaterLidar updater(state);
-        updater.feed_measurement(ScanAt(state, 0.15));
+        updater.feed_measurement(ScanAt(state, anchor_time));
         const double trace_before = state->cov.trace();
         // A few points only, so the update does not saturate and the noise shows.
         std::vector<Vector3d> sparse;
@@ -365,14 +366,16 @@ TEST(UpdaterLidar, InterpolationErrorSharedByScanAndAnchorDoesNotInflateTheNoise
         for (size_t i = 0; i < room.size(); i += 50) {
             sparse.push_back(room[i]);
         }
-        updater.feed_measurement(ScanFrom(state, TrajectoryPosition(0.18), 0.18, sparse));
+        updater.feed_measurement(ScanFrom(state, TrajectoryPosition(0.25), 0.25, sparse));
         updater.try_update();
         return trace_before - state->cov.trace();
     };
-    const double without = trace_drop(false);
-    const double with = trace_drop(true);
-    ASSERT_GT(without, 0.0);
-    EXPECT_GT(with, 0.9 * without) << "with " << with << " without " << without;
+    const double kept_on_clone = trace_drop(0.1, true) / trace_drop(0.1, false);
+    const double kept_between = trace_drop(0.15, true) / trace_drop(0.15, false);
+    // Measured: 0.34 of the on-clone share when the variances add, 0.62 when the anchor is ignored
+    // (the old code), and above 1 when its error is taken to cancel the scan's.
+    EXPECT_LT(kept_between, 0.5 * kept_on_clone) << "on clone " << kept_on_clone << " between " << kept_between;
+}
 
 // ---- Motion blur ----
 
