@@ -407,7 +407,7 @@ void UpdaterGPS::construct_init_linsys(vector<GPSData> data_init, Matrix3d RWtoE
     if (state->op->gps->do_calib_ext) {
       // Calculate the Jacobian
       Matrix3d dz_dp_GPSinI = RWtoE * R_WtoI.transpose();
-      Hx.block(0, map_hx.at(state->gps_extrinsic[id]), 3, state->gps_extrinsic[id]->size()).noalias() += dz_dp_GPSinI;
+      Hx.block(3 * i, map_hx.at(state->gps_extrinsic[id]), 3, state->gps_extrinsic[id]->size()).noalias() += dz_dp_GPSinI;
     }
 
     Hi.block(3 * i, 0, 3, 1) = (skew_x(RWtoE * (p_IinW + R_WtoI.transpose() * pGPSinI))).block(0, 2, 3, 1);
