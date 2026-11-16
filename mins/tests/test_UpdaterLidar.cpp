@@ -28,6 +28,7 @@
 #include "update/lidar/PointCloud.h"
 #include "update/lidar/UpdaterLidar.h"
 #include "update/lidar/ikd_Tree.h"
+#include "utils/Jabdongsani.h"
 #include "utils/opencv_yaml_parse.h"
 #include "utils/quat_ops.h"
 
@@ -102,13 +103,14 @@ std::vector<Vector3d> RoomInWorld() {
     return points;
 }
 
-/// The room as the lidar sees it with the IMU at the given world position, unrotated.
-std::shared_ptr<PointCloud<PointXYZ>> ScanFrom(const std::shared_ptr<State> &state, const Vector3d &p_IinG, double time) {
+/// The room (or other world points) as the lidar sees it with the IMU at the given world position, unrotated.
+std::shared_ptr<PointCloud<PointXYZ>> ScanFrom(const std::shared_ptr<State> &state, const Vector3d &p_IinG, double time,
+                                               const std::vector<Vector3d> &points_inG = RoomInWorld()) {
     const Matrix3d R_ItoL = state->lidar_extrinsic.at(0)->Rot();
     const Vector3d p_IinL = state->lidar_extrinsic.at(0)->pos();
     const Vector3d p_LinG = p_IinG - R_ItoL.transpose() * p_IinL;
     std::shared_ptr<PointCloud<PointXYZ>> cloud = std::make_shared<PointCloud<PointXYZ>>();
-    for (const Vector3d &p_inG : RoomInWorld()) {
+    for (const Vector3d &p_inG : points_inG) {
         const Vector3d p_inL = R_ItoL * (p_inG - p_LinG);
         PointXYZ point;
         point.x = p_inL(0);
@@ -340,6 +342,39 @@ TEST(UpdaterLidar, DropsAMapWhoseAnchorLeftTheCloneWindow) {
     updater.ikd_data.at(0)->time = -1.0;
     updater.propagate_map_frame();
     EXPECT_FALSE(updater.ikd_data.at(0)->tree->initialized());
+}
+
+// ---- Interpolation noise ----
+
+TEST(UpdaterLidar, AnInterpolatedAnchorAddsItsOwnInterpolationNoise) {
+    // The same interpolated scan against a map anchored on a clone and against one anchored between
+    // clones. Only the second anchor carries interpolation error, so interpolation error should cost
+    // that update more of its information.
+    auto trace_drop = [](double anchor_time, bool interpolation_error) {
+        std::shared_ptr<State> state = MakeCloneState();
+        if (interpolation_error) {
+            const int hz = state->op->clone_freq, order = state->op->intr_order;
+            state->est_A->add_stat((float)(0.002 / state->op->intr_err.ori_std(hz, order, 1.0)));
+            state->est_a->add_stat((float)(1.0 / state->op->intr_err.pos_std(hz, order, 1.0)));
+        }
+        UpdaterLidar updater(state);
+        updater.feed_measurement(ScanAt(state, anchor_time));
+        const double trace_before = state->cov.trace();
+        // A few points only, so the update does not saturate and the noise shows.
+        std::vector<Vector3d> sparse;
+        const std::vector<Vector3d> room = RoomInWorld();
+        for (size_t i = 0; i < room.size(); i += 50) {
+            sparse.push_back(room[i]);
+        }
+        updater.feed_measurement(ScanFrom(state, TrajectoryPosition(0.25), 0.25, sparse));
+        updater.try_update();
+        return trace_before - state->cov.trace();
+    };
+    const double kept_on_clone = trace_drop(0.1, true) / trace_drop(0.1, false);
+    const double kept_between = trace_drop(0.15, true) / trace_drop(0.15, false);
+    // Measured: 0.34 of the on-clone share when the variances add, 0.62 when the anchor is ignored
+    // (the old code), and above 1 when its error is taken to cancel the scan's.
+    EXPECT_LT(kept_between, 0.5 * kept_on_clone) << "on clone " << kept_on_clone << " between " << kept_between;
 }
 
 // ---- Motion blur ----

@@ -328,13 +328,13 @@ bool UpdaterLidar::update(std::shared_ptr<LiDARData> lidar, shared_ptr<iKDDATA> 
         dpfinM_dcalib.block(0, 0, 3, 3) = skew_x(RGtoM_fej * (pIinG_fej - pAinG_fej)) - skew_x(RLtoM_fej * (pIinL_fej - pfinL)) + RLtoM_fej * skew_x(pIinL_fej - pfinL);
         dpfinM_dcalib.block(0, 3, 3, 3) = Matrix3d::Identity() - RLtoM_fej;
 
-        // CHAINRULE: get the total Jacobian in respect to interpolated pose
-        double intr_std = 0.0;
-        if (!at_clone_m || !at_clone_a) {
-          MatrixXd dpfinM_dIntr = (at_clone_m ? MatrixXd::Zero(3, 6) : dpfinM_dI) + (at_clone_a ? MatrixXd::Zero(3, 6) : dpfinM_dA);
-          MatrixXd HI = dz_dpfinM_bottom_row * dpfinM_dI;
-          intr_std += sqrt(ie_o * (pow(HI(0), 2) + pow(HI(1), 2) + pow(HI(2), 2)) + ie_p * (pow(HI(3), 2) + pow(HI(4), 2) + pow(HI(5), 2)));
-        }
+        // Interpolation noise of the scan pose and the anchor pose, whichever falls between clones. The two are at
+        // least a scan apart, so their interpolation errors are taken as independent and the variances add.
+        auto intr_var = [&](const Matrix<double, 3, 6> &dpfinM_dpose) {
+          MatrixXd HI = dz_dpfinM_bottom_row * dpfinM_dpose;
+          return ie_o * (pow(HI(0), 2) + pow(HI(1), 2) + pow(HI(2), 2)) + ie_p * (pow(HI(3), 2) + pow(HI(4), 2) + pow(HI(5), 2));
+        };
+        double intr_std = sqrt((at_clone_m ? 0.0 : intr_var(dpfinM_dI)) + (at_clone_a ? 0.0 : intr_var(dpfinM_dA)));
 
         //=========================================================================
         // Jacobian continues
