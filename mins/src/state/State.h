@@ -282,6 +282,8 @@ private:
     MatrixXd dbth_dth0;
     MatrixXd dbp_dp0;
     vector<MatrixXd> JlinOtoiInv;
+    /// Clone times the polynomial was fit on, oldest first
+    vector<double> times;
   };
 
   /// polynomial to compute interpolation using best estimate or FEJ values
@@ -299,6 +301,9 @@ private:
 
   /// Check polynomial health
   bool check_polynomial(double t_given);
+
+  /// Fit the interpolation polynomial through the given clones, oldest first. fej: use fej or best estimate values
+  polynomial_data fit_polynomial(const vector<double> &times, const vector<shared_ptr<ov_type::PoseJPL>> &poses, bool fej);
 
   /// Check if we have saved jacobian information at t_given
   bool have_jacobian(double t_given, string sensor, int id);

@@ -493,6 +493,7 @@ void State::build_polynomial_data(bool fej) {
 
     pData.dbth_dth0 = dbth_dth0;
     pData.dbp_dp0 = dbp_dp0;
+    pData.times = times;
     polynomial.insert({times[0], pData});
   }
   if (fej)
@@ -524,18 +525,26 @@ void State::add_polynomial(bool fej) {
     clones.find(it->first) == clones.end() ? _polynomial_est.erase(it++) : it++;
 
   // grab last poses
+  vector<double> times;
+  vector<shared_ptr<ov_type::PoseJPL>> poses;
   auto it = clones.rbegin();
-  vector<pair<double, shared_ptr<ov_type::PoseJPL>>> poses;
   for (int i = 0; i < op->intr_order + 1; i++) {
-    poses.push_back({it->first, it->second});
+    times.push_back(it->first);
+    poses.push_back(it->second);
     it++;
   }
   // reverse the order since it is new to old.
+  reverse(times.begin(), times.end());
   reverse(poses.begin(), poses.end());
 
+  // insert polynomial
+  fej ? _polynomial_fej[times.at(0)] = fit_polynomial(times, poses, true) : _polynomial_est[times.at(0)] = fit_polynomial(times, poses, false);
+}
+
+State::polynomial_data State::fit_polynomial(const vector<double> &times, const vector<shared_ptr<ov_type::PoseJPL>> &poses, bool fej) {
   // Compute
-  Matrix3d R_GtoI0 = fej ? poses.at(0).second->Rot_fej() : poses.at(0).second->Rot();
-  Vector3d p_I0inG = fej ? poses.at(0).second->pos_fej() : poses.at(0).second->pos();
+  Matrix3d R_GtoI0 = fej ? poses.at(0)->Rot_fej() : poses.at(0)->Rot();
+  Vector3d p_I0inG = fej ? poses.at(0)->pos_fej() : poses.at(0)->pos();
   VectorXd diff_vec_ori(3 * op->intr_order, 1);
   VectorXd diff_vec_pos(3 * op->intr_order, 1);
   MatrixXd V_t(3 * op->intr_order, 3 * op->intr_order);
@@ -544,8 +553,8 @@ void State::add_polynomial(bool fej) {
   vector<MatrixXd> JlinOtoiInv;
   for (int i = 0; i < op->intr_order; i++) {
     // compute relative pose
-    Matrix3d R_GtoIi = fej ? poses.at(i + 1).second->Rot_fej() : poses.at(i + 1).second->Rot();
-    Vector3d p_IiinG = fej ? poses.at(i + 1).second->pos_fej() : poses.at(i + 1).second->pos();
+    Matrix3d R_GtoIi = fej ? poses.at(i + 1)->Rot_fej() : poses.at(i + 1)->Rot();
+    Vector3d p_IiinG = fej ? poses.at(i + 1)->pos_fej() : poses.at(i + 1)->pos();
     Matrix3d R_I0toIi = R_GtoIi * R_GtoI0.transpose();
     Vector3d th_I0toIi = log_so3(R_I0toIi);
 
@@ -553,7 +562,7 @@ void State::add_polynomial(bool fej) {
     diff_vec_ori.block(3 * i, 0, 3, 1) = th_I0toIi;
     diff_vec_pos.block(3 * i, 0, 3, 1) = p_IiinG - p_I0inG;
     for (int j = 0; j < op->intr_order; j++)
-      V_t.block(3 * i, 3 * j, 3, 3) = pow(poses.at(i + 1).first - poses.at(0).first, j + 1) * Matrix3d::Identity();
+      V_t.block(3 * i, 3 * j, 3, 3) = pow(times.at(i + 1) - times.at(0), j + 1) * Matrix3d::Identity();
 
     // Compute Jacobians
     MatrixXd JlinOtoi_inv = Jl_so3(th_I0toIi).inverse();
@@ -571,9 +580,8 @@ void State::add_polynomial(bool fej) {
   pData.dbth_dth0 = dbth_dth0;
   pData.dbp_dp0 = dbp_dp0;
   pData.JlinOtoiInv = JlinOtoiInv;
-
-  // insert polynomial
-  fej ? _polynomial_fej[poses.at(0).first] = pData : _polynomial_est[poses.at(0).first] = pData;
+  pData.times = times;
+  return pData;
 }
 
 bool State::get_interpolated_pose(double t_given, Matrix3d &RGtoI, Vector3d &pIinG) {
@@ -602,8 +610,10 @@ bool State::get_interpolated_pose_poly(double t_given, Matrix3d &RGtoI, Vector3d
   Matrix3d R_GtoI0 = poses.at(0)->Rot();
   Vector3d p_I0inG = poses.at(0)->pos();
 
-  // Compute coefficients of the polynomial
+  // Compute coefficients of the polynomial. A keyframe outlives the clones its polynomial was fit on, so refit then.
   polynomial_data pData = _polynomial_est.at(times[0]);
+  if (pData.times != times)
+    pData = _polynomial_est[times[0]] = fit_polynomial(times, poses, false);
 
   // Compute A_ori = coeffs_ori*m(t)
   //         A_pos = coeffs_pos*m(t)
@@ -699,8 +709,10 @@ bool State::get_interpolated_jacobian(double t_given, Matrix3d &RGtoI, Vector3d 
   Matrix3d R_GtoI0 = poses.at(0)->Rot_fej();
   Vector3d p_I0inG = poses.at(0)->pos_fej();
 
-  // Compute coefficients of the polynomial
+  // Compute coefficients of the polynomial. A keyframe outlives the clones its polynomial was fit on, so refit then.
   polynomial_data pData = _polynomial_fej.at(times[0]);
+  if (pData.times != times)
+    pData = _polynomial_fej[times[0]] = fit_polynomial(times, poses, true);
 
   // Compute A_ori = coeffs_ori*m(t)
   //         A_pos = coeffs_pos*m(t)
