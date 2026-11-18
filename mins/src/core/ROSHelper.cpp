@@ -20,8 +20,6 @@
 #include "utils/Print_Logger.h"
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/point_cloud2_iterator.h>
-#include <algorithm>
-#include <cmath>
 
 using namespace mins;
 PointCloud2 ROSHelper::ToPointcloud(const std::vector<Eigen::Vector3d> &feats, std::string frame_id) {
@@ -115,9 +113,7 @@ GPSData ROSHelper::NavSatFix2Data(const sensor_msgs::NavSatFixPtr &msg, int id) 
   data.meas(0) = msg->latitude;
   data.meas(1) = msg->longitude;
   data.meas(2) = msg->altitude;
-  data.noise(0) = std::sqrt(std::max(0.0, msg->position_covariance.at(0)));
-  data.noise(1) = std::sqrt(std::max(0.0, msg->position_covariance.at(4)));
-  data.noise(2) = std::sqrt(std::max(0.0, msg->position_covariance.at(8)));
+  data.noise = gps_noise_from_covariance(msg->position_covariance.data());
   return data;
 }
 
@@ -128,9 +124,7 @@ GPSData ROSHelper::NavSatFix2Data(const sensor_msgs::NavSatFixConstPtr &msg, int
   data.meas(0) = msg->latitude;
   data.meas(1) = msg->longitude;
   data.meas(2) = msg->altitude;
-  data.noise(0) = std::sqrt(std::max(0.0, msg->position_covariance.at(0)));
-  data.noise(1) = std::sqrt(std::max(0.0, msg->position_covariance.at(4)));
-  data.noise(2) = std::sqrt(std::max(0.0, msg->position_covariance.at(8)));
+  data.noise = gps_noise_from_covariance(msg->position_covariance.data());
   return data;
 }
 

@@ -27,8 +27,6 @@
 #include <cv_bridge/cv_bridge.hpp>
 #endif
 #include <vector>
-#include <algorithm>
-#include <cmath>
 
 using namespace sensor_msgs::msg;
 using namespace mins;
@@ -136,9 +134,7 @@ GPSData ROS2Helper::NavSatFix2Data(const sensor_msgs::msg::NavSatFix::SharedPtr 
   data.meas(0) = msg->latitude;
   data.meas(1) = msg->longitude;
   data.meas(2) = msg->altitude;
-  data.noise(0) = std::sqrt(std::max(0.0, msg->position_covariance.at(0)));
-  data.noise(1) = std::sqrt(std::max(0.0, msg->position_covariance.at(4)));
-  data.noise(2) = std::sqrt(std::max(0.0, msg->position_covariance.at(8)));
+  data.noise = gps_noise_from_covariance(msg->position_covariance.data());
   return data;
 }
 
@@ -149,9 +145,7 @@ GPSData ROS2Helper::NavSatFix2Data(const sensor_msgs::msg::NavSatFix::ConstShare
   data.meas(0) = msg->latitude;
   data.meas(1) = msg->longitude;
   data.meas(2) = msg->altitude;
-  data.noise(0) = std::sqrt(std::max(0.0, msg->position_covariance.at(0)));
-  data.noise(1) = std::sqrt(std::max(0.0, msg->position_covariance.at(4)));
-  data.noise(2) = std::sqrt(std::max(0.0, msg->position_covariance.at(8)));
+  data.noise = gps_noise_from_covariance(msg->position_covariance.data());
   return data;
 }
 
