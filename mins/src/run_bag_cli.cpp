@@ -179,7 +179,7 @@ void play(Item &it, const shared_ptr<State_Logger> &save) {
         NavSatFix fix = rosmsg::navsatfix(it.data);
         data.time = fix.stamp;
         data.meas << fix.latitude, fix.longitude, fix.altitude;
-        data.noise = gps_noise_from_covariance(fix.covariance);
+        data.noise = GPSNoiseFromCovariance(fix.covariance);
       } else {
         StampedPose p = rosmsg::pose(it.type, it.data);
         data.time = p.stamp;

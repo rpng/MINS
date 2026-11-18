@@ -113,7 +113,7 @@ GPSData ROSHelper::NavSatFix2Data(const sensor_msgs::NavSatFixPtr &msg, int id) 
   data.meas(0) = msg->latitude;
   data.meas(1) = msg->longitude;
   data.meas(2) = msg->altitude;
-  data.noise = gps_noise_from_covariance(msg->position_covariance.data());
+  data.noise = GPSNoiseFromCovariance(msg->position_covariance.data());
   return data;
 }
 
@@ -124,7 +124,7 @@ GPSData ROSHelper::NavSatFix2Data(const sensor_msgs::NavSatFixConstPtr &msg, int
   data.meas(0) = msg->latitude;
   data.meas(1) = msg->longitude;
   data.meas(2) = msg->altitude;
-  data.noise = gps_noise_from_covariance(msg->position_covariance.data());
+  data.noise = GPSNoiseFromCovariance(msg->position_covariance.data());
   return data;
 }
 

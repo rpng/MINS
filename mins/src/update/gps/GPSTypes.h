@@ -40,14 +40,14 @@ struct GPSData {
 };
 
 /**
- * \brief Measurement noise (standard deviation) from a NavSatFix position covariance, whose diagonal holds variances.
+ * \brief GPS noise (standard deviations) from a NavSatFix position covariance, which holds variances.
  *
  * A negative or NaN variance gives 0, which every caller replaces with the configured noise.
  *
  * \param[in] covariance Row-major 3x3 position covariance in m^2.
  * \return East, north and up standard deviations in m.
  */
-inline Eigen::Vector3d gps_noise_from_covariance(const double *covariance) {
+inline Eigen::Vector3d GPSNoiseFromCovariance(const double *covariance) {
   return Eigen::Vector3d(std::sqrt(std::max(0.0, covariance[0])), std::sqrt(std::max(0.0, covariance[4])), std::sqrt(std::max(0.0, covariance[8])));
 }
 } // namespace mins
