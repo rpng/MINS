@@ -11,8 +11,9 @@ gps:
   init_cov_ex: 1e-1
   init_cov_inflation: 2.0
   chi2_mult: 9999
-  overwrite_noise: true
+  overwrite_noise: false
   noise: 3.0
+  noise_scale: 0.15
 
 gps0:
   timeoffset: 0.0

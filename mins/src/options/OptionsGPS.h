@@ -68,6 +68,8 @@ struct OptionsGPS {
   /// Simulated GPS noise (standard deviation)
   bool overwrite_noise = false;
   double noise = 0.1;
+  /// Scale on the noise a GPS message reports, used when it is not overwritten
+  double noise_scale = 1.0;
 
 private:
   void load_i(const std::shared_ptr<ov_core::YamlParser> &parser, int i);

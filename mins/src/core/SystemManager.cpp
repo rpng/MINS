@@ -183,6 +183,9 @@ void SystemManager::feed_measurement_gps(GPSData gps, bool isGeodetic) {
   if (isnan(gps.noise.norm()) || gps.noise.norm() > 100)
     return;
 
+  // A receiver's own covariance is often conservative, so it can be scaled
+  gps.noise *= state->op->gps->overwrite_noise ? 1.0 : state->op->gps->noise_scale;
+
   state->initialized ? tc_sensors->ding("GPS") : void();
   // If we didn't set the datum yet, take the first gps measurement and use it as the datum
   if (gps_datum.hasNaN()) {
