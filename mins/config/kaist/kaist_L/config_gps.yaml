@@ -12,7 +12,7 @@ gps:
   init_cov_inflation: 2.0
   chi2_mult: 9999
   overwrite_noise: true
-  noise: 3.0
+  noise: 0.5
 
 gps0:
   timeoffset: 0.0
