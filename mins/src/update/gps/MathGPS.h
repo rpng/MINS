@@ -12,8 +12,8 @@
 
 #include "utils/quat_ops.h"
 #include <Eigen/Eigen>
+#include <algorithm>
 #include <cmath>
-#include <numeric>
 #include <random>
 
 using namespace std;
@@ -176,28 +176,13 @@ inline bool compute_4Dof(const vector<Vector3d> &p_inA, const vector<Vector3d> &
   return found_solution;
 }
 
-// Count how many correspondences the given transform explains to within the threshold
-inline size_t count_inliers(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, const Matrix3d &R_BtoA, const Vector3d &p_BinA, double inlierThresh) {
-  size_t inliers = 0;
+// Flag which correspondences the given transform explains to within the threshold
+inline vector<bool> find_inliers(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, const Matrix3d &R_BtoA, const Vector3d &p_BinA, double inlierThresh) {
+  vector<bool> inliers(p_A.size());
   for (size_t i = 0; i < p_A.size(); i++) {
-    if ((p_A[i] - (R_BtoA * p_B[i] + p_BinA)).norm() <= inlierThresh) {
-      inliers++;
-    }
+    inliers[i] = (p_A[i] - (R_BtoA * p_B[i] + p_BinA)).norm() <= inlierThresh;
   }
   return inliers;
-}
-
-// Get random subsets of given sets
-inline void get_random_subset(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, vector<Vector3d> &suBp_A, vector<Vector3d> &suBp_B, size_t sizeSubset) {
-
-  mt19937 rng(1337);
-  vector<unsigned int> indices(p_A.size());
-  iota(indices.begin(), indices.end(), 0);
-  shuffle(indices.begin(), indices.end(), rng);
-  for (size_t i = 0; i < sizeSubset; i++) {
-    suBp_A.push_back(p_A[indices[i]]);
-    suBp_B.push_back(p_B[indices[i]]);
-  }
 }
 
 /**
@@ -219,49 +204,68 @@ inline bool Align_4Dof(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B,
   if (!compute_4Dof(p_A, p_B, R_BtoA, p_BinA)) {
     return false;
   }
-  return count_inliers(p_A, p_B, R_BtoA, p_BinA, inlierThresh) > 0;
+  vector<bool> inliers = find_inliers(p_A, p_B, R_BtoA, p_BinA, inlierThresh);
+  return count(inliers.begin(), inliers.end(), true) > 0;
 }
 
 /**
- * \brief Fits the 4-DOF transform over random subsets of the correspondences and keeps the
- * hypothesis with the most inliers.
+ * \brief Fits the 4-DOF transform between two z-aligned frames, leaving out the
+ * correspondences that disagree with it.
+ *
+ * Each hypothesis is fit to two random correspondences, the fewest that fix the yaw. The one
+ * that explains the most correspondences within the threshold is refit on just those. The
+ * generator is seeded the same way on every call, so the result is repeatable.
  *
  * \param[in] p_A Points expressed in frame A.
  * \param[in] p_B The same points expressed in frame B.
  * \param[out] R_BtoA Recovered rotation, about z only.
  * \param[out] p_BinA Recovered translation.
- * \param[in] numHypotheses How many subsets to fit.
+ * \param[out] inliers Whether each correspondence is within the threshold of the returned fit.
+ * \param[in] numHypotheses How many random pairs to fit.
  * \param[in] inlierThresh Largest residual, in metres, that still counts as an inlier.
- * \return False if no hypothesis produced an inlier. The outputs are only meaningful when
- *         this returns true.
+ * \return False unless more than half of the correspondences are inliers. The outputs are only
+ *         meaningful when this returns true.
  */
-inline bool Ransac_4Dof(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, Matrix3d &R_BtoA, Vector3d &p_BinA, size_t numHypotheses, double inlierThresh) {
-  // TODO: this is not RANSAC yet. The subset is the whole point set rather than a minimal
-  // one, the generator is reseeded on every call, and the winning hypothesis is never refit
-  // on its inliers, so outliers pull on every hypothesis equally. Fixing that needs outlier
-  // data to test against, which the simulator does not produce yet.
-  size_t sizeSubset = p_A.size();
-  vector<Vector3d> suBp_A, suBp_B;
-  size_t numInliers = 0;
-  Matrix3d R_BtoAhyp;
-  Vector3d p_BinAhyp;
-
-  for (size_t i = 0; i < numHypotheses; i++) {
-    suBp_A.clear();
-    suBp_B.clear();
-    get_random_subset(p_A, p_B, suBp_A, suBp_B, sizeSubset);
-    if (!compute_4Dof(suBp_A, suBp_B, R_BtoAhyp, p_BinAhyp)) {
+inline bool Ransac_4Dof(const vector<Vector3d> &p_A, const vector<Vector3d> &p_B, Matrix3d &R_BtoA, Vector3d &p_BinA, vector<bool> &inliers, size_t numHypotheses,
+                        double inlierThresh) {
+  if (p_A.size() < 2) {
+    return false;
+  }
+  mt19937 rng(1337);
+  uniform_int_distribution<size_t> pick(0, p_A.size() - 1);
+  size_t most_inliers = 0;
+  for (size_t h = 0; h < numHypotheses; h++) {
+    size_t i = pick(rng), j = pick(rng);
+    Matrix3d R_hyp;
+    Vector3d p_hyp;
+    if (i == j || !compute_4Dof({p_A[i], p_A[j]}, {p_B[i], p_B[j]}, R_hyp, p_hyp)) {
       continue;
     }
-
-    size_t inliershyp = count_inliers(p_A, p_B, R_BtoAhyp, p_BinAhyp, inlierThresh);
-    if (inliershyp > numInliers) {
-      R_BtoA = R_BtoAhyp;
-      p_BinA = p_BinAhyp;
-      numInliers = inliershyp;
+    vector<bool> inliers_hyp = find_inliers(p_A, p_B, R_hyp, p_hyp, inlierThresh);
+    size_t count_hyp = count(inliers_hyp.begin(), inliers_hyp.end(), true);
+    if (count_hyp > most_inliers) {
+      most_inliers = count_hyp;
+      inliers = inliers_hyp;
     }
   }
-  return numInliers > 0;
+  if (2 * most_inliers <= p_A.size()) {
+    return false;
+  }
+
+  // Refit on the inliers alone, then flag them again against the fit that is returned
+  vector<Vector3d> inA, inB;
+  for (size_t i = 0; i < p_A.size(); i++) {
+    if (inliers[i]) {
+      inA.push_back(p_A[i]);
+      inB.push_back(p_B[i]);
+    }
+  }
+  if (!compute_4Dof(inA, inB, R_BtoA, p_BinA)) {
+    return false;
+  }
+  inliers = find_inliers(p_A, p_B, R_BtoA, p_BinA, inlierThresh);
+  size_t count_final = count(inliers.begin(), inliers.end(), true);
+  return 2 * count_final > p_A.size();
 }
 
 inline Matrix4d Left_q(const Vector4d &q) {

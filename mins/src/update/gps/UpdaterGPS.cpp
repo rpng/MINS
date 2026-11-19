@@ -192,17 +192,18 @@ bool UpdaterGPS::try_initialization() {
   PRINT2(CYAN "[GPS]: Reached initialization distance (%.2fm >= %.2fm)\n" RESET, dist, state->op->gps->init_distance);
   PRINT2(CYAN "[GPS]: Using %d gps measurements to compute ENUtoWorld transform\n" RESET, data_init.size());
 
-  // get initial guess
+  // get initial guess, which leaves out the fixes it finds to be outliers
+  vector<GPSData> data_inliers = data_init;
   Matrix3d RWtoE;
   Vector3d pWinE;
-  if (!get_initial_guess(data_init, RWtoE, pWinE))
+  if (!get_initial_guess(data_inliers, RWtoE, pWinE))
     return false;
 
   // construct linear system for initialization
   MatrixXd Hx, Hi, R;
   VectorXd res;
   vector<shared_ptr<ov_type::Type>> x_order;
-  construct_init_linsys(data_init, RWtoE, pWinE, Hx, Hi, R, res, x_order);
+  construct_init_linsys(data_inliers, RWtoE, pWinE, Hx, Hi, R, res, x_order);
 
   // Initialize our state!
   if (!StateHelper::initialize(state, state->trans_WtoE, x_order, Hx, Hi, R, res, 1e9, "GPS", false)) {
@@ -245,7 +246,7 @@ bool UpdaterGPS::try_initialization() {
   return true;
 }
 
-bool UpdaterGPS::get_initial_guess(vector<GPSData> data_init, Matrix3d &RWtoE, Vector3d &pWinE) {
+bool UpdaterGPS::get_initial_guess(vector<GPSData> &data_init, Matrix3d &RWtoE, Vector3d &pWinE) {
 
   // We want to use horn's solution to calculate the best fit transform between these two frames
   Vector3d pGPSinE_mean = Vector3d::Zero();
@@ -301,11 +302,23 @@ bool UpdaterGPS::get_initial_guess(vector<GPSData> data_init, Matrix3d &RWtoE, V
     pWinE = pGPSinE_mean - RWtoE * pGPSinW_mean;
 
   } else {
-    // Directly compute the 4 dof solution from Chao's polynomial method with ransac
-    if (!gps_math::Ransac_4Dof(vec_pGPSinE, vec_pGPSinW, RWtoE, pWinE, 1, 100 * data_init.at(0).noise(0))) {
+    // Directly compute the 4 dof solution from Chao's polynomial method with ransac.
+    // The 10 sigma inlier threshold leaves room for the VIO drift over the init window.
+    vector<bool> inliers;
+    if (!gps_math::Ransac_4Dof(vec_pGPSinE, vec_pGPSinW, RWtoE, pWinE, inliers, 100, 10 * data_init.at(0).noise(0))) {
       PRINT2(REDPURPLE "[GPS]: Fail to find good solution for 4DOF initialization\n" RESET);
       return false;
     }
+    vector<GPSData> data_inliers;
+    for (size_t i = 0; i < data_init.size(); i++) {
+      if (inliers[i]) {
+        data_inliers.push_back(data_init[i]);
+      }
+    }
+    if (data_inliers.size() < data_init.size()) {
+      PRINT2(YELLOW "[GPS]: Left %zu of %zu fixes out of initialization as outliers\n" RESET, data_init.size() - data_inliers.size(), data_init.size());
+    }
+    data_init = data_inliers;
   }
   return true;
 }

@@ -264,7 +264,7 @@ TEST(GPSAddKeyframes, NeedsAMetreFromTheLastCandidate) {
 
 TEST(GPSInitialGuess, BothSolversRecoverTheTransform) {
     // The guess interpolates linearly between clones, which is only exact on a clone.
-    const std::vector<GPSData> fixes = FixesInENU({0.1, 0.2, 0.3});
+    std::vector<GPSData> fixes = FixesInENU({0.1, 0.2, 0.3});
     for (bool closed_form : {true, false}) {
         std::shared_ptr<State> state = MakeCloneState();
         state->op->gps->init_closed_form = closed_form;
@@ -476,4 +476,23 @@ TEST(GPSTryUpdate, DropsAFixOlderThanTheOldestCloneAndKeepsOneNotYetCovered) {
     updater.try_update();
     ASSERT_EQ(updater.data_stack.size(), 1u);
     EXPECT_EQ(updater.data_stack.front().time, 5.0);
+}
+
+TEST(GPSInitialization, LeavesAnOutlierFixOutAndStillDropsItFromTheQueue) {
+    std::shared_ptr<State> state = MakeCloneState();
+    UpdaterGPSAccess updater(state);
+    for (const GPSData &data : FixesInENU()) {
+        updater.feed_measurement(data);
+    }
+    GPSData outlier = FixInENU(0.25);
+    outlier.meas += Vector3d(30.0, -40.0, 0.0);
+    updater.feed_measurement(outlier);
+
+    // Used in the initialization, a 50 m outlier would pull the transform well off the truth.
+    ASSERT_TRUE(updater.try_initialization());
+    Eigen::Matrix<double, 7, 1> expected;
+    expected.head(4) = ov_core::rot_2_quat(RotationWtoE());
+    expected.tail(3) = P_W_IN_E;
+    EXPECT_TRUE(updater.init_WtoE.isApprox(expected, 1e-6)) << updater.init_WtoE.transpose();
+    EXPECT_TRUE(updater.data_stack.empty()) << "the outlier is still queued for the update";
 }
