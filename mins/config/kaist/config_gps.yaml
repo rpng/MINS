@@ -13,6 +13,7 @@ gps:
   chi2_mult: 9999
   overwrite_noise: false
   noise: 3.0
+  noise_scale: 0.15
 
 gps0:
   timeoffset: 0.0
