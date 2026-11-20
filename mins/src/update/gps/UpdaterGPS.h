@@ -61,8 +61,8 @@ protected:
   /// try initialization
   bool try_initialization();
 
-  /// get T_WtoE initialial guess for initialization
-  bool get_initial_guess(vector<GPSData> data_init, Matrix3d &RWtoE, Vector3d &pWinE);
+  /// get T_WtoE initialial guess for initialization, dropping the fixes it finds to be outliers from data_init
+  bool get_initial_guess(vector<GPSData> &data_init, Matrix3d &RWtoE, Vector3d &pWinE);
 
   /// construct linear system for delayed initialization
   void construct_init_linsys(vector<GPSData> data_init, Matrix3d RWtoE, Vector3d pWinE, MatrixXd &Hx, MatrixXd &Hi, MatrixXd &R, VectorXd &res, VEC_TYPE &x_order);

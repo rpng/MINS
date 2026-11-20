@@ -248,13 +248,13 @@ TEST(MathGPS, FourDofReportsFailureWhenEveryCorrespondenceIsTheSamePoint) {
 
     // The same through the hypothesis loop, where the failed solve has to be skipped rather
     // than counted as a hypothesis with every point an inlier.
-    EXPECT_FALSE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 3, 1.0));
+    std::vector<bool> inliers;
+    EXPECT_FALSE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, inliers, 3, 1.0));
 }
 
 TEST(MathGPS, RansacReturnsTheSameFitAsASingleAlignWhenEveryPointIsAnInlier) {
-    // One hypothesis over the whole point set is what the GPS initialisation asks for, so this
-    // is the path that actually runs. With no outliers the subset shuffle cannot change the
-    // answer, so it has to agree with the plain fit.
+    // With no outliers every point is an inlier, so the refit runs over the whole set and has
+    // to agree with the plain fit.
     const Eigen::Matrix3d R_BtoA = YawRotation(-40.0 * M_PI / 180.0);
     const Eigen::Vector3d p_BinA(3.0, -2.0, 1.0);
     std::vector<Eigen::Vector3d> p_inB = SamplePoints();
@@ -262,16 +262,19 @@ TEST(MathGPS, RansacReturnsTheSameFitAsASingleAlignWhenEveryPointIsAnInlier) {
 
     Eigen::Matrix3d R_ransac, R_align;
     Eigen::Vector3d p_ransac, p_align;
-    ASSERT_TRUE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_ransac, p_ransac, 1, 1.0));
+    std::vector<bool> inliers;
+    ASSERT_TRUE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_ransac, p_ransac, inliers, 100, 1.0));
     ASSERT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_align, p_align, 1.0));
     EXPECT_LT((R_ransac - R_align).norm(), TOL_SOLVER);
     EXPECT_LT((p_ransac - p_align).norm(), TOL_SOLVER);
     EXPECT_NEAR(YawOf(R_ransac), -40.0 * M_PI / 180.0, TOL_SOLVER);
+    EXPECT_EQ(inliers, std::vector<bool>(p_inA.size(), true));
 }
 
-TEST(MathGPS, RansacReportsFailureWhenNoHypothesisFindsAnInlier) {
+TEST(MathGPS, RansacReportsFailureWhenMostCorrespondencesAreOutliers) {
     // The contract this pins is the one the GPS initialisation depends on: UpdaterGPS hands in
-    // an uninitialised rotation, so a true return with nothing written is a garbage read.
+    // an uninitialised rotation, so a true return with nothing written is a garbage read. Two
+    // points fit any yaw exactly, so a fit alone proves nothing; it has to explain a majority.
     const Eigen::Matrix3d R_BtoA = YawRotation(10.0 * M_PI / 180.0);
     std::vector<Eigen::Vector3d> p_inB = SamplePoints();
     std::vector<Eigen::Vector3d> p_inA = Transformed(p_inB, R_BtoA, Eigen::Vector3d(1.0, 2.0, 3.0));
@@ -280,8 +283,10 @@ TEST(MathGPS, RansacReportsFailureWhenNoHypothesisFindsAnInlier) {
 
     Eigen::Matrix3d R_solved;
     Eigen::Vector3d p_solved;
-    EXPECT_TRUE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 10.0));
-    EXPECT_FALSE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, 1, 1e-3));
+    std::vector<bool> inliers;
+    EXPECT_TRUE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, inliers, 100, 1.0));
+    p_inA[5] += Eigen::Vector3d(0.0, 35.0, -10.0);
+    EXPECT_FALSE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, inliers, 100, 1.0));
 }
 
 TEST(MathGPS, QuaternionLeftAndRightMatricesBothGiveTheJplProduct) {
@@ -333,4 +338,28 @@ TEST(MathGPS, FourDofYawBeatsEveryOtherYawOnNoisyCorrespondences) {
         sweep_best = std::min(sweep_best, residual(i * M_PI / 1800.0));
     }
     EXPECT_LE(residual(YawOf(R_solved)), sweep_best);
+}
+
+TEST(MathGPS, RansacRecoversTheTransformDespiteOutliers) {
+    // Two multipath-like fixes 50 m off. The plain fit is dragged metres away by them; the
+    // RANSAC fit has to come back exact and flag exactly those two.
+    const Eigen::Matrix3d R_BtoA = YawRotation(70.0 * M_PI / 180.0);
+    const Eigen::Vector3d p_BinA(-6.0, 3.0, 1.0);
+    std::vector<Eigen::Vector3d> p_inB = SamplePoints();
+    std::vector<Eigen::Vector3d> p_inA = Transformed(p_inB, R_BtoA, p_BinA);
+    p_inA[0] += Eigen::Vector3d(30.0, 40.0, 0.0);
+    p_inA[4] += Eigen::Vector3d(0.0, -48.0, 14.0);
+
+    Eigen::Matrix3d R_align;
+    Eigen::Vector3d p_align;
+    ASSERT_TRUE(mins::gps_math::Align_4Dof(p_inA, p_inB, R_align, p_align, 100.0));
+    EXPECT_GT((p_align - p_BinA).norm(), 1.0);
+
+    Eigen::Matrix3d R_solved;
+    Eigen::Vector3d p_solved;
+    std::vector<bool> inliers;
+    ASSERT_TRUE(mins::gps_math::Ransac_4Dof(p_inA, p_inB, R_solved, p_solved, inliers, 100, 1.0));
+    EXPECT_LT((R_solved - R_BtoA).norm(), TOL_SOLVER);
+    EXPECT_LT((p_solved - p_BinA).norm(), TOL_SOLVER);
+    EXPECT_EQ(inliers, (std::vector<bool>{false, true, true, true, false, true}));
 }
