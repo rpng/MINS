@@ -63,6 +63,13 @@ struct OptionsSimulation {
   double freq_lidar = 10.0;
   double freq_wheel = 100.0;
 
+  /// Multipath-like GPS outliers: with probability rate, a fix gets a bias of magnitude (m) in a random direction
+  struct {
+    bool enabled = false;
+    double rate = 0.1;
+    double magnitude = 50.0;
+  } gps_outlier;
+
   /// Feature distance we generate features from (minimum)
   double min_feature_gen_distance = 5;
 
