@@ -488,6 +488,7 @@ void UpdaterGPS::transform_state_to_ENU() {
   MatrixXd newCov = H * state->cov * H.transpose();
   StateHelper::marginalize(state, state->trans_WtoE);
   state->cov = newCov * state->op->gps->init_cov_inflation;
+  state->rotate_interpolation_data(RWtoE);
   PRINT2(CYAN "[GPS]: Performed state transform from World to ENU\n" RESET);
 }
 void UpdaterGPS::feed_measurement(const GPSData &data) {

@@ -145,6 +145,9 @@ public:
   /// Append fej or est polynomial information with current IMU clones
   void add_polynomial(bool fej);
 
+  /// Bring the interpolation caches (Jacobians, CPI velocities, polynomials) along after the clones moved to a new global frame
+  void rotate_interpolation_data(const Matrix3d &R_oldtonew);
+
   /// Print state information
   void print_info();
 

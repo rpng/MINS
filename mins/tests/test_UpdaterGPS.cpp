@@ -392,6 +392,31 @@ TEST(GPSInitialization, RecoversTheTransformAndMovesTheStateToENU) {
     }
 }
 
+TEST(GPSInitialization, APoseInterpolatedBeforeTheMoveComesBackInENU) {
+    std::shared_ptr<State> state = MakeCloneState();
+    // A camera reading between clones, interpolated (and cached) while the state is still in the world frame.
+    const double time = 0.15;
+    Matrix3d R_GtoI;
+    Vector3d p_IinG;
+    std::vector<MatrixXd> dTdx;
+    std::vector<std::shared_ptr<ov_type::Type>> order;
+    ASSERT_TRUE(state->get_interpolated_jacobian(time, R_GtoI, p_IinG, "CAM", 0, dTdx, order));
+    const Vector3d v_IinW(1.0, 0.0, 0.0);
+    state->cpis[time].v = v_IinW;
+
+    UpdaterGPSAccess updater(state);
+    for (const GPSData &data : FixesInENU()) {
+        updater.feed_measurement(data);
+    }
+    ASSERT_TRUE(updater.try_initialization());
+
+    ASSERT_TRUE(state->get_interpolated_jacobian(time, R_GtoI, p_IinG, "CAM", 0, dTdx, order));
+    Vector3d expected_p = RotationWtoE() * TrajectoryPosition(time) + P_W_IN_E;
+    EXPECT_TRUE(p_IinG.isApprox(expected_p, 1e-6)) << p_IinG.transpose();
+    EXPECT_TRUE(R_GtoI.isApprox(RotationWtoE().transpose(), 1e-6)) << R_GtoI;
+    EXPECT_TRUE(state->cpis.at(time).v.isApprox(RotationWtoE() * v_IinW, 1e-6)) << state->cpis.at(time).v.transpose();
+}
+
 // ---- Update ----
 
 TEST(GPSUpdate, AConsistentFixIsAcceptedAndShrinksTheCovariance) {
