@@ -509,6 +509,16 @@ void State::add_polynomial() {
   op->use_imu_res ? void() : add_polynomial(false);
 }
 
+void State::rotate_interpolation_data(const Matrix3d &R_oldtonew) {
+  // Cached poses are in the old frame; recompute them on demand
+  intr_jcb.clear();
+  for (auto &cpi : cpis)
+    cpi.second.v = R_oldtonew * cpi.second.v;
+  // Polynomial position differences are in the old frame too
+  build_polynomial_data(true);
+  op->use_imu_res ? void() : build_polynomial_data(false);
+}
+
 void State::add_polynomial(bool fej) {
   // return if unable to build polynomial
   if ((int)clones.size() < op->intr_order + 1) {
